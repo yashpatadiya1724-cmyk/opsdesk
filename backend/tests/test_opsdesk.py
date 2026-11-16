@@ -21,7 +21,7 @@ from backend.services.routing_engine import (
     select_agent_tier1,
     calculate_queue_score_tier2
 )
-from backend.services.sla_engine import evaluate_travel_sla
+from backend.services.sla_engine import evaluate_travel_sla, effective_deadline_hours
 from backend.services.intent_classifier import suggest_ticket_intent
 from backend.seed.seed_data import seed_database
 
@@ -1241,5 +1241,136 @@ def test_queue_score_checkin_intent_ignores_past_lcd():
         now=now
     )
     assert score == 1300.0
+
+
+# ============================================================================
+# 17. PART 1 HARDENING TESTS: EDGE CASES, ROLES, & PAGINATION
+# ============================================================================
+
+def test_effective_deadline_hours_edge_cases():
+    """
+    Edge case tests for effective_deadline_hours helper:
+    1. intent=None with lcd_date present: uses min(check_in, lcd)
+    2. intent='Unclassified' with lcd_date=None: strictly uses check_in_date
+    3. intent='Refund Request' with past lcd_date: returns negative/breached hours
+    4. check-in intents (Emergency Check-in Assist) with past lcd_date: ignores LCD, strictly uses check_in_date
+    """
+    now = datetime(2026, 11, 16, 12, 0)
+
+    # 1. intent=None + lcd present
+    h1 = effective_deadline_hours(
+        check_in_date=datetime(2026, 11, 18, 12, 0),  # +48h
+        lcd_date=datetime(2026, 11, 16, 17, 0),       # +5h
+        intent=None,
+        now=now
+    )
+    assert abs(h1 - 5.0) < 0.01
+
+    # 2. Unclassified + lcd None
+    h2 = effective_deadline_hours(
+        check_in_date=datetime(2026, 11, 16, 22, 0),  # +10h
+        lcd_date=None,
+        intent="Unclassified",
+        now=now
+    )
+    assert abs(h2 - 10.0) < 0.01
+
+    # 3. Refund Request + past lcd
+    h3 = effective_deadline_hours(
+        check_in_date=datetime(2026, 11, 17, 12, 0),  # +24h
+        lcd_date=datetime(2026, 11, 16, 10, 0),       # -2h
+        intent="Refund Request",
+        now=now
+    )
+    assert abs(h3 - (-2.0)) < 0.01
+
+    # 4. Check-in intent + past lcd
+    h4 = effective_deadline_hours(
+        check_in_date=datetime(2026, 11, 17, 0, 0),   # +12h
+        lcd_date=datetime(2026, 11, 16, 7, 0),        # -5h
+        intent="Emergency Check-in Assist",
+        now=now
+    )
+    assert abs(h4 - 12.0) < 0.01
+
+
+def test_requester_cannot_assign_unassign_escalate_403(client: TestClient):
+    """
+    Verifies that Requesters (e.g. USR-201) receive 403 Forbidden on:
+    - POST /api/tickets/{id}/assign
+    - POST /api/tickets/{id}/unassign
+    - POST /api/tickets/{id}/escalate
+    """
+    # 1. Assign
+    res_assign = client.post(
+        "/api/tickets/TCK-1004/assign",
+        json={"agent_id": "USR-102"},
+        headers={"X-User-Id": "USR-201"}
+    )
+    assert res_assign.status_code == 403
+
+    # 2. Unassign
+    res_unassign = client.post(
+        "/api/tickets/TCK-1004/unassign",
+        headers={"X-User-Id": "USR-201"}
+    )
+    assert res_unassign.status_code == 403
+
+    # 3. Escalate
+    res_esc = client.post(
+        "/api/tickets/TCK-1004/escalate",
+        json={"reason": "Customer demands escalation"},
+        headers={"X-User-Id": "USR-201"}
+    )
+    assert res_esc.status_code == 403
+
+
+def test_staff_can_assign_and_unassign_ticket(client: TestClient, db_session: Session):
+    """
+    Verifies that staff members (Agent USR-101) can unassign a ticket back to triage
+    and reassign it to an available agent.
+    """
+    # Unassign TCK-1004
+    res_un = client.post("/api/tickets/TCK-1004/unassign", headers={"X-User-Id": "USR-101"})
+    assert res_un.status_code == 200
+    assert res_un.json()["assigned_to"] is None
+
+    # Reassign TCK-1004 to USR-102
+    res_as = client.post(
+        "/api/tickets/TCK-1004/assign",
+        json={"agent_id": "USR-102"},
+        headers={"X-User-Id": "USR-101"}
+    )
+    assert res_as.status_code == 200
+    assert res_as.json()["assigned_to"] == "USR-102"
+
+
+def test_requester_views_and_pagination(client: TestClient):
+    """
+    Verifies edge cases for GET /api/tickets:
+    - Requester view=by_intent returns only tickets matching their agency and intent
+    - Requester view=linked strictly filters to intra-agency linked tickets
+    - Response pagination includes accurate total count
+    """
+    # 1. by_intent view for Requester
+    res = client.get("/api/tickets?view=by_intent&intent=Refund Request&limit=10&offset=0", headers={"X-User-Id": "USR-201"})
+    assert res.status_code == 200
+    data = res.json()
+    assert "total" in data
+    assert "tickets" in data
+    for t in data["tickets"]:
+        assert t["intent"] == "Refund Request"
+        assert t["agency_id"] == "AGY-001"
+        assert t["assigned_to"] is None
+        assert t["routing_reason"] is None
+        assert t["queue_score"] is None
+
+    # 2. linked view for Requester
+    res_lnk = client.get("/api/tickets?view=linked", headers={"X-User-Id": "USR-201"})
+    assert res_lnk.status_code == 200
+    data_lnk = res_lnk.json()
+    for t in data_lnk["tickets"]:
+        assert t["agency_id"] == "AGY-001"
+
 
 

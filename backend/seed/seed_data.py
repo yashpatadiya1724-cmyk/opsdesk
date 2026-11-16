@@ -75,7 +75,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
 
     now = datetime.utcnow()
 
-    print("Seeding Journey fixtures (TCK-1001, TCK-1002, TCK-1004, TCK-1005, TCK-1006)...")
+    print("Seeding Journey fixtures (TCK-1001, TCK-1002, TCK-1004, TCK-1005, TCK-1006, TCK-1007, TCK-1008)...")
     
     # Journey A: Context & Linkage Fixtures (Same TBOH, both Closed in past)
     tck_1001 = Ticket(
@@ -286,8 +286,11 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         "Date Amendment",
         "Bedding / Room Preference",
         "Voucher Resend",
-        "Emergency Check-in Assist"
+        "Emergency Check-in Assist",
+        "Unclassified"
     ]
+    # Keep Unclassified at ~5% (below 15% ceiling assumption) to prevent triage queue clutter
+    intent_weights = [0.18, 0.18, 0.16, 0.16, 0.14, 0.13, 0.05]
     priorities = ["Low", "Medium", "High", "Urgent"]
 
     synthetic_count = total_tickets - len(fixture_tickets)
@@ -312,7 +315,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         ticket_id = f"TCK-{2000 + i}"
         tboh = f"TBOH-{random.randint(10000, 99999)}"
         agency_id = random.choice(agency_ids)
-        intent = random.choice(intents)
+        intent = random.choices(intents, weights=intent_weights, k=1)[0]
 
         if cat == "historical":
             priority = random.choice(priorities)

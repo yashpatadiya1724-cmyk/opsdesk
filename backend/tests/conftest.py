@@ -11,10 +11,13 @@ from backend.app.database import get_db
 from backend.app.main import app
 from backend.seed.seed_data import seed_database
 
-# Path to the development database in project root
-DEV_DB_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "opsdesk.db"
+# Path to the development database in project root (overridable via OPSDESK_DEV_DB env var)
+DEV_DB_PATH = os.environ.get(
+    "OPSDESK_DEV_DB",
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "opsdesk.db"
+    )
 )
 
 @pytest.fixture(scope="session")
