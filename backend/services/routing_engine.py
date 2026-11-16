@@ -6,6 +6,7 @@ from backend.config.routing_config import (
     PRIORITY_SCORES,
     CHECKIN_URGENCY_MODIFIERS
 )
+from backend.services.sla_engine import effective_deadline_hours
 
 class CandidateAgent:
     """Lightweight representation of an agent for routing evaluations."""
@@ -64,13 +65,18 @@ def select_agent_tier1(
 def calculate_queue_score_tier2(
     priority: str,
     check_in_date: datetime,
+    *,
+    lcd_date: Optional[datetime] = None,
+    intent: Optional[str] = None,
     now: Optional[datetime] = None
 ) -> float:
     """
     Tier 2 Routing: Queue Ordering / Ranking
     Orders the triage/assigned queue using 2 factors:
       1. Priority ranking (Urgent > High > Medium > Low)
-      2. Time Window / Check-In Proximity (closer check-in = higher queue position)
+      2. Time Window / Urgency Proximity (closer effective deadline = higher queue position)
+         - For cancellation intents (Refund/Cancellation/Unclassified), effective deadline = min(check_in, lcd)
+         - For other operational intents, effective deadline strictly = check_in
     
     Returns:
       numerical queue score (higher = should be handled first)
@@ -78,17 +84,22 @@ def calculate_queue_score_tier2(
     if now is None:
         now = datetime.utcnow()
         
-    hours_to_checkin = (check_in_date - now).total_seconds() / 3600.0
+    hours_remaining = effective_deadline_hours(
+        check_in_date=check_in_date,
+        lcd_date=lcd_date,
+        intent=intent,
+        now=now
+    )
     
     # Priority base score
     base_score = PRIORITY_SCORES.get(priority, PRIORITY_SCORES["Medium"])
     
-    # Time window modifier
-    if hours_to_checkin <= 2.0:
+    # Time window modifier based on effective deadline hours
+    if hours_remaining <= 2.0:
         time_modifier = CHECKIN_URGENCY_MODIFIERS["IMMINENT_2H"]
-    elif hours_to_checkin <= 6.0:
+    elif hours_remaining <= 6.0:
         time_modifier = CHECKIN_URGENCY_MODIFIERS["SAME_DAY_6H"]
-    elif hours_to_checkin <= 24.0:
+    elif hours_remaining <= 24.0:
         time_modifier = CHECKIN_URGENCY_MODIFIERS["NEXT_DAY_24H"]
     else:
         time_modifier = 0.0

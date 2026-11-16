@@ -49,13 +49,15 @@ class TicketCreateSchema(BaseModel):
     tboh_id: str = Field(..., pattern=r"^TBOH-[A-Za-z0-9-]{3,30}$")
     priority: Literal["Low", "Medium", "High", "Urgent"] = "Medium"
     check_in_date: datetime
-    lcd_date: datetime
+    lcd_date: Optional[datetime] = None
     intent: Optional[ALLOWED_INTENTS] = None
     agency_id: Optional[str] = None  # Ignored for Requesters, caller agency used instead
 
     @field_validator("check_in_date", "lcd_date", mode="before")
     @classmethod
-    def validate_and_normalize_datetimes(cls, v: Any) -> datetime:
+    def validate_and_normalize_datetimes(cls, v: Any) -> Any:
+        if v is None:
+            return None
         return normalize_utc_datetime(v)
 
 class TicketAssignSchema(BaseModel):

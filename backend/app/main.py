@@ -147,11 +147,14 @@ def list_tickets(
                 check_in_date=t.check_in_date,
                 lcd_date=t.lcd_date,
                 priority=t.priority,
+                intent=t.intent,
                 now=now
             )
             queue_score = calculate_queue_score_tier2(
                 priority=t.priority,
                 check_in_date=t.check_in_date,
+                lcd_date=t.lcd_date,
+                intent=t.intent,
                 now=now
             )
             scored_tickets.append((queue_score, sla, t))
@@ -172,7 +175,7 @@ def list_tickets(
                 "priority": t.priority,
                 "status": t.status,
                 "check_in_date": t.check_in_date.isoformat(),
-                "lcd_date": t.lcd_date.isoformat(),
+                "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
                 "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
                 "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
                 "sla": sla,
@@ -193,11 +196,14 @@ def list_tickets(
                 check_in_date=t.check_in_date,
                 lcd_date=t.lcd_date,
                 priority=t.priority,
+                intent=t.intent,
                 now=now
             )
             queue_score = calculate_queue_score_tier2(
                 priority=t.priority,
                 check_in_date=t.check_in_date,
+                lcd_date=t.lcd_date,
+                intent=t.intent,
                 now=now
             )
             results.append({
@@ -209,7 +215,7 @@ def list_tickets(
                 "priority": t.priority,
                 "status": t.status,
                 "check_in_date": t.check_in_date.isoformat(),
-                "lcd_date": t.lcd_date.isoformat(),
+                "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
                 "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
                 "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
                 "sla": sla,
@@ -422,11 +428,14 @@ def get_ticket_details(
         check_in_date=ticket.check_in_date,
         lcd_date=ticket.lcd_date,
         priority=ticket.priority,
+        intent=ticket.intent,
         now=now
     )
     queue_score = calculate_queue_score_tier2(
         priority=ticket.priority,
         check_in_date=ticket.check_in_date,
+        lcd_date=ticket.lcd_date,
+        intent=ticket.intent,
         now=now
     )
 
@@ -440,7 +449,7 @@ def get_ticket_details(
         "priority": ticket.priority,
         "status": ticket.status,
         "check_in_date": ticket.check_in_date.isoformat(),
-        "lcd_date": ticket.lcd_date.isoformat(),
+        "lcd_date": ticket.lcd_date.isoformat() if ticket.lcd_date else None,
         "assigned_to": ticket.assigned_to if current_user.role != "Requester" else None,
         "routing_reason": ticket.routing_reason if current_user.role != "Requester" else None,
         "sla": sla,

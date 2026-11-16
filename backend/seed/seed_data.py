@@ -118,7 +118,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
             Ticket.status.in_(["New", "Open", "Pending", "Escalated"])
         ).count()
 
-    # Journey B: Urgent routing (~2.5h check-in, MEA). lcd_date >= check_in_date so check-in is urgent factor.
+    # Journey B: Urgent routing (~2.5h check-in, MEA). Non-cancellation intent -> lcd_date is None
     workload_b = compute_agent_workload("USR-101")
     tck_1004_checkin = now + timedelta(hours=2, minutes=30)
     tck_1004 = Ticket(
@@ -131,7 +131,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         priority="Urgent",
         status="Open",
         check_in_date=tck_1004_checkin,
-        lcd_date=tck_1004_checkin + timedelta(hours=1),
+        lcd_date=None,
         assigned_to="USR-101",
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_b} active cases]",
         created_at=now - timedelta(minutes=10)
@@ -152,7 +152,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         priority="Medium",
         status="Open",
         check_in_date=tck_1005_checkin,
-        lcd_date=tck_1005_checkin + timedelta(days=1),
+        lcd_date=None,
         assigned_to="USR-101",
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_c} active cases]",
         created_at=now - timedelta(hours=1)
@@ -160,7 +160,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
     db.add(tck_1005)
     db.commit()
 
-    # Journey D: SLA Warning (~45 min check-in, Urgent). lcd_date >= check_in_date so check-in is urgent factor.
+    # Journey D: SLA Warning (~45 min check-in, Urgent). Non-cancellation intent -> lcd_date is None
     workload_d = compute_agent_workload("USR-101")
     tck_1006_checkin = now + timedelta(minutes=45)
     tck_1006 = Ticket(
@@ -173,7 +173,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         priority="Urgent",
         status="Open",
         check_in_date=tck_1006_checkin,
-        lcd_date=tck_1006_checkin + timedelta(minutes=15),
+        lcd_date=None,
         assigned_to="USR-101",
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_d} active cases]",
         created_at=now - timedelta(minutes=15)
@@ -193,7 +193,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         priority="Urgent",
         status="New",
         check_in_date=tck_1007_checkin,
-        lcd_date=tck_1007_checkin + timedelta(hours=1),
+        lcd_date=None,
         assigned_to=None,
         routing_reason="Unassigned pending triage routing",
         created_at=now - timedelta(minutes=5)
@@ -201,14 +201,42 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
     db.add(tck_1007)
     db.commit()
 
-    fixture_tickets = [tck_1001, tck_1002, tck_1004, tck_1005, tck_1006, tck_1007]
+    # Journey Fixture TCK-1008: Refund Request with imminent LCD cancellation deadline (3h LCD, 5d check-in)
+    workload_1008 = compute_agent_workload("USR-101")
+    tck_1008_checkin = now + timedelta(days=5)
+    tck_1008_lcd = now + timedelta(hours=3)
+    tck_1008 = Ticket(
+        id="TCK-1008",
+        tboh_id="TBOH-89104",
+        agency_id="AGY-001",
+        title="Urgent refund request before cancellation deadline",
+        description="Supplier cancellation penalty applies in 3 hours. Guest cannot travel; refund requested before LCD expires.",
+        intent="Refund Request",
+        priority="High",
+        status="Open",
+        check_in_date=tck_1008_checkin,
+        lcd_date=tck_1008_lcd,
+        assigned_to="USR-101",
+        routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_1008} active cases]",
+        created_at=now - timedelta(minutes=20)
+    )
+    db.add(tck_1008)
+    db.commit()
 
-    # Link TCK-1001 and TCK-1002
+    fixture_tickets = [tck_1001, tck_1002, tck_1004, tck_1005, tck_1006, tck_1007, tck_1008]
+
+    # Link TCK-1001 and TCK-1002 (Shared TBOH-89104) and link TCK-1008 to TCK-1001
     db.add(TicketLink(
         id="LNK-001",
         ticket_id="TCK-1001",
         linked_ticket_id="TCK-1002",
         link_reason="Shared TBOH: TBOH-89104"
+    ))
+    db.add(TicketLink(
+        id="LNK-002",
+        ticket_id="TCK-1008",
+        linked_ticket_id="TCK-1001",
+        link_reason="Shared TBOH: TBOH-89104 (Prior cancelled refund)"
     ))
 
     # Add Side Conversation with explicit recipients for TCK-1005
@@ -290,7 +318,6 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
             priority = random.choice(priorities)
             days_ago = random.randint(1, 45)
             check_in = now - timedelta(days=days_ago, hours=random.randint(1, 23))
-            lcd = check_in - timedelta(days=random.randint(1, 3))
             status = random.choice(["Closed", "Resolved"])
             assigned = random.choice(desk_agent_ids)
             created = check_in - timedelta(days=random.randint(2, 10))
@@ -300,7 +327,6 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
             priority = "High"
             days_ahead = random.randint(2, 15)
             check_in = now + timedelta(days=days_ahead, hours=random.randint(1, 12))
-            lcd = check_in + timedelta(days=1)
             status = "Escalated"
             assigned = "USR-103"
             created = now - timedelta(hours=random.randint(2, 48))
@@ -309,7 +335,6 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
             priority = "Urgent"
             hours_ahead = random.uniform(1.0, 5.5)
             check_in = now + timedelta(hours=hours_ahead)
-            lcd = check_in + timedelta(hours=1)
             status = random.choice(["Open", "Pending"])
             assigned = random.choice(desk_agent_ids)
             created = now - timedelta(minutes=random.randint(10, 60))
@@ -318,7 +343,6 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
             priority = random.choice(priorities)
             days_ahead = random.randint(2, 20)
             check_in = now + timedelta(days=days_ahead, hours=random.randint(1, 12))
-            lcd = check_in + timedelta(days=1)
             status = random.choice(["New", "Open", "Pending"])
             assigned = random.choice(desk_agent_ids) if status != "New" else None
             created = now - timedelta(hours=random.randint(1, 24))
@@ -326,6 +350,29 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
                 f"Assigned to agent {assigned} [Tier-1 Rule: Region workload match]"
                 if assigned else "Unassigned in Triage"
             )
+
+        # LCD computation per amended rule:
+        # Refund Request, Cancellation Inconvenience, and Unclassified tickets carry an LCD cancellation deadline.
+        # For active/open tickets: strictly now < lcd <= check_in.
+        # For resolved/closed tickets: past lcd < check_in is expected.
+        # Other operational intents (check-in assist, voucher, amendments, room preferences) have lcd = None.
+        cancellation_intents = {"Refund Request", "Cancellation Inconvenience", "Unclassified"}
+        if intent in cancellation_intents:
+            if status in ["Closed", "Resolved"]:
+                lcd = check_in - timedelta(days=random.randint(1, 3))
+            else:
+                hours_to_checkin = (check_in - now).total_seconds() / 3600.0
+                if hours_to_checkin <= 2.0:
+                    lcd = now + timedelta(hours=max(0.25, hours_to_checkin * 0.5))
+                elif hours_to_checkin <= 6.0:
+                    lcd = now + timedelta(hours=random.uniform(0.5, hours_to_checkin * 0.8))
+                else:
+                    days_before = random.randint(1, min(3, max(1, int(hours_to_checkin // 24) - 1)))
+                    lcd = check_in - timedelta(days=days_before)
+                    if lcd <= now:
+                        lcd = now + timedelta(hours=2.0)
+        else:
+            lcd = None
 
         t = Ticket(
             id=ticket_id,

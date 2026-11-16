@@ -28,16 +28,16 @@ def run_checks(db_path: str = "opsdesk.db"):
     print(f"Past check-in active tickets count: {past_active}")
 
     print("\n=== 4. SLA STATUS BREAKDOWN (ALL 5,000 TICKETS) ===")
-    c.execute("SELECT status, check_in_date, lcd_date, priority FROM tickets")
+    c.execute("SELECT status, check_in_date, lcd_date, priority, intent FROM tickets")
     rows = c.fetchall()
 
     sla_counts = {"STOPPED": 0, "BREACHED": 0, "AT_RISK": 0, "NORMAL": 0}
     now = datetime.utcnow()
 
-    for status, cid_str, lcd_str, prio in rows:
+    for status, cid_str, lcd_str, prio, intent in rows:
         cid = datetime.fromisoformat(cid_str)
-        lcd = datetime.fromisoformat(lcd_str)
-        res = evaluate_travel_sla(status=status, check_in_date=cid, lcd_date=lcd, priority=prio, now=now)
+        lcd = datetime.fromisoformat(lcd_str) if lcd_str else None
+        res = evaluate_travel_sla(status=status, check_in_date=cid, lcd_date=lcd, priority=prio, intent=intent, now=now)
         sla_counts[res["status"]] += 1
 
     for st, cnt in sla_counts.items():

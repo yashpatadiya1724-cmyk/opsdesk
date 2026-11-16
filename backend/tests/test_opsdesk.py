@@ -219,13 +219,14 @@ def test_contracts_golden_vectors():
         exp = case["expected_output"]
         now = datetime.fromisoformat(inp["now"].replace("Z", ""))
         cid = datetime.fromisoformat(inp["check_in_date"].replace("Z", ""))
-        lcd = datetime.fromisoformat(inp["lcd_date"].replace("Z", ""))
+        lcd = datetime.fromisoformat(inp["lcd_date"].replace("Z", "")) if inp.get("lcd_date") else None
         
         act = evaluate_travel_sla(
             status=inp["status"],
             check_in_date=cid,
             lcd_date=lcd,
             priority=inp["priority"],
+            intent=inp.get("intent"),
             now=now
         )
         assert act["status"] == exp["status"], f"Case {case['case_id']} status mismatch: {act['status']} != {exp['status']}"
@@ -241,10 +242,13 @@ def test_contracts_golden_vectors():
         exp = case["expected_output"]
         now = datetime.fromisoformat(inp["now"].replace("Z", ""))
         cid = datetime.fromisoformat(inp["check_in_date"].replace("Z", ""))
+        lcd = datetime.fromisoformat(inp["lcd_date"].replace("Z", "")) if inp.get("lcd_date") else None
         
         score = calculate_queue_score_tier2(
             priority=inp["priority"],
             check_in_date=cid,
+            lcd_date=lcd,
+            intent=inp.get("intent"),
             now=now
         )
         assert score == exp["score"], f"Queue case {case['case_id']} mismatch: {score} != {exp['score']}"
@@ -342,13 +346,13 @@ def test_seed_tboh_fixtures(db_session: Session):
     assert t1001.status == "Closed"
     assert t1002.status == "Closed"
 
-    # TCK-1004: Urgent, MEA, ~2.5h in future. lcd_date >= check_in_date so check-in is urgent factor.
+    # TCK-1004: Urgent, MEA, ~2.5h in future. lcd_date is None for check-in assist.
     t1004 = db_session.query(Ticket).filter(Ticket.id == "TCK-1004").first()
     assert t1004 is not None
     assert t1004.priority == "Urgent"
     assert t1004.status == "Open"
     assert t1004.check_in_date > datetime.utcnow()
-    assert t1004.lcd_date >= t1004.check_in_date
+    assert t1004.lcd_date is None
     assert "active cases" in t1004.routing_reason
 
     # TCK-1005: Side thread with recipient
@@ -359,13 +363,13 @@ def test_seed_tboh_fixtures(db_session: Session):
     assert len(sc.recipients) > 0
     assert sc.recipients[0].email == "reservations@vendor.example.com"
 
-    # TCK-1006: Urgent, ~45m in future. lcd_date >= check_in_date so check-in is urgent factor.
+    # TCK-1006: Urgent, ~45m in future. lcd_date is None for voucher resend.
     t1006 = db_session.query(Ticket).filter(Ticket.id == "TCK-1006").first()
     assert t1006 is not None
     assert t1006.priority == "Urgent"
     assert t1006.status == "Open"
     assert t1006.check_in_date > datetime.utcnow()
-    assert t1006.lcd_date >= t1006.check_in_date
+    assert t1006.lcd_date is None
     assert "active cases" in t1006.routing_reason
 
     # TCK-1007: Journey B Unassigned Urgent triage fixture (~2.25h in future, AGY-001)
@@ -373,8 +377,23 @@ def test_seed_tboh_fixtures(db_session: Session):
     assert t1007 is not None
     assert t1007.priority == "Urgent"
     assert t1007.status == "New"
+    assert t1007.lcd_date is None
     assert t1007.assigned_to is None
     assert t1007.check_in_date > datetime.utcnow()
+
+    # TCK-1008: Refund Request with 3h LCD and 5d check-in, linked to TCK-1001 via TBOH-89104
+    t1008 = db_session.query(Ticket).filter(Ticket.id == "TCK-1008").first()
+    assert t1008 is not None
+    assert t1008.tboh_id == "TBOH-89104"
+    assert t1008.priority == "High"
+    assert t1008.status == "Open"
+    assert t1008.intent == "Refund Request"
+    assert t1008.assigned_to == "USR-101"
+    assert t1008.lcd_date is not None
+    assert t1008.lcd_date < t1008.check_in_date
+    links_1008 = db_session.query(TicketLink).filter(TicketLink.ticket_id == "TCK-1008").all()
+    assert len(links_1008) > 0
+    assert links_1008[0].linked_ticket_id == "TCK-1001"
 
 
 # ============================================================================
@@ -751,7 +770,7 @@ def test_triage_queue_score_global_sorting(client: TestClient, db_session: Sessi
         Ticket.assigned_to.is_(None)
     ).all()
     global_max_score = max(
-        calculate_queue_score_tier2(t.priority, t.check_in_date, now=now)
+        calculate_queue_score_tier2(t.priority, t.check_in_date, lcd_date=t.lcd_date, intent=t.intent, now=now)
         for t in all_unassigned
     )
     assert abs(data_p1["tickets"][0]["queue_score"] - global_max_score) < 0.01
@@ -1051,4 +1070,176 @@ def test_schema_validation_failures(client: TestClient):
     # 8. Invalid status Literal
     res8 = client.post("/api/tickets/TCK-1005/status", json={"status": "ArchivedStatus"}, headers={"X-User-Id": "USR-101"})
     assert res8.status_code == 422
+
+
+# ============================================================================
+# 16. INTENT-AWARE SLA & LCD TESTS
+# ============================================================================
+
+def test_seed_zero_open_refund_cancellation_tickets_with_past_lcd(db_session: Session):
+    """
+    Verifies that for active (non-Closed, non-Resolved) tickets with Refund Request or
+    Cancellation Inconvenience intents, lcd_date is in the future (> now) and <= check_in_date.
+    There should be zero open Refund/Cancellation tickets seeded with a past LCD.
+    """
+    now = datetime.utcnow()
+    cancellation_intents = ["Refund Request", "Cancellation Inconvenience"]
+    open_tickets = db_session.query(Ticket).filter(
+        Ticket.status.notin_(["Closed", "Resolved"]),
+        Ticket.intent.in_(cancellation_intents)
+    ).all()
+
+    assert len(open_tickets) > 0, "Expected seeded open refund/cancellation tickets"
+    past_lcd_tickets = [t for t in open_tickets if t.lcd_date is not None and t.lcd_date <= now]
+    assert len(past_lcd_tickets) == 0, f"Found {len(past_lcd_tickets)} open tickets with past LCD"
+
+
+def test_sla_intent_cancellation_uses_lcd():
+    """
+    Cancellation Inconvenience intent must factor in lcd_date if present.
+    If check_in_date is 48h away and lcd_date is 3h away, effective urgency is 3h (AT_RISK for Urgent).
+    """
+    now = datetime(2026, 11, 16, 12, 0)
+    res = evaluate_travel_sla(
+        status="Open",
+        check_in_date=datetime(2026, 11, 18, 12, 0),  # 48h
+        lcd_date=datetime(2026, 11, 16, 15, 0),       # 3h
+        priority="Urgent",
+        intent="Cancellation Inconvenience",
+        now=now
+    )
+    assert res["status"] == "AT_RISK"
+    assert res["hours_remaining"] == 3.0
+
+
+def test_sla_intent_checkin_ignores_lcd():
+    """
+    Emergency Check-in Assist intent must ignore lcd_date even if lcd_date is past.
+    It strictly uses check_in_date for urgency.
+    """
+    now = datetime(2026, 11, 16, 12, 0)
+    res = evaluate_travel_sla(
+        status="Open",
+        check_in_date=datetime(2026, 11, 17, 12, 0),  # 24h
+        lcd_date=datetime(2026, 11, 15, 12, 0),       # past (-24h)
+        priority="Urgent",
+        intent="Emergency Check-in Assist",
+        now=now
+    )
+    assert res["status"] == "NORMAL"
+    assert res["hours_remaining"] == 24.0
+
+
+def test_sla_unclassified_uses_lcd():
+    """
+    Unclassified (or None) intent defaults safely to min(check_in, lcd).
+    """
+    now = datetime(2026, 11, 16, 12, 0)
+    res_unclassified = evaluate_travel_sla(
+        status="Open",
+        check_in_date=datetime(2026, 11, 18, 12, 0),  # 48h
+        lcd_date=datetime(2026, 11, 16, 14, 0),       # 2h
+        priority="Urgent",
+        intent="Unclassified",
+        now=now
+    )
+    assert res_unclassified["status"] == "AT_RISK"
+    assert res_unclassified["hours_remaining"] == 2.0
+
+    res_none = evaluate_travel_sla(
+        status="Open",
+        check_in_date=datetime(2026, 11, 18, 12, 0),
+        lcd_date=datetime(2026, 11, 16, 14, 0),
+        priority="Urgent",
+        intent=None,
+        now=now
+    )
+    assert res_none["status"] == "AT_RISK"
+    assert res_none["hours_remaining"] == 2.0
+
+
+def test_api_emergency_checkin_ignores_imminent_lcd_sla(client: TestClient):
+    """
+    Verifies that for an Emergency Check-in Assist ticket with imminent LCD (1h) and
+    distant check-in (48h), the API endpoint returns SLA evaluated strictly on check-in
+    (NORMAL, ~48h remaining), proving intent is passed end-to-end to evaluate_travel_sla.
+    """
+    now = datetime.utcnow().replace(microsecond=0)
+    checkin_dt = now + timedelta(hours=48)
+    lcd_dt = now + timedelta(hours=1)
+
+    payload = {
+        "title": "Check-in Assist with Imminent LCD",
+        "description": "Guest arriving in 2 days. LCD happens to be in 1 hour.",
+        "tboh_id": "TBOH-IGN-LCD-01",
+        "priority": "Urgent",
+        "check_in_date": checkin_dt.isoformat() + "Z",
+        "lcd_date": lcd_dt.isoformat() + "Z",
+        "intent": "Emergency Check-in Assist",
+        "agency_id": "AGY-001"
+    }
+    resp = client.post("/api/tickets", json=payload, headers={"X-User-Id": "USR-101"})
+    assert resp.status_code == 201
+    ticket_id = resp.json()["id"]
+
+    detail_res = client.get(f"/api/tickets/{ticket_id}", headers={"X-User-Id": "USR-101"})
+    assert detail_res.status_code == 200
+    sla = detail_res.json()["sla"]
+    # If LCD was used, SLA would be AT_RISK or BREACHED (1h <= 6h Urgent threshold).
+    # Since Emergency Check-in Assist ignores LCD, SLA is NORMAL (~48h remaining).
+    assert sla["status"] == "NORMAL"
+    assert sla["hours_remaining"] is not None
+    assert sla["hours_remaining"] > 40.0
+
+
+def test_queue_score_refund_intent_uses_lcd_higher_rank():
+    """
+    Verifies Tier-2 Queue Scoring with Intent-Aware Urgency:
+    Refund ticket with same priority (Medium), LCD in 3h and check-in in 5d,
+    ranks ABOVE a Refund ticket with check-in in 2d and no LCD.
+    """
+    now = datetime(2026, 11, 16, 12, 0)
+    # Ticket A: Medium priority, Refund Request, check-in in 5 days (120h), LCD in 3 hours.
+    # Effective hours = 3.0h (<= 6.0h -> modifier +800). Total score = 200 + 800 = 1000.
+    score_a = calculate_queue_score_tier2(
+        priority="Medium",
+        check_in_date=datetime(2026, 11, 21, 12, 0),
+        lcd_date=datetime(2026, 11, 16, 15, 0),
+        intent="Refund Request",
+        now=now
+    )
+
+    # Ticket B: Medium priority, Refund Request, check-in in 2 days (48h), no LCD.
+    # Effective hours = 48.0h (> 24.0h -> modifier +0). Total score = 200 + 0 = 200.
+    score_b = calculate_queue_score_tier2(
+        priority="Medium",
+        check_in_date=datetime(2026, 11, 18, 12, 0),
+        lcd_date=None,
+        intent="Refund Request",
+        now=now
+    )
+
+    assert score_a == 1000.0
+    assert score_b == 200.0
+    assert score_a > score_b, f"Expected Ticket A ({score_a}) to outrank Ticket B ({score_b})"
+
+
+def test_queue_score_checkin_intent_ignores_past_lcd():
+    """
+    Verifies that for Emergency Check-in Assist tickets, calculate_queue_score_tier2
+    ignores past LCD and strictly scores urgency based on check_in_date.
+    """
+    now = datetime(2026, 11, 16, 12, 0)
+    # Urgent ticket, check-in in 24 hours (+300 modifier), past LCD (-2h).
+    # If LCD was used, effective hours would be -2h (<=2h -> modifier +2000, score 3000).
+    # Because intent is Emergency Check-in Assist, LCD is ignored: effective hours = 24h -> modifier +300, score 1300.
+    score = calculate_queue_score_tier2(
+        priority="Urgent",
+        check_in_date=datetime(2026, 11, 17, 12, 0),
+        lcd_date=datetime(2026, 11, 16, 10, 0),
+        intent="Emergency Check-in Assist",
+        now=now
+    )
+    assert score == 1300.0
+
 

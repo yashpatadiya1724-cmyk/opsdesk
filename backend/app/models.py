@@ -42,7 +42,7 @@ class Ticket(Base):
     priority = Column(String(50), nullable=False, default="Medium")  # 'Low', 'Medium', 'High', 'Urgent'
     status = Column(String(50), nullable=False, default="New")        # 'New', 'Open', 'Pending', 'Escalated', 'Resolved', 'Closed'
     check_in_date = Column(DateTime, nullable=False, index=True)
-    lcd_date = Column(DateTime, nullable=False)
+    lcd_date = Column(DateTime, nullable=True)
     assigned_to = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     routing_reason = Column(Text, nullable=True)
     suggested_bug_link = Column(String(200), nullable=True)
