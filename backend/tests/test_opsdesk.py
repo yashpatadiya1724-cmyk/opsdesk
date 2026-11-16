@@ -1373,4 +1373,107 @@ def test_requester_views_and_pagination(client: TestClient):
         assert t["agency_id"] == "AGY-001"
 
 
+# ============================================================================
+# 18. PART 2 TESTS: MVP-5 INSIGHTS / BUG LINKS & MVP-6 DATA EXPORT
+# ============================================================================
+
+def test_link_suggestion_staff_200_requester_403(client: TestClient):
+    """
+    Verifies POST /api/tickets/{id}/link-suggestion:
+    - Staff (Agent USR-101) can attach a bug/defect link -> 200
+    - Requester (USR-201) receives 403 Forbidden
+    - Audit log records ticket.suggested_bug_linked
+    """
+    payload = {"bug_link": "https://jira.internal.example.com/browse/OPS-4091"}
+
+    # Requester receives 403
+    res_req = client.post("/api/tickets/TCK-1004/link-suggestion", json=payload, headers={"X-User-Id": "USR-201"})
+    assert res_req.status_code == 403
+
+    # Staff receives 200
+    res_staff = client.post("/api/tickets/TCK-1004/link-suggestion", json=payload, headers={"X-User-Id": "USR-101"})
+    assert res_staff.status_code == 200
+    data = res_staff.json()
+    assert data["suggested_bug_link"] == "https://jira.internal.example.com/browse/OPS-4091"
+
+    # Detail endpoint reflects suggested bug link
+    detail = client.get("/api/tickets/TCK-1004", headers={"X-User-Id": "USR-101"}).json()
+    assert detail["suggested_bug_link"] == "https://jira.internal.example.com/browse/OPS-4091"
+
+
+def test_insights_themes_role_matrix(client: TestClient):
+    """
+    Verifies RBAC for GET /api/insights/themes:
+    - Lead (USR-104) -> 200
+    - EscalationManager (USR-103) -> 200
+    - Agent (USR-101) -> 403
+    - Requester (USR-201) -> 403
+    - Unauthenticated -> 401
+    """
+    assert client.get("/api/insights/themes", headers={"X-User-Id": "USR-104"}).status_code == 200
+    assert client.get("/api/insights/themes", headers={"X-User-Id": "USR-103"}).status_code == 200
+    assert client.get("/api/insights/themes", headers={"X-User-Id": "USR-101"}).status_code == 403
+    assert client.get("/api/insights/themes", headers={"X-User-Id": "USR-201"}).status_code == 403
+    assert client.get("/api/insights/themes").status_code == 401
+
+
+def test_insights_themes_percentage_and_samples(client: TestClient):
+    """
+    Verifies that GET /api/insights/themes:
+    - Sum of theme percentages is approximately 100% (within rounding)
+    - Returns sample ticket IDs (up to 3) for each theme
+    """
+    res = client.get("/api/insights/themes?days=30", headers={"X-User-Id": "USR-104"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total_tagged_records"] > 0
+    assert len(data["themes"]) > 0
+
+    total_pct = sum(t["percentage"] for t in data["themes"])
+    assert 98.0 <= total_pct <= 102.0, f"Expected percentage sum ~100%, got {total_pct}"
+
+    for t in data["themes"]:
+        assert len(t["sample_ticket_ids"]) <= 3
+        assert t["count"] > 0
+
+
+def test_export_tickets_csv_role_matrix(client: TestClient):
+    """
+    Verifies RBAC for GET /api/export/tickets.csv:
+    - Lead (USR-104) -> 200
+    - EscalationManager (USR-103) -> 403
+    - Agent (USR-101) -> 403
+    - Requester (USR-201) -> 403
+    - Missing auth -> 401
+    """
+    assert client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-104"}).status_code == 200
+    assert client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-103"}).status_code == 403
+    assert client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-101"}).status_code == 403
+    assert client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-201"}).status_code == 403
+    assert client.get("/api/export/tickets.csv").status_code == 401
+
+
+def test_export_tickets_csv_streaming_and_row_count(client: TestClient, db_session: Session):
+    """
+    Verifies uncapped CSV streaming export:
+    - Header contains expected columns
+    - Row count in CSV exactly equals total tickets count in DB
+    - Bypasses artificial 3,000 row limits (5,000 total rows)
+    """
+    res = client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-104"})
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("text/csv")
+    assert "attachment; filename=opsdesk_tickets_export.csv" in res.headers["content-disposition"]
+
+    lines = [line for line in res.text.strip().split("\r\n") if line]
+    # Header line
+    assert lines[0] == "id,tboh_id,agency_id,title,intent,priority,status,check_in_date,lcd_date,assigned_to,created_at"
+
+    db_total = db_session.query(Ticket).count()
+    data_rows = len(lines) - 1
+    assert data_rows == db_total, f"Exported {data_rows} rows != DB count {db_total}"
+    assert data_rows >= 5000, f"Expected at least 5000 rows without cap, got {data_rows}"
+
+
+
 

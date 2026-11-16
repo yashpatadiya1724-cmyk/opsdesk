@@ -73,6 +73,9 @@ class TicketTransferSchema(BaseModel):
     target_agent_id: str = Field(..., min_length=1, max_length=100)
     reason: str = Field(..., min_length=1, max_length=1000)
 
+class TicketLinkSuggestionSchema(BaseModel):
+    bug_link: str = Field(..., min_length=3, max_length=200)
+
 class MessageCreateSchema(BaseModel):
     message_type: MESSAGE_TYPES = Field(..., description="'PublicReply' or 'InternalNote'")
     content: str = Field(..., min_length=1, max_length=5000)

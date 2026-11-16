@@ -1,0 +1,37 @@
+# OpsDesk Multi-Service Composition
+# Status: UNVERIFIED not built (docker daemon not executed during test run)
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - OPSDESK_DEV_DB=/app/opsdesk.db
+      - ALLOWED_CORS_ORIGINS=http://localhost:3000
+    volumes:
+      - dev-db-data:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  dev-db-data:

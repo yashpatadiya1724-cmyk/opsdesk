@@ -6,6 +6,22 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ai/suggest-intent": {
       "post": {
         "summary": "Api Suggest Intent",
@@ -739,6 +755,217 @@
           }
         }
       }
+    },
+    "/api/tickets/{ticket_id}/link-suggestion": {
+      "post": {
+        "summary": "Link Suggested Bug",
+        "description": "Staff-only action: Suggests / links a product defect or JIRA/system issue link (MVP-5).\nRequesters receive 403 Forbidden.",
+        "operationId": "link_suggested_bug_api_tickets__ticket_id__link_suggestion_post",
+        "parameters": [
+          {
+            "name": "ticket_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Id"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketLinkSuggestionSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/insights/themes": {
+      "get": {
+        "summary": "Get Top Themes",
+        "description": "Insights view: Top themes this week + sample tickets (MVP-5).\nAccessible strictly to Lead and EscalationManager roles.\nComputes percentages dynamically from seed data; works on SQLite and PostgreSQL.",
+        "operationId": "get_top_themes_api_insights_themes_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 7,
+              "title": "Days"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/export/tickets.csv": {
+      "get": {
+        "summary": "Export Tickets Csv",
+        "description": "Uncapped CSV data streaming export for ops beyond 3K-row UX barrier (MVP-6).\nRestricted strictly to Lead role. Memory-safe streaming via generator yield_per.",
+        "operationId": "export_tickets_csv_api_export_tickets_csv_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "agency_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agency Id"
+            }
+          },
+          {
+            "name": "from_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Date"
+            }
+          },
+          {
+            "name": "to_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Date"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -760,10 +987,14 @@
         "properties": {
           "title": {
             "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
             "title": "Title"
           },
           "description": {
             "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
             "title": "Description"
           }
         },
@@ -796,11 +1027,16 @@
         "properties": {
           "message_type": {
             "type": "string",
+            "enum": [
+              "PublicReply",
+              "InternalNote"
+            ],
             "title": "Message Type",
             "description": "'PublicReply' or 'InternalNote'"
           },
           "content": {
             "type": "string",
+            "maxLength": 5000,
             "minLength": 1,
             "title": "Content"
           }
@@ -816,10 +1052,14 @@
         "properties": {
           "supplier_name": {
             "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
             "title": "Supplier Name"
           },
           "subject": {
             "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
             "title": "Subject"
           },
           "recipients": {
@@ -827,10 +1067,14 @@
               "type": "string"
             },
             "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
             "title": "Recipients"
           },
           "initial_message": {
             "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
             "title": "Initial Message"
           }
         },
@@ -847,6 +1091,8 @@
         "properties": {
           "body": {
             "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
             "title": "Body"
           }
         },
@@ -860,6 +1106,8 @@
         "properties": {
           "agent_id": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Agent Id"
           }
         },
@@ -873,20 +1121,29 @@
         "properties": {
           "title": {
             "type": "string",
+            "maxLength": 200,
             "minLength": 3,
             "title": "Title"
           },
           "description": {
             "type": "string",
+            "maxLength": 5000,
             "minLength": 5,
             "title": "Description"
           },
           "tboh_id": {
             "type": "string",
+            "pattern": "^TBOH-[A-Za-z0-9-]{3,30}$",
             "title": "Tboh Id"
           },
           "priority": {
             "type": "string",
+            "enum": [
+              "Low",
+              "Medium",
+              "High",
+              "Urgent"
+            ],
             "title": "Priority",
             "default": "Medium"
           },
@@ -896,14 +1153,30 @@
             "title": "Check In Date"
           },
           "lcd_date": {
-            "type": "string",
-            "format": "date-time",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Lcd Date"
           },
           "intent": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Refund Request",
+                  "Cancellation Inconvenience",
+                  "Date Amendment",
+                  "Bedding / Room Preference",
+                  "Voucher Resend",
+                  "Emergency Check-in Assist",
+                  "Unclassified"
+                ]
               },
               {
                 "type": "null"
@@ -928,8 +1201,7 @@
           "title",
           "description",
           "tboh_id",
-          "check_in_date",
-          "lcd_date"
+          "check_in_date"
         ],
         "title": "TicketCreateSchema"
       },
@@ -937,6 +1209,8 @@
         "properties": {
           "reason": {
             "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
             "title": "Reason"
           }
         },
@@ -946,10 +1220,33 @@
         ],
         "title": "TicketEscalateSchema"
       },
+      "TicketLinkSuggestionSchema": {
+        "properties": {
+          "bug_link": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Bug Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bug_link"
+        ],
+        "title": "TicketLinkSuggestionSchema"
+      },
       "TicketStatusUpdateSchema": {
         "properties": {
           "status": {
             "type": "string",
+            "enum": [
+              "New",
+              "Open",
+              "Pending",
+              "Escalated",
+              "Resolved",
+              "Closed"
+            ],
             "title": "Status"
           }
         },
@@ -963,10 +1260,14 @@
         "properties": {
           "target_agent_id": {
             "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Target Agent Id"
           },
           "reason": {
             "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
             "title": "Reason"
           }
         },

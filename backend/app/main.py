@@ -1,9 +1,12 @@
 import uuid
-from datetime import datetime
+import csv
+import io
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 from backend.app.database import get_db
 from backend.app.models import (
@@ -13,7 +16,7 @@ from backend.app.models import (
 )
 from backend.app.schemas import (
     TicketCreateSchema, TicketAssignSchema, TicketStatusUpdateSchema,
-    TicketEscalateSchema, TicketTransferSchema, MessageCreateSchema,
+    TicketEscalateSchema, TicketTransferSchema, TicketLinkSuggestionSchema, MessageCreateSchema,
     SideThreadCreateSchema, SideThreadMessageCreateSchema,
     IntentSuggestRequestSchema, IntentSuggestResponseSchema
 )
@@ -29,10 +32,24 @@ from backend.services.routing_engine import (
 )
 from backend.services.intent_classifier import suggest_ticket_intent
 
+import os
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="OpsDesk: B2B Travel Operations Case Management API",
     description="Operational case management platform tailored for high-volume B2B travel operations.",
     version="1.0.0"
+)
+
+cors_origins_env = os.environ.get("ALLOWED_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+allowed_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Allowed status transitions graph. Any invalid transition yields 409 Conflict.
@@ -49,6 +66,11 @@ ALLOWED_STATUS_TRANSITIONS: Dict[str, List[str]] = {
 # ============================================================================
 # 1. AI INTENT SUGGESTION ENDPOINT
 # ============================================================================
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "service": "opsdesk-backend"}
+
 
 @app.post("/api/ai/suggest-intent", response_model=IntentSuggestResponseSchema)
 def api_suggest_intent(
@@ -454,6 +476,7 @@ def get_ticket_details(
         "routing_reason": ticket.routing_reason if current_user.role != "Requester" else None,
         "sla": sla,
         "queue_score": queue_score if current_user.role != "Requester" else None,
+        "suggested_bug_link": ticket.suggested_bug_link,
         "linked_ticket_ids": linked_tickets,
         "messages": messages,
         "side_conversations": side_threads,
@@ -975,3 +998,174 @@ def post_side_thread_message(
         "sender_email": msg.sender_email,
         "created_at": msg.created_at.isoformat()
     }
+
+
+# ============================================================================
+# 11. SUGGESTED BUG LINK (MVP-5)
+# ============================================================================
+
+@app.post("/api/tickets/{ticket_id}/link-suggestion")
+def link_suggested_bug(
+    ticket_id: str,
+    payload: TicketLinkSuggestionSchema,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Staff-only action: Suggests / links a product defect or JIRA/system issue link (MVP-5).
+    Requesters receive 403 Forbidden.
+    """
+    if current_user.role == "Requester":
+        raise HTTPException(status_code=403, detail="Forbidden: Requesters cannot link system bug suggestions")
+
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    ticket.suggested_bug_link = payload.bug_link
+    ticket.updated_at = datetime.utcnow()
+
+    record_audit_log(
+        db=db,
+        ticket_id=ticket.id,
+        actor_id=current_user.id,
+        action="ticket.suggested_bug_linked",
+        details={"suggested_bug_link": payload.bug_link}
+    )
+    db.commit()
+
+    return {
+        "id": ticket.id,
+        "suggested_bug_link": ticket.suggested_bug_link,
+        "message": "Bug link successfully suggested"
+    }
+
+
+# ============================================================================
+# 12. INSIGHTS / THEMES (MVP-5)
+# ============================================================================
+
+@app.get("/api/insights/themes")
+def get_top_themes(
+    days: int = Query(7, ge=1, le=90),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Insights view: Top themes this week + sample tickets (MVP-5).
+    Accessible strictly to Lead and EscalationManager roles.
+    Computes percentages dynamically from seed data; works on SQLite and PostgreSQL.
+    """
+    if current_user.role not in ["Lead", "EscalationManager"]:
+        raise HTTPException(status_code=403, detail="Forbidden: Insights view requires Lead or EscalationManager role")
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+
+    # Query counts grouped by theme for tickets created within time window
+    theme_counts = db.query(
+        TicketTheme.theme,
+        func.count(TicketTheme.id).label("count")
+    ).join(Ticket, TicketTheme.ticket_id == Ticket.id)\
+     .filter(Ticket.created_at >= cutoff)\
+     .group_by(TicketTheme.theme)\
+     .order_by(func.count(TicketTheme.id).desc())\
+     .all()
+
+    total_tagged = sum(c for _, c in theme_counts)
+
+    results = []
+    for theme_name, count in theme_counts:
+        pct = round((count * 100.0 / total_tagged), 1) if total_tagged > 0 else 0.0
+
+        # Sample up to 3 ticket IDs for this theme within the window
+        samples = db.query(TicketTheme.ticket_id)\
+                    .join(Ticket, TicketTheme.ticket_id == Ticket.id)\
+                    .filter(TicketTheme.theme == theme_name, Ticket.created_at >= cutoff)\
+                    .order_by(Ticket.created_at.desc())\
+                    .limit(3)\
+                    .all()
+
+        results.append({
+            "theme": theme_name,
+            "count": count,
+            "percentage": pct,
+            "sample_ticket_ids": [s[0] for s in samples]
+        })
+
+    return {
+        "time_window_days": days,
+        "total_tagged_records": total_tagged,
+        "themes": results
+    }
+
+
+# ============================================================================
+# 13. UNCAPPED OPS DATA EXPORT (MVP-6)
+# ============================================================================
+
+@app.get("/api/export/tickets.csv")
+def export_tickets_csv(
+    status: Optional[str] = None,
+    agency_id: Optional[str] = None,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Uncapped CSV data streaming export for ops beyond 3K-row UX barrier (MVP-6).
+    Restricted strictly to Lead role. Memory-safe streaming via generator yield_per.
+    """
+    if current_user.role != "Lead":
+        raise HTTPException(status_code=403, detail="Forbidden: Export is restricted to Lead role")
+
+    query = db.query(Ticket)
+    if status:
+        query = query.filter(Ticket.status == status)
+    if agency_id:
+        query = query.filter(Ticket.agency_id == agency_id)
+    if from_date:
+        query = query.filter(Ticket.created_at >= from_date)
+    if to_date:
+        query = query.filter(Ticket.created_at <= to_date)
+
+    query = query.order_by(Ticket.created_at.desc())
+
+    def iter_csv():
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Write header
+        writer.writerow([
+            "id", "tboh_id", "agency_id", "title", "intent", "priority",
+            "status", "check_in_date", "lcd_date", "assigned_to", "created_at"
+        ])
+        yield output.getvalue()
+        output.seek(0)
+        output.truncate(0)
+
+        # Stream rows in chunks of 500 without loading all rows into RAM
+        for ticket in query.yield_per(500):
+            writer.writerow([
+                ticket.id,
+                ticket.tboh_id,
+                ticket.agency_id,
+                ticket.title,
+                ticket.intent or "",
+                ticket.priority,
+                ticket.status,
+                ticket.check_in_date.isoformat() if ticket.check_in_date else "",
+                ticket.lcd_date.isoformat() if ticket.lcd_date else "",
+                ticket.assigned_to or "",
+                ticket.created_at.isoformat() if ticket.created_at else ""
+            ])
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+
+    headers = {
+        "Content-Disposition": "attachment; filename=opsdesk_tickets_export.csv",
+        "Content-Type": "text/csv; charset=utf-8"
+    }
+    return StreamingResponse(iter_csv(), headers=headers, media_type="text/csv")
+
