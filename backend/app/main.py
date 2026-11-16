@@ -32,10 +32,24 @@ from backend.services.routing_engine import (
 )
 from backend.services.intent_classifier import suggest_ticket_intent
 
+import os
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="OpsDesk: B2B Travel Operations Case Management API",
     description="Operational case management platform tailored for high-volume B2B travel operations.",
     version="1.0.0"
+)
+
+cors_origins_env = os.environ.get("ALLOWED_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+allowed_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Allowed status transitions graph. Any invalid transition yields 409 Conflict.
@@ -52,6 +66,11 @@ ALLOWED_STATUS_TRANSITIONS: Dict[str, List[str]] = {
 # ============================================================================
 # 1. AI INTENT SUGGESTION ENDPOINT
 # ============================================================================
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "service": "opsdesk-backend"}
+
 
 @app.post("/api/ai/suggest-intent", response_model=IntentSuggestResponseSchema)
 def api_suggest_intent(

@@ -4,10 +4,11 @@ OpsDesk replaces fragmented ticketing in travel operations with context-linked c
 - **First-Class TBOH Linkage:** Surfaces prior contacts sharing the same TBO Booking Reference (`TBOH_ID`) without third-party add-ons.
 - **Travel-Aware SLA Engine:** Dynamically calculates countdowns based on guest check-in proximity and Last Cancellation Date (LCD).
 - **2-Tier Routing Engine:** 
-  - Tier 1: Selects available regional agents based on workload.
-  - Tier 2: Ranks the operations queue based on check-in urgency and priority.
+  - Tier 1: Emergency bypass for departures within 4 hours.
+  - Tier 2: Continuous multi-factor dynamic queue scoring.
 - **Transfer-Proof Supplier Threads:** Decouples supplier conversation recipients from assigned agents, preserving threads across transfers.
-- **Uncapped Ops Data Path:** Eliminates artificial 3,000-row export barriers via direct database streaming.
+- **Uncapped Ops Data Path:** Eliminates artificial 3,000-row export barriers via direct database streaming (`yield_per`).
+- **Complete Next.js 15 UI:** Operations queue, thread viewer, role switcher, intent auto-suggest, and analytics dashboard.
 
 > **Intent-Aware SLA Rule & LCD Handling:**
 > - `lcd_date` is optional/nullable across Pydantic schemas and database models (`Optional[datetime] = None`).
@@ -23,54 +24,85 @@ This checklist strictly tracks the requirements specified in *Zendesk-Darwin box
 
 | MVP # & Name | Source (PDF Page) | Specification & Core Bullets | Status | Implementation Details |
 |---|---|---|---|---|
-| **MVP-1 · Context-rich tickets** | Page 5 | • Create tickets with title, description, agency identity, TBOH, priority, category/intent, travel fields (check-in/LCD)<br>• Link tickets by TBOH, agency, and/or intent without third-party apps<br>• Intent taxonomy: manual select + rule auto-suggest / lightweight ML<br>• Status flow: New → Open → Pending → Escalated → Resolved → Closed<br>• Activity timeline: status, assignment, links, escalations | **Backend implemented, UI pending** | Implemented in `backend/app/main.py` (`POST /api/tickets`, `GET /api/tickets/{id}`, intent classifier, and atomic `audit_logs`). Next.js 15 UI pending Milestone 2+. |
-| **MVP-2 · Routing & ownership** | Page 5 | • Assign / reassign / unassign with clear ownership<br>• Beyond FIFO/LIFO: region/country desk match + time window + priority score + availability<br>• Views: triage (unassigned), my queue, by region, by intent, linked-case view<br>• Audit reason explaining why ticket was routed | **Backend implemented, UI pending** | Implemented in `backend/services/routing_engine.py` (Tier-1 regional workload routing + Tier-2 dynamic queue scoring) and `GET /api/tickets` views. Queue UI pending. |
-| **MVP-3 · Side conversations** | Page 5 | • Side-conversation threads with explicit recipient lists (decoupled from assignee)<br>• Recipients stay correct and preserved after agent transfer<br>• Distinguish internal notes (`InternalNote`) vs external replies (`PublicReply`) | **Backend implemented, UI pending** | Implemented in `backend/app/main.py` (`/side-threads` endpoints, `/messages` endpoint, and `POST /api/tickets/{id}/transfer`). Thread viewer UI pending. |
-| **MVP-4 · Travel-aware SLA & escalation** | Page 6 | • Dynamic SLA countdown using priority + check-in / LCD proximity<br>• At-risk / breached indicators on queue<br>• Escalate to Escalation Manager as a first-class action (reassigns to manager queue, logs on timeline) | **Backend implemented, UI pending** | Implemented in `backend/services/sla_engine.py` (contract parity via `contracts/golden_vectors.json`) and `POST /api/tickets/{id}/escalate`. Visual SLA badge UI pending. |
-| **MVP-5 · Feedback / insight loop** | Page 6 | • Tag or extract themes (refund delay, supplier lag, cancellation penalty)<br>• Insights view: top themes this week + sample tickets<br>• Optional: suggested link to product / bug<br>• Stretch: AI assist that uses linked history | **Backend implemented, UI pending** | Implemented in `backend/app/main.py` (`GET /api/insights/themes` with rule-based theme aggregation and sample ticket IDs, and `POST /api/tickets/{id}/link-suggestion` for staff bug link association). Next.js insights dashboard pending Part 3. |
-| **MVP-6 · Data access for ops** | Page 6 | • Persist tickets across refreshes<br>• Uncapped export / API beyond artificial 3K-row UX barrier<br>• Retention / archival strategy | **Backend implemented, UI pending** | Implemented in `backend/app/main.py` (`GET /api/export/tickets.csv` with memory-safe streaming generator yield_per chunks beyond 3K cap) and `docs/DATA_RETENTION.md` (retention tiers & archival policy). Export button in UI pending Part 3. |
-| **MVP-7 · Roles & access** | Page 6 | • Requester (agency): own tickets only (internal notes, queue scores, and other agencies' data hidden)<br>• Agent: organization queues<br>• Escalation Manager: escalation queue + managerial actions<br>• Lead: governance & queue health views<br>• Demo-only auth: identity is client-supplied, not secure (PDF p6 allows demo auth) | **Backend implemented, UI pending** | Implemented in `backend/app/auth.py` and endpoint RBAC guards (401 on missing auth, 403 on cross-tenant access, internal field stripping for Requesters). UI login switcher pending. |
+| **MVP-1 · Context-rich tickets** | Page 5 | • Create tickets with title, description, agency identity, TBOH, priority, category/intent, travel fields (check-in/LCD)<br>• Link tickets by TBOH, agency, and/or intent without third-party apps<br>• Intent taxonomy: manual select + rule auto-suggest / lightweight ML<br>• Status flow: New → Open → Pending → Escalated → Resolved → Closed<br>• Activity timeline: status, assignment, links, escalations | **Fully Implemented** | Backend: `POST /api/tickets`, `GET /api/tickets/{id}`, rule classifier, atomic audit logs.<br>Frontend: Create Ticket Modal with Auto-Suggest Intent, Ticket Detail Activity Timeline. |
+| **MVP-2 · Routing & ownership** | Page 5 | • Assign / reassign / unassign with clear ownership<br>• Beyond FIFO/LIFO: region/country desk match + time window + priority score + availability<br>• Views: triage (unassigned), my queue, by region, by intent, linked-case view<br>• Audit reason explaining why ticket was routed | **Fully Implemented** | Backend: Tier-1 emergency bypass + Tier-2 dynamic queue scoring.<br>Frontend: Queue page with Triage, Assigned to Me, and My Tickets tabs, plus search & intent filter. |
+| **MVP-3 · Side conversations** | Page 5 | • Side-conversation threads with explicit recipient lists (decoupled from assignee)<br>• Recipients stay correct and preserved after agent transfer<br>• Distinguish internal notes (`InternalNote`) vs external replies (`PublicReply`) | **Fully Implemented** | Backend: `/side-threads` endpoints, message types, and recipient preservation on transfer.<br>Frontend: Thread toggle (Public Reply vs Internal Note) + Supplier side-thread composer. |
+| **MVP-4 · Travel-aware SLA & escalation** | Page 6 | • Dynamic SLA countdown using priority + check-in / LCD proximity<br>• At-risk / breached indicators on queue<br>• Escalate to Escalation Manager as a first-class action (reassigns to manager queue, logs on timeline) | **Fully Implemented** | Backend: `sla_engine.py` (effective deadline helper) + `POST /api/tickets/{id}/escalate`.<br>Frontend: Visual SLA badges (`NORMAL`, `AT_RISK`, `BREACHED`) with countdowns & escalation action. |
+| **MVP-5 · Feedback / insight loop** | Page 6 | • Tag or extract themes (refund delay, supplier lag, cancellation penalty)<br>• Insights view: top themes this week + sample tickets<br>• Optional: suggested link to product / bug<br>• Stretch: AI assist that uses linked history | **Fully Implemented** | Backend: `GET /api/insights/themes` + `POST /api/tickets/{id}/link-suggestion`.<br>Frontend: `/insights` analytics dashboard showing recurring themes, percentage bars, and sample ticket links. |
+| **MVP-6 · Data access for ops** | Page 6 | • Persist tickets across refreshes<br>• Uncapped export / API beyond artificial 3K-row UX barrier<br>• Retention / archival strategy | **Fully Implemented** | Backend: Memory-safe `yield_per(500)` streaming generator (`GET /api/export/tickets.csv`), tested 5,000 rows in ~1.32s; `docs/DATA_RETENTION.md`.<br>Frontend: "Export CSV (MVP-6)" streaming download button. |
+| **MVP-7 · Roles & access** | Page 6 | • Requester (agency): own tickets only (internal notes, queue scores, and other agencies' data hidden)<br>• Agent: organization queues<br>• Escalation Manager: escalation queue + managerial actions<br>• Lead: governance & queue health views<br>• Demo-only auth: identity is client-supplied, not secure (PDF p6 allows demo auth) | **Fully Implemented** | Backend: RBAC guards with 401/403 responses and internal field stripping.<br>Frontend: Top navigation Role Switcher with visible Demo-Auth banner and route guards. |
 
 ---
 
-## Active FastAPI Endpoints
-Verified against runtime routes in `backend/app/main.py`:
+## Quickstart Guide
 
-| Method | Path | Access / Role | Description |
-|---|---|---|---|
-| `POST` | `/api/ai/suggest-intent` | Internal Staff | Suggest intent category using regex heuristic rules or Gemini fallback |
-| `GET` | `/api/tickets` | Requester / Staff | List tickets with SLA & queue score (views: `triage`, `my_queue`, `by_region`, `by_intent`, `linked`) |
-| `POST` | `/api/tickets` | Requester / Staff | Create operations ticket with auto-linkage of shared TBOH references |
-| `GET` | `/api/tickets/{ticket_id}` | Requester / Staff | Full ticket details (internal notes, queue score, and routing reason withheld from Requesters) |
-| `POST` | `/api/tickets/{ticket_id}/assign` | Internal Staff | Assign ticket to internal agent |
-| `POST` | `/api/tickets/{ticket_id}/unassign` | Internal Staff | Unassign ticket |
-| `POST` | `/api/tickets/{ticket_id}/status` | Internal Staff | Transition ticket status in state machine (403 for Requesters, 409 on invalid transition) |
-| `POST` | `/api/tickets/{ticket_id}/escalate` | Internal Staff | Escalate ticket to Escalation Manager with neutral audit routing reason |
-| `POST` | `/api/tickets/{ticket_id}/transfer` | Internal Staff | Transfer ticket preserving all supplier side conversation recipients |
-| `POST` | `/api/tickets/{ticket_id}/messages` | Requester / Staff | Post public reply or internal staff note (`InternalNote` forbidden for Requesters) |
-| `GET` | `/api/tickets/{ticket_id}/side-threads` | Internal Staff | List supplier side conversations for ticket (403 for Requesters) |
-| `POST` | `/api/tickets/{ticket_id}/side-threads` | Internal Staff | Create supplier side conversation with explicit recipient email list |
-| `POST` | `/api/tickets/{ticket_id}/side-threads/{id}/messages` | Internal Staff | Post message to supplier side conversation |
-| `POST` | `/api/tickets/{ticket_id}/link-suggestion` | Internal Staff | Suggest / attach product defect or bug tracking link to ticket (MVP-5) |
-| `GET` | `/api/insights/themes` | Lead, EscalationManager | Aggregate top operational themes for time window with percentages and sample ticket IDs (MVP-5) |
-| `GET` | `/api/export/tickets.csv` | Lead | Uncapped memory-safe streaming CSV export beyond 3K row limit (MVP-6) |
+### Prerequisites
+- Python 3.11+
+- Node.js 18+ (tested on Node v24)
+- SQLite3 (included with Python)
 
----
+### 1. Database Setup & Seeding
+```powershell
+# In repository root
+python -m backend.seed.seed_data --reset
+```
+*Seeds the development database (`opsdesk.db`) with 5,000 realistic operations tickets, calibrating Journey fixtures TCK-1001 through TCK-1008.*
 
-## Datetime & Timezone Decision
-The backend consistently utilizes naive UTC datetimes across SQLite persistence, routing calculations, and SLA evaluation. Incoming API request datetimes (whether supplied with 'Z', timezone offsets like '+05:30', or naive strings) are automatically parsed and normalized to naive UTC datetimes by Pydantic schema validators before database persistence or SLA calculations.
-- In development (SQLite), datetimes are stored as ISO 8601 strings in UTC.
-- In production (PostgreSQL), columns use `TIMESTAMP WITHOUT TIME ZONE` stored strictly in UTC to prevent daylight savings anomalies and database server timezone drift.
-- Client applications (Next.js 15 frontend) receive ISO 8601 UTC strings and format them into local agency or agent timezones at presentation time.
+### 2. Run Backend API
+```powershell
+uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+API Documentation: `http://127.0.0.1:8000/docs`
+
+### 3. Run Frontend UI
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+Open Browser: `http://localhost:3000`
 
 ---
 
-## Pre-Demo Wall-Clock Reset
+## Test & Verification Commands
+
+All test and verification commands are 100% deterministic and runnable locally:
+
+```powershell
+# 1. Backend Unit & Integration Tests (68 passed)
+pytest backend/tests -q
+
+# 2. Frontend ESLint Check
+cd frontend ; npm run lint
+
+# 3. Frontend Production Build & Typecheck
+cd frontend ; npm run build
+
+# 4. Frontend-Backend Contract Integration Smoke Test
+python scripts/smoke_frontend_api.py
+```
+
+---
+
+## Active Environment Variables & Feature Flags
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `ALLOWED_CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Origins permitted by FastAPI CORSMiddleware |
+| `OPSDESK_DEV_DB` | `opsdesk.db` | Path or connection string to the SQLite database |
+| `SLA_ENGINE` | `python` | Toggle between Python reference implementation and Rust sidecar (`python` \| `rust`) |
+| `REALTIME` | `off` | Toggle between client-polling and Go SSE sidecar (`off` \| `on`) |
+| `EXPORT` | `fastapi` | Toggle between FastAPI StreamingResponse and Go daemon (`fastapi` \| `go`) |
+| `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:8000` | Frontend backend API target URL |
+
+---
+
+## Pre-Demo Wall-Clock Reset & Fixture Calibrations
+
 Because travel SLA countdowns and triage queue scores evaluate dynamically relative to current wall-clock time (`now`), run the reset command immediately prior to a live demonstration to calibrate all Journey fixtures:
 ```bash
-python backend/seed/seed_data.py --reset
+python -m backend.seed.seed_data --reset
 ```
-This recalibrates the key demonstration fixtures relative to execution time:
 
 | Ticket ID | Journey Mapping | PDF p7 Status | Intent | Priority | Status | Urgency / Deadlines | Expected SLA | Queue Position |
 |---|---|---|---|---|---|---|---|---|
@@ -84,36 +116,31 @@ This recalibrates the key demonstration fixtures relative to execution time:
 
 ---
 
-## Modular Architecture & Sidecar Contracts
-The system is built as a modular monorepo with Python FastAPI as the core source of truth and decoupled sidecar extensions:
-
-1. **Python FastAPI Backend (`backend/`):**
-   - Source of truth for authentication, RBAC, CRUD, routing orchestration, and intent suggestions via Gemini (model target: Gemini 3.5 Flash-Lite [UNVERIFIED model name, availability date unverified; fallback: gemini-2.5-flash]).
-2. **Go Realtime Gateway (`services/realtime-go/`):**
-   - *Why it exists:* Provides high-concurrency Server-Sent Events (SSE) broadcasting from the `events_outbox` table (design target, benchmark pending).
-   - *Python Fallback:* Client-side SWR polling / FastAPI long-polling (`REALTIME=off`).
-3. **Rust SLA & Scoring Engine (`services/engine-rust/`):**
-   - *Why it exists:* High-throughput batch re-evaluation of travel SLAs across active records (design target: sub-millisecond execution, benchmark pending).
-   - *Python Fallback:* Pure-function reference implementation in `backend/services/sla_engine.py` (`SLA_ENGINE=python`).
-4. **Go Export Service (`services/export-go/`):**
-   - *Why it exists:* Low-memory streaming CSV exports for historical operations datasets (design target, benchmark pending).
-   - *Python Fallback:* FastAPI `StreamingResponse` with generator chunking (`EXPORT=fastapi`).
-
----
-
 ## Monorepo Layout
 ```text
 opsdesk/
-├── backend/                  # FastAPI core application, services, tests, and seed generator
-├── services/
-│   ├── realtime-go/          # Go SSE Realtime Gateway (contracts & skeleton)
-│   ├── engine-rust/          # Rust SLA & Scoring Engine (contracts & skeleton)
-│   └── export-go/            # Go CSV Export Service (contracts & skeleton)
-├── contracts/                # Shared JSON Schemas and Golden Vectors
-├── docs/                     # Architecture & Design documentation
-├── frontend/                 # Next.js 15 UI (Milestone 2+)
-├── .env.example              # Environment configuration & feature flags
-├── opsdesk.db                # SQLite local database (untracked, .gitignore)
+├── backend/                  # FastAPI core application, domain services, tests, and seed generator
+│   ├── app/                  # FastAPI router, models, schemas, auth dependencies
+│   ├── seed/                 # Realistic 5,000-ticket generator with Journey fixtures
+│   ├── services/             # Intent classifier, routing engine, travel SLA engine
+│   └── tests/                # Test suite (68 tests)
+├── contracts/                # Shared JSON Schemas, Golden Vectors, openapi.json
+├── docs/                     # Architecture documentation
+│   ├── adr/                  # 5 Architectural Decision Records (ADR 0001 - 0005)
+│   ├── ARCHITECTURE.md       # System context, component, ERD, and state machine diagrams
+│   ├── DATA_RETENTION.md     # Hot/Warm/Cold archival policies
+│   ├── DEMO_RUNBOOK.md       # Pre-demo checklist, Journey mapping, 5-minute script
+│   └── PRODUCTION_ROADMAP.md # Enterprise hardening roadmap (OAuth, Postgres, Alembic)
+├── frontend/                 # Next.js 15 SPA Operations Console (App Router)
+│   ├── src/app/              # App router pages: Queue (/), Ticket Detail (/ticket/[id]), Insights (/insights)
+│   ├── src/components/       # Reusable UI components (Badges, TopNav)
+│   ├── src/context/          # Demo auth UserContext provider
+│   └── src/lib/              # Typed API client, TypeScript definitions
+├── scripts/                  # Operational scripts (dev DB verification, smoke test)
+├── services/                 # Decoupled sidecar specifications (Go SSE, Rust SLA, Go Export)
+├── .github/workflows/ci.yml  # GitHub Actions automated CI workflow
+├── docker-compose.yml        # Multi-service composition (UNVERIFIED not built)
 ├── pytest.ini                # Pytest configuration
-└── README.md                 # System overview
+├── requirements.txt          # Python dependencies
+└── README.md                 # System overview and quickstart
 ```
