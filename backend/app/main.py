@@ -4,10 +4,11 @@ import io
 import json
 import hashlib
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Query, Header, Request, Response, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session, defer
+from sqlalchemy.orm import Session, defer, selectinload, joinedload
 from sqlalchemy import desc, func, or_, text
 
 from backend.app.database import get_db
@@ -44,23 +45,6 @@ from fastapi.middleware.cors import CORSMiddleware
 logger = logging.getLogger("opsdesk.access")
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(
-    title="OpsDesk: B2B Travel Operations Case Management API",
-    description="Operational case management platform tailored for high-volume B2B travel operations.",
-    version="1.0.0"
-)
-
-cors_origins_env = os.environ.get("ALLOWED_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
-allowed_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 RATE_LIMIT_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "120"))
 RATE_LIMIT_MAX_KEYS = int(os.environ.get("RATE_LIMIT_MAX_KEYS", "10000"))
 RATE_LIMIT_WINDOW = 60.0  # seconds
@@ -71,6 +55,15 @@ ALLOW_DEMO_AUTH = os.environ.get("ALLOW_DEMO_AUTH", "false").lower() in ("true",
 
 _rate_limit_lock = threading.Lock()
 _rate_limit_records: Dict[str, List[float]] = {}
+
+# 2-second in-memory single-flight TTL cache for triage/my_queue queries
+_triage_cache_lock = threading.Lock()
+_triage_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+TRIAGE_CACHE_TTL_SEC = 2.0
+
+def invalidate_triage_cache():
+    with _triage_cache_lock:
+        _triage_cache.clear()
 
 
 def validate_production_auth_settings():
@@ -98,9 +91,14 @@ def purge_expired_idempotency_records(db: Session) -> int:
     return deleted
 
 
-@app.on_event("startup")
-def on_app_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     validate_production_auth_settings()
+    web_concurrency = int(os.environ.get("WEB_CONCURRENCY", "1"))
+    if web_concurrency > 1:
+        logger.warning(
+            '{"event": "concurrency_warning", "message": "WEB_CONCURRENCY > 1 detected. In-memory rate limiter and idempotency stores are per-process."}'
+        )
     if not os.environ.get("PYTEST_CURRENT_TEST"):
         try:
             from backend.app.database import SessionLocal, engine, ensure_schema_migrations
@@ -111,6 +109,26 @@ def on_app_startup():
                     logger.info(f'{{"event": "idempotency_startup_purge", "purged": {purged}}}')
         except Exception as exc:
             logger.warning(f"Startup maintenance warning: {exc}")
+    yield
+
+
+app = FastAPI(
+    title="OpsDesk: B2B Travel Operations Case Management API",
+    description="Operational case management platform tailored for high-volume B2B travel operations.",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+cors_origins_env = os.environ.get("ALLOWED_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+allowed_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.middleware("http")
 async def opsdesk_protection_middleware(request: Request, call_next):
@@ -320,6 +338,13 @@ def list_tickets(
     # and sorting globally prior to offset/limit slicing provides exact queue prioritization without requiring database-specific
     # procedural extensions. For production scale (millions of records), queue_score is maintained via indexed column or Rust/Go scoring sidecar.
     if view in ["triage", "my_queue"]:
+        cache_key = f"{current_user.role}:{current_user.agency_id or ''}:{current_user.id if view == 'my_queue' else ''}:{view}:{intent or ''}:{priority or ''}:{status or ''}:{search or ''}:{limit}:{offset}"
+        curr_time = time.time()
+        with _triage_cache_lock:
+            cached = _triage_cache.get(cache_key)
+            if cached and (curr_time - cached[0]) < TRIAGE_CACHE_TTL_SEC:
+                return cached[1]
+
         all_candidates = query.options(defer(Ticket.description)).all()
         total_count = len(all_candidates)
 
@@ -366,7 +391,10 @@ def list_tickets(
                 "created_at": t.created_at.isoformat()
             })
 
-        return {"total": total_count, "tickets": results}
+        response_payload = {"total": total_count, "tickets": results}
+        with _triage_cache_lock:
+            _triage_cache[cache_key] = (curr_time, response_payload)
+        return response_payload
 
     else:
         total_count = query.count()
@@ -573,6 +601,7 @@ def create_ticket(
         db.add(idem_entry)
 
     db.commit()
+    invalidate_triage_cache()
 
     return response_data
 
@@ -589,7 +618,11 @@ def get_ticket_details(
     - If requester belongs to same agency -> InternalNotes and side_conversations are withheld.
     - Staff members receive complete operations view.
     """
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = db.query(Ticket).options(
+        selectinload(Ticket.messages),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.recipients),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.messages)
+    ).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -698,7 +731,11 @@ def assign_ticket(
     if current_user.role == "Requester":
         raise HTTPException(status_code=403, detail="Forbidden: Requesters cannot assign tickets")
 
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = db.query(Ticket).options(
+        selectinload(Ticket.messages),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.recipients),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.messages)
+    ).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -752,6 +789,7 @@ def assign_ticket(
         details={"assigned_to": payload.agent_id, "previous_agent": old_agent}
     )
     db.commit()
+    invalidate_triage_cache()
 
     return {"status": "success", "ticket_id": ticket.id, "assigned_to": payload.agent_id, "version": current_version + 1}
 
@@ -766,7 +804,11 @@ def unassign_ticket(
     if current_user.role == "Requester":
         raise HTTPException(status_code=403, detail="Forbidden: Requesters cannot unassign tickets")
 
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = db.query(Ticket).options(
+        selectinload(Ticket.messages),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.recipients),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.messages)
+    ).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -808,6 +850,7 @@ def unassign_ticket(
         details={"previous_agent": old_agent}
     )
     db.commit()
+    invalidate_triage_cache()
 
     return {"status": "success", "ticket_id": ticket.id, "assigned_to": None, "version": current_version + 1}
 
@@ -830,7 +873,11 @@ def update_ticket_status(
             detail="Forbidden: Only internal operations staff can update ticket status"
         )
 
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = db.query(Ticket).options(
+        selectinload(Ticket.messages),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.recipients),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.messages)
+    ).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -884,6 +931,7 @@ def update_ticket_status(
         details={"old_status": old_status, "new_status": payload.status}
     )
     db.commit()
+    invalidate_triage_cache()
 
     return {"status": "success", "ticket_id": ticket.id, "old_status": old_status, "new_status": payload.status, "version": current_version + 1}
 
@@ -905,7 +953,11 @@ def escalate_ticket(
     if current_user.role == "Requester":
         raise HTTPException(status_code=403, detail="Forbidden: Requesters cannot escalate tickets directly")
 
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = db.query(Ticket).options(
+        selectinload(Ticket.messages),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.recipients),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.messages)
+    ).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -968,6 +1020,7 @@ def escalate_ticket(
         details={"reason": payload.reason, "assigned_to": DEFAULT_ESCALATION_MANAGER_ID, "old_assignee": old_assignee}
     )
     db.commit()
+    invalidate_triage_cache()
 
     return {
         "status": "success",
@@ -993,7 +1046,11 @@ def transfer_ticket(
     if current_user.role == "Requester":
         raise HTTPException(status_code=403, detail="Forbidden: Requesters cannot transfer tickets")
 
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = db.query(Ticket).options(
+        selectinload(Ticket.messages),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.recipients),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.messages)
+    ).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -1059,6 +1116,7 @@ def transfer_ticket(
         details={"old_agent": old_agent, "new_agent": payload.target_agent_id, "reason": payload.reason}
     )
     db.commit()
+    invalidate_triage_cache()
 
     return {
         "status": "success",
@@ -1088,7 +1146,11 @@ def post_ticket_message(
     - InternalNotes emit events with visibility='internal'.
     - PublicReplies emit events with visibility='public'.
     """
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = db.query(Ticket).options(
+        selectinload(Ticket.messages),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.recipients),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.messages)
+    ).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -1162,7 +1224,11 @@ def list_side_threads(
     if current_user.role == "Requester":
         raise HTTPException(status_code=403, detail="Forbidden: Agency requesters cannot view supplier side threads")
 
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = db.query(Ticket).options(
+        selectinload(Ticket.messages),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.recipients),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.messages)
+    ).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -1193,7 +1259,11 @@ def create_side_thread(
     if current_user.role == "Requester":
         raise HTTPException(status_code=403, detail="Forbidden: Agency requesters cannot create supplier side threads")
 
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = db.query(Ticket).options(
+        selectinload(Ticket.messages),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.recipients),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.messages)
+    ).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -1331,7 +1401,11 @@ def link_suggested_bug(
     if current_user.role == "Requester":
         raise HTTPException(status_code=403, detail="Forbidden: Requesters cannot link system bug suggestions")
 
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = db.query(Ticket).options(
+        selectinload(Ticket.messages),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.recipients),
+        selectinload(Ticket.side_conversations).selectinload(SideConversation.messages)
+    ).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 

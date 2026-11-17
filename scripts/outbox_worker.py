@@ -11,7 +11,7 @@ import json
 import signal
 import logging
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Callable, Dict, Any
 
 from sqlalchemy import create_engine
@@ -142,6 +142,38 @@ class OutboxWorker:
             db.close()
 
         return stats
+
+    def purge_delivered_retention(self, retention_days: Optional[int] = None) -> int:
+        """
+        Purges delivered events older than retention_days (default: 30 from env OUTBOX_RETENTION_DAYS).
+        Dead-letter rows and pending/undelivered rows are strictly preserved for auditability.
+        """
+        if retention_days is None:
+            retention_days = int(os.environ.get("OUTBOX_RETENTION_DAYS", "30"))
+
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=retention_days)
+        db: Session = self.db_factory()
+        try:
+            deleted_count = (
+                db.query(EventOutbox)
+                .filter(
+                    EventOutbox.status == "delivered",
+                    EventOutbox.delivered_at.isnot(None),
+                    EventOutbox.delivered_at < cutoff
+                )
+                .delete(synchronize_session=False)
+            )
+            db.commit()
+            if deleted_count > 0:
+                logger.info(json.dumps({
+                    "event": "outbox_retention_purge",
+                    "retention_days": retention_days,
+                    "cutoff": cutoff.isoformat(),
+                    "purged_count": deleted_count
+                }))
+            return deleted_count
+        finally:
+            db.close()
 
     def run_loop(self, once: bool = False) -> None:
         self._running = True
