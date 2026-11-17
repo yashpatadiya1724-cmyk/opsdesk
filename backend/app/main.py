@@ -395,35 +395,61 @@ def list_tickets(
                 if cached and (curr_time - cached[0]) < TRIAGE_CACHE_TTL_SEC:
                     return cached[1]
 
-        all_candidates = query.options(defer(Ticket.description)).all()
-        total_count = len(all_candidates)
+        # Projected lightweight tuple query for triage scoring (avoids ORM hydration overhead)
+        candidate_rows = query.with_entities(
+            Ticket.id,
+            Ticket.priority,
+            Ticket.check_in_date,
+            Ticket.lcd_date,
+            Ticket.intent,
+            Ticket.created_at,
+            Ticket.status
+        ).all()
+        total_count = len(candidate_rows)
 
-        scored_tickets = []
-        for t in all_candidates:
+        scored_items = []
+        for row in candidate_rows:
+            t_id, priority_val, check_in_date_val, lcd_date_val, intent_val, created_at_val, status_val = row
             sla = evaluate_travel_sla(
-                status=t.status,
-                check_in_date=t.check_in_date,
-                lcd_date=t.lcd_date,
-                priority=t.priority,
-                intent=t.intent,
+                status=status_val,
+                check_in_date=check_in_date_val,
+                lcd_date=lcd_date_val,
+                priority=priority_val,
+                intent=intent_val,
                 now=now
             )
             queue_score = calculate_queue_score_tier2(
-                priority=t.priority,
-                check_in_date=t.check_in_date,
-                lcd_date=t.lcd_date,
-                intent=t.intent,
+                priority=priority_val,
+                check_in_date=check_in_date_val,
+                lcd_date=lcd_date_val,
+                intent=intent_val,
                 now=now
             )
-            scored_tickets.append((queue_score, sla, t))
+            scored_items.append((queue_score, sla, t_id, created_at_val))
 
-        # Global sort by queue_score descending, tie-breaking by created_at
-        scored_tickets.sort(key=lambda x: (x[0], -x[2].created_at.timestamp() if x[2].created_at else 0), reverse=True)
+        # Global sort by queue_score descending, tie-breaking by created_at (identical ordering to baseline)
+        scored_items.sort(key=lambda x: (x[0], -x[3].timestamp() if x[3] else 0), reverse=True)
 
-        paginated_slice = scored_tickets[offset : offset + limit]
+        paginated_slice = scored_items[offset : offset + limit]
+
+        if not paginated_slice:
+            response_payload = {"total": total_count, "tickets": []}
+            if TRIAGE_CACHE_ENABLED:
+                with _triage_cache_lock:
+                    _triage_cache[cache_key] = (curr_time, response_payload)
+            return response_payload
+
+        # Load full ticket details only for the paginated top-K slice
+        slice_ids = [item[2] for item in paginated_slice]
+        slice_tickets_by_id = {
+            t.id: t for t in db.query(Ticket).options(defer(Ticket.description)).filter(Ticket.id.in_(slice_ids)).all()
+        }
 
         results = []
-        for queue_score, sla, t in paginated_slice:
+        for queue_score, sla, t_id, _ in paginated_slice:
+            t = slice_tickets_by_id.get(t_id)
+            if not t:
+                continue
             results.append({
                 "id": t.id,
                 "tboh_id": t.tboh_id,
