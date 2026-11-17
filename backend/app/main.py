@@ -60,6 +60,7 @@ _rate_limit_records: Dict[str, List[float]] = {}
 _triage_cache_lock = threading.Lock()
 _triage_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 TRIAGE_CACHE_TTL_SEC = 2.0
+TRIAGE_CACHE_ENABLED = os.environ.get("TRIAGE_CACHE_ENABLED", "true").lower() in ("true", "1", "yes")
 
 def invalidate_triage_cache():
     with _triage_cache_lock:
@@ -340,10 +341,11 @@ def list_tickets(
     if view in ["triage", "my_queue"]:
         cache_key = f"{current_user.role}:{current_user.agency_id or ''}:{current_user.id if view == 'my_queue' else ''}:{view}:{intent or ''}:{priority or ''}:{status or ''}:{search or ''}:{limit}:{offset}"
         curr_time = time.time()
-        with _triage_cache_lock:
-            cached = _triage_cache.get(cache_key)
-            if cached and (curr_time - cached[0]) < TRIAGE_CACHE_TTL_SEC:
-                return cached[1]
+        if TRIAGE_CACHE_ENABLED:
+            with _triage_cache_lock:
+                cached = _triage_cache.get(cache_key)
+                if cached and (curr_time - cached[0]) < TRIAGE_CACHE_TTL_SEC:
+                    return cached[1]
 
         all_candidates = query.options(defer(Ticket.description)).all()
         total_count = len(all_candidates)
@@ -392,8 +394,9 @@ def list_tickets(
             })
 
         response_payload = {"total": total_count, "tickets": results}
-        with _triage_cache_lock:
-            _triage_cache[cache_key] = (curr_time, response_payload)
+        if TRIAGE_CACHE_ENABLED:
+            with _triage_cache_lock:
+                _triage_cache[cache_key] = (curr_time, response_payload)
         return response_payload
 
     else:
