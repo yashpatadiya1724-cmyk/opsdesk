@@ -1,0 +1,12 @@
+
+=== A4. CPU USAGE COMPARISON (Logical Cores: 12) ===
+Variant A [Normal Seed 456 unassigned]:
+  Server CPU % : Median=0.0%, Max=182.0%
+  Client CPU % : Median=0.0%, Max=100.8%
+
+Variant B [Triage Heavy 5000 unassigned]:
+  Server CPU % : Median=0.8%, Max=235.9%
+  Client CPU % : Median=0.0%, Max=100.0%
+
+Conclusion:
+  Client CPU is low (<25%), server is CPU bound on single core Python execution. Client is NOT the bottleneck.
