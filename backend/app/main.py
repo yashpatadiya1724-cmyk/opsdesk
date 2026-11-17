@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import hashlib
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any, Tuple
 from contextlib import asynccontextmanager
@@ -66,6 +67,23 @@ TRIAGE_CACHE_ENABLED = os.environ.get("TRIAGE_CACHE_ENABLED", "true").lower() in
 def invalidate_triage_cache():
     with _triage_cache_lock:
         _triage_cache.clear()
+
+# Global in-flight concurrency limiter and load shedding
+MAX_CONCURRENT_REQUESTS = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "60"))
+MAX_QUEUE_WAIT_TIMEOUT_SEC = float(os.environ.get("MAX_QUEUE_WAIT_TIMEOUT_SEC", "2.0"))
+_concurrency_semaphore: Optional[asyncio.Semaphore] = None
+
+def get_concurrency_semaphore() -> asyncio.Semaphore:
+    global _concurrency_semaphore
+    if _concurrency_semaphore is None:
+        _concurrency_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+    return _concurrency_semaphore
+
+def set_concurrency_limit(limit: int, wait_timeout: float = 2.0):
+    global _concurrency_semaphore, MAX_CONCURRENT_REQUESTS, MAX_QUEUE_WAIT_TIMEOUT_SEC
+    MAX_CONCURRENT_REQUESTS = limit
+    MAX_QUEUE_WAIT_TIMEOUT_SEC = wait_timeout
+    _concurrency_semaphore = asyncio.Semaphore(limit)
 
 
 def validate_production_auth_settings():
@@ -196,12 +214,33 @@ async def opsdesk_protection_middleware(request: Request, call_next):
                 active.append(now)
                 _rate_limit_records[key] = active
 
+    # Concurrency limit check: /health and /ready are strictly exempt
+    is_exempt = request.url.path in ["/health", "/ready"]
+    sem = None if is_exempt else get_concurrency_semaphore()
+
+    if sem is not None:
+        try:
+            await asyncio.wait_for(sem.acquire(), timeout=MAX_QUEUE_WAIT_TIMEOUT_SEC)
+        except asyncio.TimeoutError:
+            duration_ms = (time.time() - start_time) * 1000
+            logger.warning(f'{{"event": "load_shedding_503", "request_id": "{request_id}", "path": "{request.url.path}", "duration_ms": {duration_ms:.2f}}}')
+            resp = Response(
+                content=json.dumps({"detail": "Server is saturated. Request shed by concurrency limiter."}),
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                media_type="application/json",
+                headers={"Retry-After": "2", "X-Request-ID": request_id}
+            )
+            return resp
+
     try:
         response = await call_next(request)
     except Exception as exc:
         duration_ms = (time.time() - start_time) * 1000
         logger.error(f'{{"event": "request_error", "request_id": "{request_id}", "method": "{request.method}", "path": "{request.url.path}", "duration_ms": {duration_ms:.2f}, "error": "{str(exc)}"}}')
         raise exc
+    finally:
+        if sem is not None:
+            sem.release()
 
     duration_ms = (time.time() - start_time) * 1000
     response.headers["X-Request-ID"] = request_id
