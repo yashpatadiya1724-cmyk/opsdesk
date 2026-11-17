@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
-import { fetchTickets, getExportUrl } from "@/lib/api";
+import { fetchTickets, getExportUrl, computePollDelay, ApiError } from "@/lib/api";
 import { TicketSummary } from "@/lib/types";
 import { EmptyState, ErrorState } from "@/components/ui";
 import {
@@ -76,6 +76,7 @@ export default function QueuePage() {
   // Resilient polling refs & AbortController (M4 load hardening)
   const abortControllerRef = useRef<AbortController | null>(null);
   const backoffDelayRef = useRef<number>(5000);
+  const lastErrorRef = useRef<{ status?: number; retryAfter?: number } | undefined>(undefined);
   const timerIdRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load Queue Data with signal and background polling support
@@ -125,11 +126,17 @@ export default function QueuePage() {
       setTickets(fetchedTickets);
       setTotalCount(res.total || 0);
       setError(null);
+      lastErrorRef.current = undefined;
       backoffDelayRef.current = 5000;
       return true;
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
         return false;
+      }
+      if (err instanceof ApiError) {
+        lastErrorRef.current = { status: err.status, retryAfter: err.retryAfter };
+      } else {
+        lastErrorRef.current = { status: 500 };
       }
       setError(err instanceof Error ? err.message : "Failed to load operations queue");
       return false;
@@ -164,14 +171,13 @@ export default function QueuePage() {
         return;
       }
 
-      let delay: number;
-      if (isError) {
-        delay = backoffDelayRef.current;
-        backoffDelayRef.current = Math.min(backoffDelayRef.current * 2, 60000);
-      } else {
-        const jitter = (Math.random() * 6000) - 3000;
-        delay = Math.max(10000, 30000 + jitter);
-      }
+      const pollCalculation = computePollDelay(
+        30000,
+        isError ? lastErrorRef.current || { status: 500 } : undefined,
+        backoffDelayRef.current
+      );
+      backoffDelayRef.current = pollCalculation.nextBackoff;
+      const delay = pollCalculation.delay;
 
       timerIdRef.current = setTimeout(async () => {
         if (isCancelled || (typeof document !== "undefined" && document.hidden)) return;
