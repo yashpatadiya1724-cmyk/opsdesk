@@ -7,9 +7,10 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any, Tuple
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Query, Header, Request, Response, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session, defer, selectinload, joinedload
 from sqlalchemy import desc, func, or_, text
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
 from backend.app.database import get_db
 from backend.app.models import (
@@ -119,6 +120,14 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+@app.exception_handler(SQLAlchemyTimeoutError)
+async def sqlalchemy_timeout_exception_handler(request: Request, exc: SQLAlchemyTimeoutError):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Database connection pool saturated. Please retry later."},
+        headers={"Retry-After": "5"}
+    )
 
 cors_origins_env = os.environ.get("ALLOWED_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
 allowed_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
