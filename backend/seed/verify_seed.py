@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.services.sla_engine import evaluate_travel_sla
 
 def run_checks(db_path: str = "opsdesk.db"):
@@ -17,7 +17,7 @@ def run_checks(db_path: str = "opsdesk.db"):
         print(f"{status}: {count}")
 
     print("\n=== 3. OPEN TICKETS WITH PAST CHECK-IN (MUST BE 0) ===")
-    now_iso = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     query = """
     SELECT COUNT(*) FROM tickets 
     WHERE status IN ('New', 'Open', 'Pending', 'Escalated') 
@@ -32,7 +32,7 @@ def run_checks(db_path: str = "opsdesk.db"):
     rows = c.fetchall()
 
     sla_counts = {"STOPPED": 0, "BREACHED": 0, "AT_RISK": 0, "NORMAL": 0}
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     for status, cid_str, lcd_str, prio, intent in rows:
         cid = datetime.fromisoformat(cid_str)

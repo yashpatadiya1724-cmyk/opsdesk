@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple, Dict, Any
 from backend.config.routing_config import (
     REGION_MAPPING,
@@ -88,7 +88,7 @@ def calculate_queue_score_tier2(
         agency_tier = args[0]
 
     if now is None:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
     hours_remaining = effective_deadline_hours(
         check_in_date=check_in_date,

@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import re
 from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 ALLOWED_INTENTS = Literal[
     "Refund Request",
@@ -29,11 +30,13 @@ MESSAGE_TYPES = Literal[
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-def normalize_utc_datetime(v: Any) -> datetime:
+def normalize_utc_datetime(v: Any, tz_name: Optional[str] = None) -> datetime:
     if isinstance(v, str):
         val = v.strip()
-        if val.endswith("Z"):
-            val = val[:-1] + "+00:00"
+        if val.endswith("Z") or val.endswith("z"):
+            val = val[:-1]
+            if not (val.endswith("+00:00") or re.search(r"[+-]\d{2}:\d{2}$", val)):
+                val = val + "+00:00"
         dt = datetime.fromisoformat(val)
     elif isinstance(v, datetime):
         dt = v
@@ -42,9 +45,22 @@ def normalize_utc_datetime(v: Any) -> datetime:
     if dt.tzinfo is not None:
         dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
     else:
-        # Naive datetime/string: treat as UTC directly, never call astimezone() which assumes host local timezone
-        dt = dt.replace(tzinfo=timezone.utc).replace(tzinfo=None)
+        # Naive datetime/string: treat as local to hotel_timezone if specified, else UTC directly
+        if tz_name and tz_name != "UTC":
+            try:
+                dt = dt.replace(tzinfo=ZoneInfo(tz_name)).astimezone(timezone.utc).replace(tzinfo=None)
+            except Exception:
+                dt = dt.replace(tzinfo=timezone.utc).replace(tzinfo=None)
+        else:
+            dt = dt.replace(tzinfo=timezone.utc).replace(tzinfo=None)
     return dt
+
+def to_utc_aware(dt: Optional[datetime]) -> Optional[datetime]:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 class TicketCreateSchema(BaseModel):
     title: str = Field(..., min_length=3, max_length=200)
@@ -53,8 +69,20 @@ class TicketCreateSchema(BaseModel):
     priority: Literal["Low", "Medium", "High", "Urgent"] = "Medium"
     check_in_date: datetime
     lcd_date: Optional[datetime] = None
+    hotel_timezone: Optional[str] = "UTC"
     intent: Optional[ALLOWED_INTENTS] = None
     agency_id: Optional[str] = None  # Ignored for Requesters, caller agency used instead
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_datetimes_with_timezone(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            tz_name = data.get("hotel_timezone") or "UTC"
+            if "check_in_date" in data and data["check_in_date"] is not None:
+                data["check_in_date"] = normalize_utc_datetime(data["check_in_date"], tz_name=tz_name)
+            if "lcd_date" in data and data["lcd_date"] is not None:
+                data["lcd_date"] = normalize_utc_datetime(data["lcd_date"], tz_name=tz_name)
+        return data
 
     @field_validator("check_in_date", "lcd_date", mode="before")
     @classmethod
@@ -118,4 +146,17 @@ class AgencySchema(BaseModel):
     name: str
     country_code: str
     tier: Optional[str] = "standard"
+
+class TicketResponseSchema(BaseModel):
+    id: str
+    tboh_id: str
+    agency_id: str
+    priority: str
+    status: str
+    assigned_to: Optional[str] = None
+    routing_reason: Optional[str] = None
+    intent: Optional[str] = None
+    hotel_timezone: Optional[str] = "UTC"
+    linked_tickets_count: Optional[int] = 0
+
 

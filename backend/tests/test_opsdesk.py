@@ -6,7 +6,7 @@ import uuid
 import threading
 import sqlite3
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -99,7 +99,7 @@ def test_routing_workload_tie_breaking():
 
 def test_routing_tier2_queue_score():
     """Tier 2 calculates higher score for urgent cases with near check-in."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     score_urgent_imminent = calculate_queue_score_tier2(
         priority="Urgent",
         check_in_date=now + timedelta(hours=1),
@@ -120,7 +120,7 @@ def test_routing_tier2_queue_score():
 
 def test_sla_stopped_on_closed_or_resolved():
     """Resolved and Closed tickets stop the SLA clock with Gray badge."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     past_date = now - timedelta(days=2)
     
     res_closed = evaluate_travel_sla(
@@ -146,7 +146,7 @@ def test_sla_stopped_on_closed_or_resolved():
 
 def test_sla_breached_when_past_checkin():
     """Active ticket with past check-in/LCD is BREACHED (Red)."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     past_date = now - timedelta(hours=1)
     
     res = evaluate_travel_sla(
@@ -162,7 +162,7 @@ def test_sla_breached_when_past_checkin():
 
 def test_sla_at_risk_amber():
     """Active ticket within warning window is AT_RISK (Amber)."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     near_date = now + timedelta(hours=1.5)
     
     res = evaluate_travel_sla(
@@ -178,7 +178,7 @@ def test_sla_at_risk_amber():
 
 def test_sla_priority_modifies_threshold():
     """5.0 hours remaining is AT_RISK for Urgent (threshold=6h), but NORMAL for Medium (threshold=2h)."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     date_5h = now + timedelta(hours=5.0)
     
     res_urgent = evaluate_travel_sla(
@@ -313,7 +313,7 @@ def test_seed_row_count(db_session: Session):
 
 def test_seed_zero_open_tickets_with_past_checkin(db_session: Session):
     """CRITICAL RULE: No active ticket (New, Open, Pending, Escalated) can have check-in in the past."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     active_statuses = ["New", "Open", "Pending", "Escalated"]
     past_active_count = db_session.query(Ticket).filter(
         Ticket.status.in_(active_statuses),
@@ -327,7 +327,7 @@ def test_seed_escalated_assigned_to_vikram(db_session: Session):
     assert len(escalated_tickets) == 40
     for t in escalated_tickets:
         assert t.assigned_to == "USR-103"
-        assert t.check_in_date > datetime.utcnow()
+        assert t.check_in_date > datetime.now(timezone.utc)
 
 def test_seed_non_escalated_assigned_pool(db_session: Session):
     """Verify standard assigned tickets are strictly assigned to Tier-1 desk agents USR-101 and USR-102."""
@@ -354,7 +354,7 @@ def test_seed_tboh_fixtures(db_session: Session):
     assert t1004 is not None
     assert t1004.priority == "Urgent"
     assert t1004.status == "Open"
-    assert t1004.check_in_date > datetime.utcnow()
+    assert t1004.check_in_date > datetime.now(timezone.utc)
     assert t1004.lcd_date is None
     assert "active cases" in t1004.routing_reason
 
@@ -371,7 +371,7 @@ def test_seed_tboh_fixtures(db_session: Session):
     assert t1006 is not None
     assert t1006.priority == "Urgent"
     assert t1006.status == "Open"
-    assert t1006.check_in_date > datetime.utcnow()
+    assert t1006.check_in_date > datetime.now(timezone.utc)
     assert t1006.lcd_date is None
     assert "active cases" in t1006.routing_reason
 
@@ -382,7 +382,7 @@ def test_seed_tboh_fixtures(db_session: Session):
     assert t1007.status == "New"
     assert t1007.lcd_date is None
     assert t1007.assigned_to is None
-    assert t1007.check_in_date > datetime.utcnow()
+    assert t1007.check_in_date > datetime.now(timezone.utc)
 
     # TCK-1008: Refund Request with 3h LCD and 5d check-in, linked to TCK-1001 via TBOH-89104
     t1008 = db_session.query(Ticket).filter(Ticket.id == "TCK-1008").first()
@@ -441,7 +441,7 @@ def test_requester_client_sent_agency_id_is_ignored(client: TestClient):
     Security check: Even if a requester sends agency_id='AGY-003' in the POST body,
     the server ignores it and assigns their authentic agency_id ('AGY-001').
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     payload = {
         "title": "Spoof Agency Attempt",
         "description": "Attempting to create ticket for AGY-003",
@@ -546,7 +546,7 @@ def test_ticket_transfer_to_same_agent_400(client: TestClient, db_session: Sessi
     Self-contained test: Attempting to transfer a ticket to the agent who is currently assigned
     returns 400 Bad Request. Does not depend on execution order or prior test mutations.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     test_ticket = Ticket(
         id="TCK-SELF-TRANSFER",
         tboh_id="TBOH-SELF-TEST",
@@ -767,7 +767,7 @@ def test_triage_queue_score_global_sorting(client: TestClient, db_session: Sessi
     assert min(p1_scores) >= max(p2_scores)
 
     # First ticket on page 1 must match the global maximum queue_score
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     agency_map = {a.id: a.tier for a in db_session.query(Agency.id, Agency.tier).all()}
     all_unassigned = db_session.query(Ticket).filter(
         Ticket.status.in_(["New", "Open", "Pending", "Escalated"]),
@@ -860,7 +860,7 @@ def test_requester_detail_linked_tickets_scoped_to_own_agency(client: TestClient
     Requesters viewing ticket details must only see linked tickets that belong to their own agency.
     Cross-agency links are visible to internal staff but withheld from Requesters.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     # Create ticket in AGY-001
     t1 = Ticket(
         id="TCK-CROSS-1",
@@ -912,7 +912,7 @@ def test_staff_create_ticket_without_agency_id_returns_400(client: TestClient):
     Internal staff creating a ticket without specifying agency_id receives 400 Bad Request.
     The previous default to 'AGY-001' has been strictly removed.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     payload = {
         "title": "Staff Missing Agency Ticket",
         "description": "Internal staff ticket creation attempt without specifying agency_id",
@@ -1017,7 +1017,7 @@ def test_endpoint_ticket_create_with_z_datetime_201(client: TestClient):
     """
     Verifies that POST /api/tickets with '...Z' datetime succeeds with HTTP 201 (not 500).
     """
-    now = datetime.utcnow().replace(microsecond=0)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
     checkin_dt = now + timedelta(days=5, hours=2)
     lcd_dt = now + timedelta(days=5)
 
@@ -1057,7 +1057,7 @@ def test_schema_validation_failures(client: TestClient):
     - Invalid message_type returns 422
     - Invalid status returns 422
     """
-    now = datetime.utcnow().replace(microsecond=0)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
     valid_base = {
         "title": "Valid Ticket Title",
         "description": "Valid ticket description for testing",
@@ -1124,7 +1124,7 @@ def test_seed_zero_open_refund_cancellation_tickets_with_past_lcd(db_session: Se
     Cancellation Inconvenience intents, lcd_date is in the future (> now) and <= check_in_date.
     There should be zero open Refund/Cancellation tickets seeded with a past LCD.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     cancellation_intents = ["Refund Request", "Cancellation Inconvenience"]
     open_tickets = db_session.query(Ticket).filter(
         Ticket.status.notin_(["Closed", "Resolved"]),
@@ -1206,7 +1206,7 @@ def test_api_emergency_checkin_ignores_imminent_lcd_sla(client: TestClient):
     distant check-in (48h), the API endpoint returns SLA evaluated strictly on check-in
     (NORMAL, ~48h remaining), proving intent is passed end-to-end to evaluate_travel_sla.
     """
-    now = datetime.utcnow().replace(microsecond=0)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
     checkin_dt = now + timedelta(hours=48)
     lcd_dt = now + timedelta(hours=1)
 
@@ -1531,8 +1531,8 @@ def test_export_csv_formula_injection_escaping(client: TestClient, db_session: S
         intent="Refund Request",
         priority="High",
         status="Open",
-        check_in_date=datetime.utcnow() + timedelta(days=2),
-        created_at=datetime.utcnow()
+        check_in_date=datetime.now(timezone.utc) + timedelta(days=2),
+        created_at=datetime.now(timezone.utc)
     )
     db_session.add(injection_ticket)
     db_session.commit()
@@ -1619,7 +1619,7 @@ def test_concurrent_ticket_assign_race_and_optimistic_control(client: TestClient
     When an unassigned ticket is claimed by agent A, competing claims or claims
     from agent B targeting the unassigned state receive 409 Conflict.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     t = Ticket(
         id="TCK-CONCUR-ASSIGN",
         tboh_id="TBOH-CONCUR-1",
@@ -1670,7 +1670,7 @@ def test_stale_write_optimistic_concurrency_409(client: TestClient, db_session: 
     """
     Step 3.2: Stale write rejection with 409 Conflict for status, transfer, and escalate.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     t = Ticket(
         id="TCK-STALE-VERSION",
         tboh_id="TBOH-STALE-1",
@@ -1733,7 +1733,7 @@ def test_idempotent_ticket_creation(client: TestClient, db_session: Session):
     Repeated requests with identical key return the original response
     without creating duplicate database rows.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     payload = {
         "agency_id": "AGY-001",
         "tboh_id": "TBOH-IDEM-001",
@@ -1945,7 +1945,7 @@ def test_idempotent_ticket_creation_payload_mismatch_409(client: TestClient, db_
     """
     Step B.5: Idempotency-Key reuse with different request payload returns HTTP 409 Conflict.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     idem_key = f"idem-key-conflict-{uuid.uuid4()}"
     payload_a = {
         "agency_id": "AGY-001",
