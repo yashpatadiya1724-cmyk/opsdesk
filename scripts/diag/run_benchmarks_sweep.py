@@ -14,21 +14,27 @@ from scripts.diag.run_diag_experiment import run_single_experiment
 CONCURRENCY_LEVELS = [10, 25, 50, 75, 100, 150]
 
 def format_row(level: int, res: Dict[str, Any]) -> str:
-    # res has: median_rps, min_rps, max_rps, median_p50, min_p50, max_p50, combined_statuses
-    # runs: list of 3 runs
-    runs = res.get("runs", [])
-    rps_runs = [f"{r['rps']:.1f}" for r in runs]
-    p50_runs = [f"{r['p50']:.1f}" for r in runs]
-    p95_runs = [f"{r['p95']:.1f}" for r in runs]
-    p99_runs = [f"{r['p99']:.1f}" for r in runs]
+    total_reqs = res.get("total_requests", 0)
+    count_2xx = res.get("combined_2xx", 0)
+    goodput_str = f"{res.get('median_goodput', 0.0):.1f} ({res.get('min_goodput', 0.0):.1f}-{res.get('max_goodput', 0.0):.1f})"
+    shed_str = f"{res.get('shed_rate_503', 0.0):.1f}%"
+    err_str = f"{res.get('error_rate_599', 0.0):.1f}%"
+    c429 = res.get("combined_statuses", {}).get(429, 0)
+    c409 = res.get("combined_statuses", {}).get(409, 0)
+    c429_409 = f"{c429}/{c409}"
+    
+    if res.get("has_2xx", False):
+        p50_2xx_str = f"{res['median_p50_2xx']:.1f} ({res['min_p50_2xx']:.1f}-{res['max_p50_2xx']:.1f})"
+        p95_2xx_str = f"{res['median_p95_2xx']:.1f} ({res['min_p95_2xx']:.1f}-{res['max_p95_2xx']:.1f})"
+        p99_2xx_str = f"{res['median_p99_2xx']:.1f} ({res['min_p99_2xx']:.1f}-{res['max_p99_2xx']:.1f})"
+    else:
+        p50_2xx_str = "N/A (0 2xx)"
+        p95_2xx_str = "N/A (0 2xx)"
+        p99_2xx_str = "N/A (0 2xx)"
 
-    statuses_str = json.dumps(res.get("combined_statuses", {}), sort_keys=True)
-    med_rps = f"{res['median_rps']:.1f} ({res['min_rps']:.1f}-{res['max_rps']:.1f})"
-    med_p50 = f"{res['median_p50']:.1f} ({res['min_p50']:.1f}-{res['max_p50']:.1f})"
-    med_p95 = f"{res['median_p95']:.1f} ({res['min_p95']:.1f}-{res['max_p95']:.1f})"
-    med_p99 = f"{res['median_p99']:.1f} ({res['min_p99']:.1f}-{res['max_p99']:.1f})"
+    p50_all_str = f"{res.get('median_p50_all', 0.0):.1f} ({res.get('min_p50_all', 0.0):.1f}-{res.get('max_p50_all', 0.0):.1f})"
 
-    return f"| {level:<7} | {med_rps:<17} | {med_p50:<25} | {med_p95:<25} | {med_p99:<25} | {statuses_str:<30} |"
+    return f"| {level:<7} | {total_reqs:<10} | {count_2xx:<9} | {goodput_str:<17} | {shed_str:<9} | {err_str:<8} | {c429_409:<7} | {p50_2xx_str:<23} | {p95_2xx_str:<23} | {p99_2xx_str:<23} | {p50_all_str:<27} |"
 
 def run_sweep(
     label: str,
@@ -39,10 +45,10 @@ def run_sweep(
     port: int = 8142,
     output_path: str = None
 ):
-    header = """=======================================================================================================================================
-Clients | Throughput RPS    | p50 (ms)                  | p95 (ms)                  | p99 (ms)                  | Statuses                      
----------------------------------------------------------------------------------------------------------------------------------------"""
-    footer = """======================================================================================================================================="""
+    header = """=================================================================================================================================================================================================================
+Clients | Total Reqs | 2xx Count | Goodput (2xx/s)   | Shed 503% | Err 599% | 429/409 | 2xx p50 (ms)            | 2xx p95 (ms)            | 2xx p99 (ms)            | All p50 (incl. fast 503s)   
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"""
+    footer = """================================================================================================================================================================================================================="""
 
     report_lines = []
     report_lines.append(f"# Benchmark Run: {label}")

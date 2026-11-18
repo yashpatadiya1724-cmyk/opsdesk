@@ -37,7 +37,8 @@ async def run_closed_loop_clients(
     duration_sec: int,
     think_time_ms: int = 0
 ) -> Dict[str, Any]:
-    latencies: List[float] = []
+    latencies_all: List[float] = []
+    latencies_2xx: List[float] = []
     statuses: Dict[int, int] = {}
     locked_count = 0
 
@@ -113,7 +114,9 @@ async def run_closed_loop_clients(
                     status_code = 599
 
                 elapsed_ms = (time.perf_counter() - t_req0) * 1000.0
-                latencies.append(elapsed_ms)
+                latencies_all.append(elapsed_ms)
+                if 200 <= status_code < 300:
+                    latencies_2xx.append(elapsed_ms)
                 statuses[status_code] = statuses.get(status_code, 0) + 1
 
                 if think_time_ms > 0:
@@ -123,17 +126,34 @@ async def run_closed_loop_clients(
     await asyncio.gather(*tasks)
 
     actual_duration = time.time() - start_time
-    total_reqs = len(latencies)
+    total_reqs = len(latencies_all)
+    count_2xx = len(latencies_2xx)
     rps = total_reqs / actual_duration if actual_duration > 0 else 0.0
+    goodput_2xx = count_2xx / actual_duration if actual_duration > 0 else 0.0
+    count_503 = statuses.get(503, 0)
+    count_599 = statuses.get(599, 0)
+    count_429 = statuses.get(429, 0)
+    count_409 = statuses.get(409, 0)
+    shed_rate_503 = (count_503 / total_reqs * 100.0) if total_reqs > 0 else 0.0
+    error_rate_599 = (count_599 / total_reqs * 100.0) if total_reqs > 0 else 0.0
 
     return {
         "t0_wall": t0_wall,
         "rps": rps,
-        "p50": percentile(latencies, 50.0),
-        "p95": percentile(latencies, 95.0),
-        "p99": percentile(latencies, 99.0),
-        "statuses": statuses,
         "total_requests": total_reqs,
+        "count_2xx": count_2xx,
+        "goodput_2xx": goodput_2xx,
+        "count_503": count_503,
+        "count_599": count_599,
+        "count_429": count_429,
+        "count_409": count_409,
+        "shed_rate_503": shed_rate_503,
+        "error_rate_599": error_rate_599,
+        "p50_2xx": percentile(latencies_2xx, 50.0) if latencies_2xx else 0.0,
+        "p95_2xx": percentile(latencies_2xx, 95.0) if latencies_2xx else 0.0,
+        "p99_2xx": percentile(latencies_2xx, 99.0) if latencies_2xx else 0.0,
+        "p50_all": percentile(latencies_all, 50.0) if latencies_all else 0.0,
+        "statuses": statuses,
         "locked_errors": locked_count,
         "duration_sec": actual_duration
     }
@@ -258,15 +278,26 @@ def run_single_experiment(
 
     # Aggregate results
     rps_list = [r["rps"] for r in runs_data]
-    p50_list = [r["p50"] for r in runs_data]
-    p95_list = [r["p95"] for r in runs_data]
-    p99_list = [r["p99"] for r in runs_data]
+    goodput_list = [r["goodput_2xx"] for r in runs_data]
+    p50_2xx_list = [r["p50_2xx"] for r in runs_data if r["count_2xx"] > 0]
+    p95_2xx_list = [r["p95_2xx"] for r in runs_data if r["count_2xx"] > 0]
+    p99_2xx_list = [r["p99_2xx"] for r in runs_data if r["count_2xx"] > 0]
+    p50_all_list = [r["p50_all"] for r in runs_data]
 
+    total_requests_sum = sum(r["total_requests"] for r in runs_data)
+    combined_2xx = sum(r["count_2xx"] for r in runs_data)
     combined_statuses: Dict[int, int] = {}
     total_locked = sum(r["locked_errors"] for r in runs_data)
     for r in runs_data:
         for code, count in r["statuses"].items():
             combined_statuses[code] = combined_statuses.get(code, 0) + count
+
+    count_503 = combined_statuses.get(503, 0)
+    count_599 = combined_statuses.get(599, 0)
+    count_429 = combined_statuses.get(429, 0)
+    count_409 = combined_statuses.get(409, 0)
+    shed_rate_503 = (count_503 / total_requests_sum * 100.0) if total_requests_sum > 0 else 0.0
+    error_rate_599 = (count_599 / total_requests_sum * 100.0) if total_requests_sum > 0 else 0.0
 
     # Read pool status log if present
     pool_log_content = ""
@@ -294,18 +325,33 @@ def run_single_experiment(
         "duration": duration,
         "repeats": repeats,
         "think_time_ms": think_time_ms,
+        "total_requests": total_requests_sum,
+        "combined_2xx": combined_2xx,
+        "count_503": count_503,
+        "count_599": count_599,
+        "count_429": count_429,
+        "count_409": count_409,
+        "shed_rate_503": shed_rate_503,
+        "error_rate_599": error_rate_599,
+        "has_2xx": len(p50_2xx_list) > 0,
+        "median_goodput": statistics.median(goodput_list) if goodput_list else 0.0,
+        "min_goodput": min(goodput_list) if goodput_list else 0.0,
+        "max_goodput": max(goodput_list) if goodput_list else 0.0,
         "median_rps": statistics.median(rps_list) if rps_list else 0.0,
         "min_rps": min(rps_list) if rps_list else 0.0,
         "max_rps": max(rps_list) if rps_list else 0.0,
-        "median_p50": statistics.median(p50_list) if p50_list else 0.0,
-        "min_p50": min(p50_list) if p50_list else 0.0,
-        "max_p50": max(p50_list) if p50_list else 0.0,
-        "median_p95": statistics.median(p95_list) if p95_list else 0.0,
-        "min_p95": min(p95_list) if p95_list else 0.0,
-        "max_p95": max(p95_list) if p95_list else 0.0,
-        "median_p99": statistics.median(p99_list) if p99_list else 0.0,
-        "min_p99": min(p99_list) if p99_list else 0.0,
-        "max_p99": max(p99_list) if p99_list else 0.0,
+        "median_p50_2xx": statistics.median(p50_2xx_list) if p50_2xx_list else 0.0,
+        "min_p50_2xx": min(p50_2xx_list) if p50_2xx_list else 0.0,
+        "max_p50_2xx": max(p50_2xx_list) if p50_2xx_list else 0.0,
+        "median_p95_2xx": statistics.median(p95_2xx_list) if p95_2xx_list else 0.0,
+        "min_p95_2xx": min(p95_2xx_list) if p95_2xx_list else 0.0,
+        "max_p95_2xx": max(p95_2xx_list) if p95_2xx_list else 0.0,
+        "median_p99_2xx": statistics.median(p99_2xx_list) if p99_2xx_list else 0.0,
+        "min_p99_2xx": min(p99_2xx_list) if p99_2xx_list else 0.0,
+        "max_p99_2xx": max(p99_2xx_list) if p99_2xx_list else 0.0,
+        "median_p50_all": statistics.median(p50_all_list) if p50_all_list else 0.0,
+        "min_p50_all": min(p50_all_list) if p50_all_list else 0.0,
+        "max_p50_all": max(p50_all_list) if p50_all_list else 0.0,
         "combined_statuses": combined_statuses,
         "total_locked": total_locked,
         "runs": runs_data,
