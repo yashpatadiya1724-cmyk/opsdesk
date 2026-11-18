@@ -1,0 +1,36 @@
+﻿===================================================================================================================================================
+FAIR RE-MEASUREMENT SWEEP ACROSS 4 CONFIGURATIONS
+Levels: [10, 25, 50, 100], Duration: 10s x 2 repeats, Limiter: OFF (RATE_LIMIT_PER_MINUTE=1000000)
+===================================================================================================================================================
+[Config (i) HEAD (B3 Tuple + B4 SWR Cache ON) Var-a C=10] 10       | 4223    | 4012    | 200.6 (189.7-211.5) |   0.0%     |   0.0%    |     28.9 ms      |    158.5 ms      |     28.5 ms
+[Config (i) HEAD (B3 Tuple + B4 SWR Cache ON) Var-a C=25] 25       | 3444    | 3271    | 161.5 (161.3-161.7) |   0.0%     |   0.0%    |    113.9 ms      |    394.3 ms      |    102.5 ms
+[Config (i) HEAD (B3 Tuple + B4 SWR Cache ON) Var-a C=50] 50       | 2856    | 2709    | 132.5 (131.5-133.6) |   0.0%     |   0.0%    |    361.6 ms      |    657.1 ms      |    351.3 ms
+[Config (i) HEAD (B3 Tuple + B4 SWR Cache ON) Var-a C=100] 100      | 1766    | 1599    | 76.2 (75.9-76.5)   |   4.5%     |   0.0%    |    642.1 ms      |   5302.8 ms      |    644.2 ms
+[Config (i) HEAD (B3 Tuple + B4 SWR Cache ON) Var-b C=10] 10       | 783     | 739     | 34.1 (33.3-35.0)   |   0.0%     |   0.0%    |     23.2 ms      |   1463.9 ms      |     22.5 ms
+[Config (i) HEAD (B3 Tuple + B4 SWR Cache ON) Var-b C=25] 25       | 432     | 411     | 16.1 (13.7-18.6)   |   0.0%     |   0.0%    |    635.6 ms      |   4396.6 ms      |    614.7 ms
+[Config (i) HEAD (B3 Tuple + B4 SWR Cache ON) Var-b C=50] 50       | 391     | 355     | 11.0 (8.3-13.7)    |   0.0%     |   4.6%    |   3105.2 ms      |   9630.6 ms      |   3179.7 ms
+[Config (i) HEAD (B3 Tuple + B4 SWR Cache ON) Var-b C=100] 100      | 479     | 374     | 9.7 (6.8-12.7)     |  17.5%     |   0.2%    |   7346.7 ms      |  12929.8 ms      |   6941.4 ms
+[Config (ii) HEAD with B3 Reverted (Full ORM Hydration + SWR) Var-a C=10] 10       | 3693    | 3507    | 175.2 (173.4-177.0) |   0.0%     |   0.0%    |     39.1 ms      |    149.6 ms      |     38.1 ms
+[Config (ii) HEAD with B3 Reverted (Full ORM Hydration + SWR) Var-a C=25] 25       | 3032    | 2881    | 141.7 (139.5-143.9) |   0.0%     |   0.0%    |    163.9 ms      |    355.8 ms      |    157.9 ms
+[Config (ii) HEAD with B3 Reverted (Full ORM Hydration + SWR) Var-a C=50] 50       | 2657    | 2512    | 121.0 (116.8-125.3) |   0.0%     |   0.0%    |    350.8 ms      |    709.5 ms      |    343.3 ms
+[Config (ii) HEAD with B3 Reverted (Full ORM Hydration + SWR) Var-a C=100] 100      | 1878    | 1696    | 81.1 (78.1-84.2)   |   4.3%     |   0.0%    |    571.3 ms      |   5301.2 ms      |    575.3 ms
+[Config (ii) HEAD with B3 Reverted (Full ORM Hydration + SWR) Var-b C=10] 10       | 349     | 333     | 14.3 (14.2-14.4)   |   0.0%     |   0.0%    |     39.5 ms      |   2835.4 ms      |     39.2 ms
+[Config (ii) HEAD with B3 Reverted (Full ORM Hydration + SWR) Var-b C=25] 25       | 261     | 244     | 8.4 (8.4-8.5)      |   0.0%     |   0.8%    |    805.7 ms      |   7786.3 ms      |    474.2 ms
+[Config (ii) HEAD with B3 Reverted (Full ORM Hydration + SWR) Var-b C=50] 50       | 234     | 167     | 4.3 (3.0-5.6)      |   0.0%     |  23.5%    |   6603.9 ms      |  14061.8 ms      |   6253.7 ms
+[Config (ii) HEAD with B3 Reverted (Full ORM Hydration + SWR) Var-b C=100] 100      | 314     | 184     | 3.2 (3.1-3.3)      |  28.7%     |   8.6%    |  16352.0 ms      |  23016.5 ms      |  14277.9 ms
+[Config (iii) HEAD with TRIAGE_CACHE_ENABLED=0 Var-a C=10] 10       | 2683    | 2553    | 127.3 (124.9-129.8) |   0.0%     |   0.0%    |     84.5 ms      |    149.3 ms      |     82.3 ms
+[Config (iii) HEAD with TRIAGE_CACHE_ENABLED=0 Var-a C=25] 25       | 2417    | 2297    | 113.0 (110.0-116.0) |   0.0%     |   0.0%    |    232.5 ms      |    394.4 ms      |    226.8 ms
+[Config (iii) HEAD with TRIAGE_CACHE_ENABLED=0 Var-a C=50] 50       | 2355    | 2235    | 109.1 (108.5-109.7) |   0.0%     |   0.0%    |    448.8 ms      |    714.5 ms      |    440.1 ms
+[Config (iii) HEAD with TRIAGE_CACHE_ENABLED=0 Var-a C=100] 100      | 1527    | 1367    | 64.3 (63.8-64.7)   |   5.2%     |   0.0%    |    779.8 ms      |   5474.1 ms      |    782.2 ms
+[Config (iii) HEAD with TRIAGE_CACHE_ENABLED=0 Var-b C=10] 10       | 165     | 156     | 7.2 (6.7-7.7)      |   0.0%     |   0.0%    |   1546.2 ms      |   2558.2 ms      |   1480.5 ms
+[Config (iii) HEAD with TRIAGE_CACHE_ENABLED=0 Var-b C=25] 25       | 186     | 175     | 6.7 (6.5-6.9)      |   0.0%     |   0.0%    |   3849.4 ms      |   6412.1 ms      |   3781.2 ms
+[Config (iii) HEAD with TRIAGE_CACHE_ENABLED=0 Var-b C=50] 50       | 140     | 91      | 3.1 (3.0-3.2)      |   0.0%     |  31.4%    |  11506.0 ms      |  14418.2 ms      |  12733.5 ms
+[Config (iii) HEAD with TRIAGE_CACHE_ENABLED=0 Var-b C=100] 100      | 313     | 220     | 5.8 (5.3-6.3)      |  25.6%     |   0.3%    |  12036.1 ms      |  13721.8 ms      |  11815.1 ms
+[Config (iv) HEAD with B4 Reverted (Pure B3 Tuple Projection, No SWR) Var-a C=10] 10       | 3035    | 2892    | 144.2 (142.8-145.5) |   0.0%     |   0.0%    |     73.5 ms      |    129.2 ms      |     72.1 ms
+[Config (iv) HEAD with B4 Reverted (Pure B3 Tuple Projection, No SWR) Var-a C=25] 25       | 2704    | 2575    | 127.5 (125.8-129.2) |   0.0%     |   0.0%    |    206.2 ms      |    354.1 ms      |    201.6 ms
+[Config (iv) HEAD with B4 Reverted (Pure B3 Tuple Projection, No SWR) Var-a C=50] 50       | 2470    | 2350    | 114.2 (113.1-115.3) |   0.0%     |   0.0%    |    421.0 ms      |    688.7 ms      |    412.6 ms
+[Config (iv) HEAD with B4 Reverted (Pure B3 Tuple Projection, No SWR) Var-a C=100] 100      | 1425    | 1270    | 60.2 (58.4-62.1)   |   5.6%     |   0.0%    |    849.3 ms      |   5466.4 ms      |    854.3 ms
+[Config (iv) HEAD with B4 Reverted (Pure B3 Tuple Projection, No SWR) Var-b C=10] 10       | 197     | 185     | 8.8 (8.3-9.3)      |   0.0%     |   0.0%    |   1281.7 ms      |   1790.3 ms      |   1245.5 ms
+[Config (iv) HEAD with B4 Reverted (Pure B3 Tuple Projection, No SWR) Var-b C=25] 25       | 188     | 177     | 7.7 (7.1-8.4)      |   0.0%     |   0.0%    |   3324.0 ms      |   5606.1 ms      |   3300.9 ms
+[Config (iv) HEAD with B4 Reverted (Pure B3 Tuple Projection, No SWR) Var-b C=50] 50       | 196     | 155     | 5.0 (2.0-8.1)      |   0.0%     |  14.8%    |   9432.1 ms      |  11785.1 ms      |   9369.2 ms
+[Config (iv) HEAD with B4 Reverted (Pure B3 Tuple Projection, No SWR) Var-b C=100] 100      | 312     | 216     | 5.7 (5.0-6.4)      |  25.6%     |   0.0%    |  12088.7 ms      |  13921.0 ms      |  10137.7 ms

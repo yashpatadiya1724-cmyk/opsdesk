@@ -98,6 +98,12 @@ class BenchmarkRunner:
         """Scenario 2: Concurrent ticket creations, claims/assignments, and queue triage reads."""
         latencies_all: List[float] = []
         latencies_2xx: List[float] = []
+        op_lats_2xx: Dict[str, List[float]] = {
+            "triage": [],
+            "detail": [],
+            "create": [],
+            "assign": []
+        }
         statuses: Dict[int, int] = {}
         locked_errors = 0
         sem = asyncio.Semaphore(concurrency)
@@ -132,6 +138,7 @@ class BenchmarkRunner:
                         latencies_all.append(elapsed)
                         if 200 <= st < 300:
                             latencies_2xx.append(elapsed)
+                            op_lats_2xx["create"].append(elapsed)
                         statuses[st] = statuses.get(st, 0) + 1
 
                         if create_resp.status_code in (200, 201):
@@ -157,6 +164,7 @@ class BenchmarkRunner:
                             latencies_all.append(elapsed1)
                             if 200 <= ast < 300:
                                 latencies_2xx.append(elapsed1)
+                                op_lats_2xx["assign"].append(elapsed1)
                             statuses[ast] = statuses.get(ast, 0) + 1
                         except Exception as e:
                             elapsed1 = (time.perf_counter() - t1) * 1000.0
@@ -165,6 +173,7 @@ class BenchmarkRunner:
                             if "locked" in str(e).lower():
                                 locked_errors += 1
 
+                    # Triage read
                     t2 = time.perf_counter()
                     try:
                         triage_resp = await client.get("/api/tickets?view=triage", headers={"X-User-Id": "USR-101"})
@@ -173,10 +182,30 @@ class BenchmarkRunner:
                         latencies_all.append(elapsed2)
                         if 200 <= tst < 300:
                             latencies_2xx.append(elapsed2)
+                            op_lats_2xx["triage"].append(elapsed2)
                         statuses[tst] = statuses.get(tst, 0) + 1
                     except Exception as e:
                         elapsed2 = (time.perf_counter() - t2) * 1000.0
                         latencies_all.append(elapsed2)
+                        statuses[599] = statuses.get(599, 0) + 1
+                        if "locked" in str(e).lower():
+                            locked_errors += 1
+
+                    # Detail read
+                    t3 = time.perf_counter()
+                    try:
+                        det_id = ticket_id or "TCK-1001"
+                        detail_resp = await client.get(f"/api/tickets/{det_id}", headers={"X-User-Id": "USR-101"})
+                        elapsed3 = (time.perf_counter() - t3) * 1000.0
+                        dst = detail_resp.status_code
+                        latencies_all.append(elapsed3)
+                        if 200 <= dst < 300:
+                            latencies_2xx.append(elapsed3)
+                            op_lats_2xx["detail"].append(elapsed3)
+                        statuses[dst] = statuses.get(dst, 0) + 1
+                    except Exception as e:
+                        elapsed3 = (time.perf_counter() - t3) * 1000.0
+                        latencies_all.append(elapsed3)
                         statuses[599] = statuses.get(599, 0) + 1
                         if "locked" in str(e).lower():
                             locked_errors += 1
@@ -192,6 +221,7 @@ class BenchmarkRunner:
             "statuses": statuses,
             "latencies_all": latencies_all,
             "latencies_2xx": latencies_2xx,
+            "op_lats_2xx": op_lats_2xx,
             "locked_errors": locked_errors
         }
 
@@ -362,6 +392,19 @@ def compute_repeated_scenario_metrics(runs: List[Dict[str, Any]]) -> Dict[str, A
     shed_rate_503_pct = (count_503 / total_requests * 100.0) if total_requests > 0 else 0.0
     error_rate_599_pct = (count_599 / total_requests * 100.0) if total_requests > 0 else 0.0
 
+    # Per-operation 2xx latencies (triage, detail, create, assign)
+    op_metrics = {}
+    for op in ["triage", "detail", "create", "assign"]:
+        op_lats = [lat for r in runs if "op_lats_2xx" in r for lat in r["op_lats_2xx"].get(op, [])]
+        if op_lats:
+            op_metrics[op] = {
+                "p50": percentile(op_lats, 50),
+                "p95": percentile(op_lats, 95),
+                "count": len(op_lats)
+            }
+        else:
+            op_metrics[op] = {"p50": 0.0, "p95": 0.0, "count": 0}
+
     return {
         "runs_count": len(runs),
         "total_requests": total_requests,
@@ -381,7 +424,8 @@ def compute_repeated_scenario_metrics(runs: List[Dict[str, Any]]) -> Dict[str, A
         "min_lat": min(all_lats) if all_lats else 0.0,
         "max_lat": max(all_lats) if all_lats else 0.0,
         "statuses": combined_statuses,
-        "total_locked_errors": total_locked
+        "total_locked_errors": total_locked,
+        "op_metrics": op_metrics
     }
 
 
@@ -459,6 +503,19 @@ async def main():
         p50_all = f"{m['median_p50_all']:.1f} ms"
         print(f"{s_name:<40} | {m['total_requests']:<6} | {m['count_2xx']:<6} | {gp_str:<12} | {shed_str:<9} | {err_str:<8} | {c_str:<7} | {p50_2xx:<16} | {p95_2xx:<16} | {p99_2xx:<16} | {p50_all:<16}")
     print("=" * 160)
+
+    # Per-Operation breakdown for Mixed Scenario (triage, detail, create, assign)
+    op_m = m2.get("op_metrics", {})
+    if any(v.get("count", 0) > 0 for v in op_m.values()):
+        print("\n" + "=" * 130)
+        print("SCENARIO 2 PER-OPERATION BREAKDOWN (2xx p50 / p95 / count)")
+        print("=" * 130)
+        print(f"{'Operation':<20} | {'2xx Count':<10} | {'2xx p50 (ms)':<20} | {'2xx p95 (ms)':<20}")
+        print("-" * 130)
+        for op in ["triage", "detail", "create", "assign"]:
+            info = op_m.get(op, {"p50": 0.0, "p95": 0.0, "count": 0})
+            print(f"{op.capitalize():<20} | {info['count']:<10} | {info['p50']:<20.2f} | {info['p95']:<20.2f}")
+        print("=" * 130)
 
     # Detailed status prints
     for s_name, m in scenarios:
