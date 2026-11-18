@@ -1,7 +1,7 @@
 import os
 import sys
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Ensure repo root is on sys.path when script is invoked directly
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -93,7 +93,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
     db.add_all(users)
     db.commit()
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     print("Seeding Journey fixtures (TCK-1001, TCK-1002, TCK-1004, TCK-1005, TCK-1006, TCK-1007, TCK-1008)...")
     

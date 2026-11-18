@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -40,7 +40,7 @@ def test_emergency_bypass_triggers_at_3_9h(client: TestClient, db_session: Sessi
     3. routing_reason reflects Tier-1 Emergency Bypass with effective deadline
     4. AuditLog / TicketActivity / internal note is recorded
     """
-    now = datetime.utcnow().replace(microsecond=0)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
     checkin_3_9h = now + timedelta(hours=3, minutes=54)  # exactly 3.9 hours
 
     payload = {
@@ -94,7 +94,7 @@ def test_emergency_bypass_triggers_via_lcd_date_at_3_9h(client: TestClient):
     an imminent LCD date at 3.9h also triggers Tier-1 Emergency Bypass
     even if check_in_date is days away.
     """
-    now = datetime.utcnow().replace(microsecond=0)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
     checkin_far = now + timedelta(days=10)
     lcd_3_9h = now + timedelta(hours=3, minutes=54)
 
@@ -126,7 +126,7 @@ def test_emergency_bypass_does_not_trigger_at_4_1h(client: TestClient):
     2. status remains normal ('Open' or 'New', NOT 'Escalated')
     3. routing_reason does not contain 'Tier-1 Emergency Bypass'
     """
-    now = datetime.utcnow().replace(microsecond=0)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
     checkin_4_1h = now + timedelta(hours=4, minutes=6)  # exactly 4.1 hours
 
     payload = {
@@ -218,7 +218,7 @@ def test_tier_score_multiplier_in_api(client: TestClient):
     Verifies that identical tickets created across platinum, gold, and standard agencies
     yield queue scores where platinum > gold > standard via the API endpoints.
     """
-    now = datetime.utcnow().replace(microsecond=0)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
     check_in_future = now + timedelta(hours=18)
 
     # AGY-001 is platinum (1.3x)

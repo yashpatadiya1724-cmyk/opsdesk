@@ -1,6 +1,6 @@
 import uuid
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from backend.app.models import EventOutbox, AuditLog
 
@@ -23,7 +23,7 @@ def emit_outbox_event(
         agency_id=agency_id,
         visibility=visibility,
         payload_json=json.dumps(payload, default=str),
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc)
     )
     db.add(event)
     return event
@@ -44,7 +44,7 @@ def record_audit_log(
         actor_id=actor_id,
         action=action,
         details=json.dumps(details, default=str),
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc)
     )
     db.add(audit)
     return audit

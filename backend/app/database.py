@@ -58,6 +58,9 @@ def ensure_schema_migrations(engine_obj):
                 if cols and "version" not in cols:
                     conn.execute(text("ALTER TABLE tickets ADD COLUMN version INTEGER DEFAULT 1 NOT NULL"))
                     conn.commit()
+                if cols and "hotel_timezone" not in cols:
+                    conn.execute(text("ALTER TABLE tickets ADD COLUMN hotel_timezone VARCHAR(64) DEFAULT 'UTC'"))
+                    conn.commit()
 
                 res_agencies = conn.execute(text("PRAGMA table_info(agencies)")).fetchall()
                 cols_agencies = [r[1] for r in res_agencies]

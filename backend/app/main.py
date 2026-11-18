@@ -3,7 +3,7 @@ import csv
 import io
 import json
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, Depends, HTTPException, Query, Header, Request, Response, status
 from fastapi.responses import StreamingResponse
@@ -20,7 +20,7 @@ from backend.app.schemas import (
     TicketCreateSchema, TicketAssignSchema, TicketStatusUpdateSchema,
     TicketEscalateSchema, TicketTransferSchema, TicketLinkSuggestionSchema, MessageCreateSchema,
     SideThreadCreateSchema, SideThreadMessageCreateSchema,
-    IntentSuggestRequestSchema, IntentSuggestResponseSchema
+    IntentSuggestRequestSchema, IntentSuggestResponseSchema, to_utc_aware
 )
 from backend.app.auth import get_current_user
 from backend.app.events import emit_outbox_event, record_audit_log
@@ -93,7 +93,7 @@ def purge_expired_idempotency_records(db: Session) -> int:
     """
     Assumption: Purges in-database idempotency records older than IDEMPOTENCY_TTL_HOURS (default 24).
     """
-    cutoff = datetime.utcnow() - timedelta(hours=IDEMPOTENCY_TTL_HOURS)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=IDEMPOTENCY_TTL_HOURS)
     deleted = db.query(IdempotencyRecord).filter(IdempotencyRecord.created_at < cutoff).delete(synchronize_session=False)
     db.commit()
     return deleted
@@ -315,7 +315,7 @@ def list_tickets(
                     Ticket.assigned_to.is_(None)
                 )
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     agency_map = {a[0]: a[1] for a in db.query(Agency.id, Agency.tier).all()}
 
     # Note: At demo scale (5,000 records), computing SLA and queue_score across filtered candidate tickets in Python
@@ -361,6 +361,7 @@ def list_tickets(
                 "intent": t.intent,
                 "priority": t.priority,
                 "status": t.status,
+                "hotel_timezone": t.hotel_timezone or "UTC",
                 "check_in_date": t.check_in_date.isoformat(),
                 "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
                 "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
@@ -403,6 +404,7 @@ def list_tickets(
                 "intent": t.intent,
                 "priority": t.priority,
                 "status": t.status,
+                "hotel_timezone": t.hotel_timezone or "UTC",
                 "check_in_date": t.check_in_date.isoformat(),
                 "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
                 "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
@@ -436,10 +438,11 @@ def create_ticket(
     current_payload_hash = hashlib.sha256(payload.model_dump_json().encode("utf-8")).hexdigest()
     if idempotency_key:
         record_id = f"{current_user.id}:{idempotency_key}"
-        cutoff = datetime.utcnow() - timedelta(hours=IDEMPOTENCY_TTL_HOURS)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=IDEMPOTENCY_TTL_HOURS)
         existing_record = db.query(IdempotencyRecord).filter(IdempotencyRecord.id == record_id).first()
         if existing_record:
-            if existing_record.created_at and existing_record.created_at < cutoff:
+            rec_created = to_utc_aware(existing_record.created_at)
+            if rec_created and rec_created < cutoff:
                 db.delete(existing_record)
                 db.commit()
                 existing_record = None
@@ -494,7 +497,7 @@ def create_ticket(
     )
 
     ticket_id = f"TCK-{uuid.uuid4().hex[:8].upper()}"
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Calculate effective deadline hours for Tier-1 Emergency Bypass check
     deadline_hours = effective_deadline_hours(
@@ -529,6 +532,7 @@ def create_ticket(
         status=ticket_status,
         check_in_date=payload.check_in_date,
         lcd_date=payload.lcd_date,
+        hotel_timezone=payload.hotel_timezone or "UTC",
         assigned_to=assigned_agent_id,
         routing_reason=routing_reason,
         created_at=now,
@@ -610,6 +614,7 @@ def create_ticket(
         "assigned_to": new_ticket.assigned_to,
         "routing_reason": new_ticket.routing_reason,
         "intent": new_ticket.intent,
+        "hotel_timezone": new_ticket.hotel_timezone or "UTC",
         "linked_tickets_count": len(prior_tickets)
     }
 
@@ -694,7 +699,7 @@ def get_ticket_details(
         else:
             linked_tickets.append(other_id)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     sla = evaluate_travel_sla(
         status=ticket.status,
         check_in_date=ticket.check_in_date,
@@ -727,6 +732,7 @@ def get_ticket_details(
         "intent": ticket.intent,
         "priority": ticket.priority,
         "status": ticket.status,
+        "hotel_timezone": ticket.hotel_timezone or "UTC",
         "check_in_date": ticket.check_in_date.isoformat(),
         "lcd_date": ticket.lcd_date.isoformat() if ticket.lcd_date else None,
         "assigned_to": ticket.assigned_to if current_user.role != "Requester" else None,
@@ -779,7 +785,7 @@ def assign_ticket(
         filter_conditions.append(Ticket.assigned_to == old_agent)
 
     new_status = "Open" if ticket.status == "New" else ticket.status
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     rowcount = db.query(Ticket).filter(*filter_conditions).update(
         {
             Ticket.assigned_to: payload.agent_id,
@@ -841,7 +847,7 @@ def unassign_ticket(
             Ticket.assigned_to: None,
             Ticket.status: "Open" if ticket.status in ["New", "Open"] else ticket.status,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.utcnow()
+            Ticket.updated_at: datetime.now(timezone.utc)
         },
         synchronize_session=False
     )
@@ -917,7 +923,7 @@ def update_ticket_status(
         {
             Ticket.status: payload.status,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.utcnow()
+            Ticket.updated_at: datetime.now(timezone.utc)
         },
         synchronize_session=False
     )
@@ -996,7 +1002,7 @@ def escalate_ticket(
             Ticket.assigned_to: DEFAULT_ESCALATION_MANAGER_ID,
             Ticket.routing_reason: routing_reason,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.utcnow()
+            Ticket.updated_at: datetime.now(timezone.utc)
         },
         synchronize_session=False
     )
@@ -1083,7 +1089,7 @@ def transfer_ticket(
             Ticket.assigned_to: payload.target_agent_id,
             Ticket.routing_reason: routing_reason,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.utcnow()
+            Ticket.updated_at: datetime.now(timezone.utc)
         },
         synchronize_session=False
     )
@@ -1162,7 +1168,7 @@ def post_ticket_message(
         raise HTTPException(status_code=400, detail="Invalid message_type; must be PublicReply or InternalNote")
 
     msg_id = f"MSG-{uuid.uuid4().hex[:8].upper()}"
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     msg = TicketMessage(
         id=msg_id,
@@ -1258,7 +1264,7 @@ def create_side_thread(
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     sc_id = f"SC-{uuid.uuid4().hex[:8].upper()}"
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     side_convo = SideConversation(
         id=sc_id,
@@ -1337,7 +1343,7 @@ def post_side_thread_message(
         raise HTTPException(status_code=404, detail="Side conversation thread not found")
 
     msg_id = f"SCM-{uuid.uuid4().hex[:8].upper()}"
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     msg = SideConversationMessage(
         id=msg_id,
@@ -1396,7 +1402,7 @@ def link_suggested_bug(
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     ticket.suggested_bug_link = payload.bug_link
-    ticket.updated_at = datetime.utcnow()
+    ticket.updated_at = datetime.now(timezone.utc)
 
     record_audit_log(
         db=db,
@@ -1432,7 +1438,7 @@ def get_top_themes(
     if current_user.role not in ["Lead", "EscalationManager"]:
         raise HTTPException(status_code=403, detail="Forbidden: Insights view requires Lead or EscalationManager role")
 
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     # Query counts grouped by theme for tickets created within time window
     theme_counts = db.query(
