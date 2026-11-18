@@ -3,29 +3,31 @@ import re
 from typing import Dict, List, Any
 
 # Classification rules based on top-of-stack / frame contents
-# 1. pool checkout wait: sqlalchemy pool _do_get or checkout or queue.get
-# 2. lock wait: Lock.acquire, threading.py acquire
-# 3. sqlite call: sqlite3.Cursor.execute, pysqlite_cursor_execute
-# 4. scoring/Python compute: calculate_queue_score_tier2, evaluate_travel_sla, list_tickets
-# 5. serialization: json.dumps, starlette.responses.Response.render
-# 6. anyio idle worker: anyio._backends._asyncio or worker thread waiting on queue
-# 7. other/unclassified
+# 4 standardized categories:
+# 1. sqlite do_execute/commit
+# 2. lock acquire
+# 3. event-loop/response wait
+# 4. other
 
 def classify_thread(lines: List[str]) -> str:
-    text = "\n".join(lines)
-    if "sqlalchemy" in text and ("_do_get" in text or "checkout" in text or "QueuePool" in text):
-        return "pool checkout wait"
-    if "threading.py" in text and "acquire" in text:
-        return "lock wait"
-    if "sqlite3" in text or "pysqlite" in text:
-        return "sqlite call"
-    if "calculate_queue_score" in text or "evaluate_travel_sla" in text:
-        return "scoring/Python compute"
-    if "json" in text and ("dumps" in text or "render" in text):
-        return "serialization"
-    if "anyio" in text and ("worker" in text or "wait" in text or "get" in text):
-        return "anyio idle worker"
-    return "other/unclassified"
+    text = "\n".join(lines).lower()
+    # 1. sqlite do_execute/commit
+    if ("sqlite" in text or "pysqlite" in text) and ("execute" in text or "commit" in text or "rollback" in text or "cursor" in text):
+        return "sqlite do_execute/commit"
+    if "do_execute" in text or ("commit" in text and "sqlalchemy" in text):
+        return "sqlite do_execute/commit"
+
+    # 2. lock acquire (threading lock/condition, threadpool lock, or pool queue lock)
+    if ("acquire" in text or "condition" in text or "lock" in text) and ("threading" in text or "_thread" in text or "queue.py" in text or "synchronize" in text):
+        return "lock acquire"
+
+    # 3. event-loop/response wait (asyncio, anyio worker idling, starlette streaming/response)
+    if any(k in text for k in ["asyncio", "anyio", "starlette", "uvicorn", "h11", "http"]):
+        if any(w in text for w in ["run", "wait", "worker", "send", "receive", "poll", "select", "handle"]):
+            return "event-loop/response wait"
+
+    # 4. other
+    return "other"
 
 def parse_and_classify_dump(file_path: str) -> Dict[str, Any]:
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -34,13 +36,10 @@ def parse_and_classify_dump(file_path: str) -> Dict[str, Any]:
     # Split by thread blocks: "Thread 0x..."
     thread_blocks = re.split(r"(?=Thread 0x[0-9a-fA-F]+)", content)
     counts = {
-        "pool checkout wait": 0,
-        "lock wait": 0,
-        "sqlite call": 0,
-        "scoring/Python compute": 0,
-        "serialization": 0,
-        "anyio idle worker": 0,
-        "other/unclassified": 0
+        "sqlite do_execute/commit": 0,
+        "lock acquire": 0,
+        "event-loop/response wait": 0,
+        "other": 0
     }
     parsed_threads = []
     for block in thread_blocks:
