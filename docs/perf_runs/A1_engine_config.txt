@@ -1,33 +1,33 @@
-=== A1. ENGINE & SERVER CONFIG RAW ===
-DATABASE_URL engine.url: sqlite:///./opsdesk.db
-engine.pool.__class__: QueuePool
-DB_POOL_SIZE: 10
-DB_MAX_OVERFLOW: 20
-DB_POOL_TIMEOUT: 30
-connect_args: {'check_same_thread': False}
-pool status: Pool size: 10  Connections in pool: 0 Current Overflow: -10 Current Checked out connections: 0
-anyio.to_thread.current_default_thread_limiter().total_tokens: 40
-
---- Endpoints sync (def) vs async (async def) in backend.app.main ---
-['HEAD', 'GET'] /openapi.json -> async def (openapi)
-['HEAD', 'GET'] /docs -> async def (swagger_ui_html)
-['HEAD', 'GET'] /docs/oauth2-redirect -> async def (swagger_ui_redirect)
-['HEAD', 'GET'] /redoc -> async def (redoc_html)
-['GET'] /health -> sync def (health_check)
-['GET'] /ready -> sync def (readiness_check)
-['POST'] /api/ai/suggest-intent -> sync def (api_suggest_intent)
-['GET'] /api/tickets -> sync def (list_tickets)
-['POST'] /api/tickets -> sync def (create_ticket)
-['GET'] /api/tickets/{ticket_id} -> sync def (get_ticket_details)
-['POST'] /api/tickets/{ticket_id}/assign -> sync def (assign_ticket)
-['POST'] /api/tickets/{ticket_id}/unassign -> sync def (unassign_ticket)
-['POST'] /api/tickets/{ticket_id}/status -> sync def (update_ticket_status)
-['POST'] /api/tickets/{ticket_id}/escalate -> sync def (escalate_ticket)
-['POST'] /api/tickets/{ticket_id}/transfer -> sync def (transfer_ticket)
-['POST'] /api/tickets/{ticket_id}/messages -> sync def (post_ticket_message)
-['GET'] /api/tickets/{ticket_id}/side-threads -> sync def (list_side_threads)
-['POST'] /api/tickets/{ticket_id}/side-threads -> sync def (create_side_thread)
-['POST'] /api/tickets/{ticket_id}/side-threads/{side_thread_id}/messages -> sync def (post_side_thread_message)
-['POST'] /api/tickets/{ticket_id}/link-suggestion -> sync def (link_suggested_bug)
-['GET'] /api/insights/themes -> sync def (get_top_themes)
-['GET'] /api/export/tickets.csv -> sync def (export_tickets_csv)
+=== A1. ENGINE & SERVER CONFIG RAW ===
+DATABASE_URL engine.url: sqlite:///./opsdesk.db
+engine.pool.__class__: QueuePool
+DB_POOL_SIZE: 10
+DB_MAX_OVERFLOW: 20
+DB_POOL_TIMEOUT: 30
+connect_args: {'check_same_thread': False}
+pool status: Pool size: 10  Connections in pool: 0 Current Overflow: -10 Current Checked out connections: 0
+anyio.to_thread.current_default_thread_limiter().total_tokens: 40
+
+--- Endpoints sync (def) vs async (async def) in backend.app.main ---
+['HEAD', 'GET'] /openapi.json -> async def (openapi)
+['HEAD', 'GET'] /docs -> async def (swagger_ui_html)
+['HEAD', 'GET'] /docs/oauth2-redirect -> async def (swagger_ui_redirect)
+['HEAD', 'GET'] /redoc -> async def (redoc_html)
+['GET'] /health -> sync def (health_check)
+['GET'] /ready -> sync def (readiness_check)
+['POST'] /api/ai/suggest-intent -> sync def (api_suggest_intent)
+['GET'] /api/tickets -> sync def (list_tickets)
+['POST'] /api/tickets -> sync def (create_ticket)
+['GET'] /api/tickets/{ticket_id} -> sync def (get_ticket_details)
+['POST'] /api/tickets/{ticket_id}/assign -> sync def (assign_ticket)
+['POST'] /api/tickets/{ticket_id}/unassign -> sync def (unassign_ticket)
+['POST'] /api/tickets/{ticket_id}/status -> sync def (update_ticket_status)
+['POST'] /api/tickets/{ticket_id}/escalate -> sync def (escalate_ticket)
+['POST'] /api/tickets/{ticket_id}/transfer -> sync def (transfer_ticket)
+['POST'] /api/tickets/{ticket_id}/messages -> sync def (post_ticket_message)
+['GET'] /api/tickets/{ticket_id}/side-threads -> sync def (list_side_threads)
+['POST'] /api/tickets/{ticket_id}/side-threads -> sync def (create_side_thread)
+['POST'] /api/tickets/{ticket_id}/side-threads/{side_thread_id}/messages -> sync def (post_side_thread_message)
+['POST'] /api/tickets/{ticket_id}/link-suggestion -> sync def (link_suggested_bug)
+['GET'] /api/insights/themes -> sync def (get_top_themes)
+['GET'] /api/export/tickets.csv -> sync def (export_tickets_csv)
