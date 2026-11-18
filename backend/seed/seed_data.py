@@ -37,7 +37,7 @@ from backend.app.models import (
     TicketTheme, AuditLog
 )
 from backend.app.auth import hash_password
-from backend.services.routing_engine import CandidateAgent, select_agent_tier1
+from backend.services.routing_engine import CandidateAgent, select_agent_tier1, compute_ticket_urgency_fields
 
 # Rule-based theme mapping based on ticket intent
 THEME_MAPPINGS = {
@@ -77,6 +77,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
     ]
     db.add_all(agencies)
     db.commit()
+    agency_tier_map = {a.id: a.tier for a in agencies}
 
     print("Creating users...")
     demo_hashed_password = hash_password("demo123")
@@ -130,6 +131,8 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason="Assigned to Aisha Khan [Historical Case]",
         created_at=now - timedelta(days=5)
     )
+    compute_ticket_urgency_fields(tck_1001, agency_tier=agency_tier_map.get(tck_1001.agency_id), now=now)
+    compute_ticket_urgency_fields(tck_1002, agency_tier=agency_tier_map.get(tck_1002.agency_id), now=now)
     db.add_all([tck_1001, tck_1002])
     db.commit()
 
@@ -158,6 +161,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_b} active cases]",
         created_at=now - timedelta(minutes=10)
     )
+    compute_ticket_urgency_fields(tck_1004, agency_tier=agency_tier_map.get(tck_1004.agency_id), now=now)
     db.add(tck_1004)
     db.commit()
 
@@ -179,6 +183,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_c} active cases]",
         created_at=now - timedelta(hours=1)
     )
+    compute_ticket_urgency_fields(tck_1005, agency_tier=agency_tier_map.get(tck_1005.agency_id), now=now)
     db.add(tck_1005)
     db.commit()
 
@@ -200,6 +205,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_d} active cases]",
         created_at=now - timedelta(minutes=15)
     )
+    compute_ticket_urgency_fields(tck_1006, agency_tier=agency_tier_map.get(tck_1006.agency_id), now=now)
     db.add(tck_1006)
     db.commit()
 
@@ -220,6 +226,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason="Unassigned pending triage routing",
         created_at=now - timedelta(minutes=5)
     )
+    compute_ticket_urgency_fields(tck_1007, agency_tier=agency_tier_map.get(tck_1007.agency_id), now=now)
     db.add(tck_1007)
     db.commit()
 
@@ -242,6 +249,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_1008} active cases]",
         created_at=now - timedelta(minutes=20)
     )
+    compute_ticket_urgency_fields(tck_1008, agency_tier=agency_tier_map.get(tck_1008.agency_id), now=now)
     db.add(tck_1008)
     db.commit()
 
@@ -421,6 +429,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
             created_at=created,
             updated_at=created
         )
+        compute_ticket_urgency_fields(t, agency_tier=agency_tier_map.get(agency_id), now=now)
         ticket_batch.append(t)
 
         mapped_themes = THEME_MAPPINGS.get(intent, ["General Operations Inquiry"])

@@ -7,7 +7,7 @@ from backend.config.routing_config import (
     CHECKIN_URGENCY_MODIFIERS,
     AGENCY_TIER_MULTIPLIERS
 )
-from backend.services.sla_engine import effective_deadline_hours
+from backend.services.sla_engine import effective_deadline_hours, to_utc_aware
 
 class CandidateAgent:
     """Lightweight representation of an agent for routing evaluations."""
@@ -116,3 +116,46 @@ def calculate_queue_score_tier2(
         score *= multiplier
 
     return score
+
+
+def compute_ticket_urgency_fields(
+    ticket: Any,
+    agency_tier: Optional[str] = None,
+    now: Optional[datetime] = None
+) -> Any:
+    """
+    Computes and sets urgency fields on a ticket:
+      - effective_deadline_at: effective deadline UTC datetime
+      - queue_score: numerical priority queue score
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    if agency_tier is None and hasattr(ticket, "agency") and ticket.agency:
+        agency_tier = getattr(ticket.agency, "tier", None)
+
+    cancellation_intents = {"Refund Request", "Cancellation Inconvenience", "Unclassified", None}
+    cid_aware = to_utc_aware(ticket.check_in_date)
+    lcd_aware = to_utc_aware(ticket.lcd_date) if ticket.lcd_date is not None else None
+
+    if ticket.intent in cancellation_intents and lcd_aware is not None:
+        if cid_aware is not None:
+            effective_deadline = min(cid_aware, lcd_aware)
+        else:
+            effective_deadline = lcd_aware
+    else:
+        effective_deadline = cid_aware
+
+    queue_score = calculate_queue_score_tier2(
+        priority=ticket.priority,
+        check_in_date=ticket.check_in_date,
+        agency_tier=agency_tier,
+        lcd_date=ticket.lcd_date,
+        intent=ticket.intent,
+        now=now
+    )
+
+    ticket.effective_deadline_at = effective_deadline
+    ticket.queue_score = queue_score
+    return ticket
+
