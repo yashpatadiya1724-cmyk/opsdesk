@@ -63,32 +63,42 @@ Static grep across `backend/app` and `backend/services` confirmed that:
 2. No route handler, middleware, or service instantiates secondary `SessionLocal()` sessions during request servicing.
 3. Database connections are checked out once per request on entry and returned cleanly upon request exit.
 
-### Deterministic Pool Exhaustion Test
-To empirically verify the nested checkout hypothesis, a deterministic deadlock test was run (`scripts/diag/test_deterministic_deadlock.py`) with intentionally constrained pool capacity:
+### Dynamic Route Extraction & Deterministic Pool Exhaustion Audit (Step 1)
+To empirically verify the nested checkout hypothesis across the actual application surface, `scripts/diag/deadlock_audit.py` dynamically extracted all 18 routes from `app.routes` and tested each under intentionally constrained pool capacity:
 - `DB_POOL_SIZE = 1`
 - `DB_MAX_OVERFLOW = 0`
 - `DB_POOL_TIMEOUT = 3.0s`
 
 Under this configuration, any nested checkout within a single request is guaranteed to hang for 3 seconds and trigger a `QueuePool` timeout.
 
-**Test Results Across All 13 Core Endpoints**:
-| Endpoint | Method | Status | Duration (ms) | Result |
-| :--- | :--- | :--- | :--- | :--- |
-| `/health` | GET | 200 | 12.1 ms | Pass (No nested checkout) |
-| `/ready` | GET | 200 | 15.4 ms | Pass (No nested checkout) |
-| `/api/tickets?view=triage&limit=25` | GET | 200 | 28.3 ms | Pass (No nested checkout) |
-| `/api/tickets?view=urgent` | GET | 200 | 22.0 ms | Pass (No nested checkout) |
-| `/api/tickets/{id}` | GET | 200 | 16.8 ms | Pass (No nested checkout) |
-| `/api/tickets` | POST | 201 | 35.6 ms | Pass (No nested checkout) |
-| `/api/tickets/{id}/assign` | POST | 200 | 41.2 ms | Pass (No nested checkout) |
-| `/api/tickets/{id}/unassign` | POST | 200 | 38.7 ms | Pass (No nested checkout) |
-| `/api/tickets/{id}/status` | PATCH | 200 | 39.5 ms | Pass (No nested checkout) |
-| `/api/tickets/{id}/escalate` | POST | 200 | 44.1 ms | Pass (No nested checkout) |
-| `/api/tickets/{id}/transfer` | POST | 200 | 51.8 ms | Pass (No nested checkout) |
-| `/api/insights/themes` | GET | 200 | 26.4 ms | Pass (No nested checkout) |
-| `/api/export/tickets.csv` | GET | 200 | 48.9 ms | Pass (No nested checkout) |
+**Dynamic Audit Results Across All 18 Application Routes**:
+| Route / Path | Method | Status | Duration (ms) | Max Checked Out | Nested Checkout |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `/health` | GET | 200 | 2.1 ms | 0 | N |
+| `/ready` | GET | 200 | 2.6 ms | 1 | N |
+| `/api/tickets` | GET | 200 | 12.3 ms | 1 | N |
+| `/api/tickets/{ticket_id}` | GET | 200 | 7.9 ms | 1 | N |
+| `/api/tickets` | POST | 201 | 16.9 ms | 1 | N |
+| `/api/tickets/{ticket_id}/assign` | POST | 200 | 20.9 ms | 1 | N |
+| `/api/tickets/{ticket_id}/unassign` | POST | 200 | 14.6 ms | 1 | N |
+| `/api/tickets/{ticket_id}/status` | PATCH | 200 | 18.2 ms | 1 | N |
+| `/api/tickets/{ticket_id}/escalate` | POST | 200 | 20.3 ms | 1 | N |
+| `/api/tickets/{ticket_id}/transfer` | POST | 200 | 22.3 ms | 1 | N |
+| `/api/tickets/bulk-status` | POST | 200 | 27.6 ms | 1 | N |
+| `/api/tickets/bulk-assign` | POST | 200 | 26.6 ms | 1 | N |
+| `/api/insights/sla-risk` | GET | 200 | 8.8 ms | 1 | N |
+| `/api/insights/themes` | GET | 200 | 11.2 ms | 1 | N |
+| `/api/insights/bottlenecks` | GET | 200 | 8.4 ms | 1 | N |
+| `/api/export/tickets.csv` | GET | 200 | 20.4 ms | 1 | N |
+| `/api/sla/summary` | GET | 200 | 6.8 ms | 1 | N |
+| `/api/audit/logs` | GET | 200 | 9.0 ms | 1 | N |
 
-**Conclusion**: **Nested checkout NAHI mila (hypothesis rejected)**. All 13 endpoints completed in under 52 ms with zero pool timeouts. The observed baseline collapse was driven strictly by concurrency starvation in the QueuePool under unprojected ORM hydration and thread pool saturation, not nested checkouts.
+*(Source: `docs/perf_runs/step1_deadlock_audit.txt`)*
+
+### Concurrency Bisect & Leak Verification (Step 2)
+In Step 2, `scripts/diag/concurrency_deadlock_bisect.py` tested each of the 18 endpoints under high concurrent pressure (`pool=2`, `limiter=4`, 12 concurrent requests). All endpoints handled saturation cleanly: excess requests received 503 load shedding, zero requests deadlocked, and after traffic drained, `Idle CheckedOut = 0` across all 18 endpoints with zero connection leaks.
+
+**Conclusion**: **Nested checkout rejected (PROVEN by Step 1 and Step 2 raw empirical measurements)**. All 18 endpoints have `MaxChecked=1`, 0 nested checkouts, and 0 connection leaks. The observed baseline collapse was driven strictly by concurrency starvation in the QueuePool under unprojected ORM hydration and thread pool saturation, not nested checkouts.
 
 ---
 
@@ -180,6 +190,8 @@ Each stage below was benchmarked across concurrency levels 10, 25, 50, 75, 100, 
 *Changes: `GET /api/tickets?view=triage` scoring queries only 7 projection columns via `with_entities` (`id`, `priority`, `check_in_date`, `lcd_date`, `intent`, `created_at`, `status`), scores in memory, and only loads full ORM Ticket objects for the top-50 paginated slice.*  
 *Source: `docs/perf_runs/B3_triage.txt` and `docs/perf_runs/step2_goodput_reparsed.txt`*
 
+> **Honesty & Superseded Notice**: Original B3 baseline numbers below were measured with the B2 limiter ON; superseded by STEP 4 fair re-measurements. In-process profiling (`docs/perf_runs/step4_a6_triage_breakdown.txt`) demonstrates that B3 tuple projection reduces un-cached triage request time on 5,000 unassigned tickets from **82.75 ms** (median) down to **25.39 ms** (median) (Delta: **-57.36 ms**). The historic claim of "83.4 ms → 10.2 ms" is superseded.
+
 #### Variant (a) [normal seed, ~456 unassigned tickets]
 | Clients | Total Reqs | 2xx Count | Goodput (2xx/s) | Shed 503% | Err 599% | 429/409 | 2xx p50 (ms) | All p50 (incl. 503s) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -206,6 +218,8 @@ Each stage below was benchmarked across concurrency levels 10, 25, 50, 75, 100, 
 *Changes: SWR with 2.0s fresh TTL and 5.0s max stale window (`TRIAGE_CACHE_MAX_STALE_SEC=5.0`), triggering single-flight asynchronous background refresh on stale hit while immediately purging cache on mutating writes (`create`, `assign`, `status`, `escalate`, `transfer`) to maintain strict read-your-writes consistency.*  
 *Source: `docs/perf_runs/B4_cache_swr.txt` and `docs/perf_runs/step2_goodput_reparsed.txt`*
 
+> **Honesty & Superseded Notice**: Original B4 baseline numbers below were measured with the B2 limiter ON; superseded by STEP 4 fair re-measurements. Note the B4 regression on Variant (b) at 150 clients: goodput drops from 9.0 to 6.6 RPS (and under load shedding, 2xx goodput drops to 2.4 2xx/s) due to write invalidation contention and background refresh serialization against SQLite table locks.
+
 #### Variant (a) [normal seed, ~456 unassigned tickets]
 | Clients | Total Reqs | 2xx Count | Goodput (2xx/s) | Shed 503% | Err 599% | 429/409 | 2xx p50 (ms) | All p50 (incl. 503s) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -230,21 +244,53 @@ Each stage below was benchmarked across concurrency levels 10, 25, 50, 75, 100, 
 
 ## 5. 90-Second Time-Series Comparison: Baseline vs Optimized HEAD
 
-To verify systemic stability over a sustained window, a 90-second continuous closed-loop load test (100 concurrent clients) was executed on both the pre-fix Baseline (`98ce890`) and the optimized HEAD (`788bb9a`) using the active connection pool logger (`scripts/diag/instrument_pool.py`).
+To verify systemic stability over a sustained window, a 90-second continuous closed-loop load test (100 concurrent clients) was executed on both the pre-fix Baseline (`98ce890`) and the optimized HEAD (`e7d70e7`) using the active connection pool logger (`scripts/diag/instrument_pool.py`) with rate limiter OFF (`RATE_LIMIT_PER_MINUTE=1000000`).
 
 ### Baseline (`98ce890`)
-- **Total Requests Attempted**: 202
-- **Successful 2xx Responses**: 2
-- **Client Timeouts (599)**: 200 (99.0% timeout rate)
-- **Effective Goodput**: 0.02 2xx/s
-- **Pool State**: `Pool_CheckedOut` pegged at exactly 30 connections from second 3 through second 90 without ever releasing back to the pool, stalling all worker threads.
-- *Data file*: `docs/perf_runs/step1d_timeseries_baseline.csv`
+- **Total Requests Attempted**: 207
+- **Successful 2xx Responses**: 7
+- **Client Timeouts (599)**: 200 (96.6% timeout rate)
+- **Effective Goodput**: 0.08 2xx/s
+- **Pool State**: `Pool_CheckedOut` pegged at exactly 30 connections from second 2 through second 90 without ever releasing back to the pool, stalling all worker threads in SQLite lock wait.
+- *Data file*: `docs/perf_runs/step4_timeseries_baseline.csv`
 
-### Optimized HEAD (`788bb9a`)
-- **Total Requests Attempted**: 9,164
-- **Successful 2xx Responses**: 9,164 (100% success rate)
+### Optimized HEAD (`e7d70e7`)
+- **Total Requests Attempted**: 9,554
+- **Successful 2xx Responses**: 9,554 (100% success rate)
 - **Client Timeouts (599)**: 0
 - **Load Shed Rejections (503)**: 0
-- **Effective Goodput**: 101.82 2xx/s
+- **Effective Goodput**: 106.16 2xx/s
 - **Pool State**: `Pool_CheckedOut` fluctuated dynamically between 42 and 50 checkouts with rapid turnover, maintaining constant throughput and zero thread starvation.
-- *Data file*: `docs/perf_runs/step1d_timeseries_head.csv`
+- *Data file*: `docs/perf_runs/step4_timeseries_head.csv`
+
+---
+
+## 6. Step 4 Fair Re-Measurement Benchmark Across 4 Configurations
+
+To isolate the independent impact of each component without concurrency limiter interference, all four configurations were benchmarked under identical parameters: closed-loop clients ($T=0$), rate limiter OFF (`RATE_LIMIT_PER_MINUTE=1000000`), concurrency load shedding OFF, client timeout 30.0s.
+
+Configurations:
+1. **Config (i) HEAD**: B3 Tuple Projection ON + B4 SWR Cache ON
+2. **Config (ii) B3 Reverted**: Full ORM Hydration (5,000 instances) + B4 SWR Cache ON
+3. **Config (iii) Cache OFF**: B3 Tuple Projection ON + `TRIAGE_CACHE_ENABLED=0`
+4. **Config (iv) B4 Reverted**: Pure B3 Tuple Projection ON + No SWR Cache
+
+*Source: `docs/perf_runs/step4_4configs_sweep.txt`*
+
+### Variant (a) [Normal Seed, ~456 unassigned tickets]
+| Clients | Config (i) HEAD | Config (ii) B3 Reverted | Config (iii) Cache OFF | Config (iv) B4 Reverted |
+| :--- | :--- | :--- | :--- | :--- |
+| **10** | 200.6 2xx/s (28.9ms) | 175.2 2xx/s (39.1ms) | 127.3 2xx/s (84.5ms) | 144.2 2xx/s (73.5ms) |
+| **25** | 161.5 2xx/s (113.9ms) | 141.7 2xx/s (163.9ms) | 113.0 2xx/s (232.5ms) | 127.5 2xx/s (206.2ms) |
+| **50** | 132.5 2xx/s (361.6ms) | 121.0 2xx/s (350.8ms) | 109.1 2xx/s (448.8ms) | 114.2 2xx/s (421.0ms) |
+| **100** | 76.2 2xx/s (642.1ms) | 81.1 2xx/s (571.3ms) | 64.3 2xx/s (779.8ms) | 60.2 2xx/s (849.3ms) |
+
+### Variant (b) [Triage-Heavy Seed, 5,000 unassigned tickets]
+| Clients | Config (i) HEAD | Config (ii) B3 Reverted | Config (iii) Cache OFF | Config (iv) B4 Reverted |
+| :--- | :--- | :--- | :--- | :--- |
+| **10** | 34.1 2xx/s (23.2ms) | 14.3 2xx/s (39.5ms) | 7.2 2xx/s (1546.2ms) | 8.8 2xx/s (1281.7ms) |
+| **25** | 16.1 2xx/s (635.6ms) | 8.4 2xx/s (805.7ms) | 6.7 2xx/s (3849.4ms) | 7.7 2xx/s (3324.0ms) |
+| **50** | 11.0 2xx/s (3105.2ms) | 4.3 2xx/s (6603.9ms, 23.5% 599) | 3.1 2xx/s (11506.0ms, 31.4% 599) | 5.0 2xx/s (9432.1ms, 14.8% 599) |
+| **100** | 9.7 2xx/s (7346.7ms, 0.2% 599) | 3.2 2xx/s (16352.0ms, 8.6% 599) | 5.8 2xx/s (12036.1ms, 0.3% 599) | 5.7 2xx/s (12088.7ms, 0.0% 599) |
+
+*(Note: Parentheses report median 2xx p50 latency and timeout rates where observed).*
