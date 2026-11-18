@@ -6,6 +6,14 @@ async function request<T>(path: string, options: RequestInit = {}, userId: strin
   const url = `${API_BASE}${path}`;
   const headers = new Headers(options.headers || {});
   headers.set("X-User-Id", userId);
+
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("opsdesk_token");
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
   if (!headers.has("Content-Type") && options.body && typeof options.body === "string") {
     headers.set("Content-Type", "application/json");
   }
@@ -154,3 +162,11 @@ export async function fetchInsightsThemes(days: number = 7, userId: string = "US
 export function getExportUrl(): string {
   return `${API_BASE}/api/export/tickets.csv`;
 }
+
+export async function loginUser(email: string, password: string): Promise<{ access_token: string; token_type: string; expires_in: number }> {
+  return request("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+

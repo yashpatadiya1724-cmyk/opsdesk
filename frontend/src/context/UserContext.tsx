@@ -10,12 +10,16 @@ interface UserContextType {
   isLead: boolean;
   isEscalationManager: boolean;
   isRequester: boolean;
+  token?: string | null;
+  setToken?: (token: string | null) => void;
+  logout?: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<DemoUser>(DEMO_USERS[0]);
+  const [token, setTokenState] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("opsdesk_user_id");
@@ -23,11 +27,28 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const found = DEMO_USERS.find((u) => u.id === saved);
       if (found) setCurrentUser(found);
     }
+    const savedToken = localStorage.getItem("opsdesk_token");
+    if (savedToken) {
+      setTokenState(savedToken);
+    }
   }, []);
 
   const handleSetUser = (user: DemoUser) => {
     setCurrentUser(user);
     localStorage.setItem("opsdesk_user_id", user.id);
+  };
+
+  const handleSetToken = (newToken: string | null) => {
+    setTokenState(newToken);
+    if (newToken) {
+      localStorage.setItem("opsdesk_token", newToken);
+    } else {
+      localStorage.removeItem("opsdesk_token");
+    }
+  };
+
+  const handleLogout = () => {
+    handleSetToken(null);
   };
 
   const isStaff = currentUser.role !== "Requester";
@@ -44,6 +65,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         isLead,
         isEscalationManager,
         isRequester,
+        token,
+        setToken: handleSetToken,
+        logout: handleLogout,
       }}
     >
       {children}

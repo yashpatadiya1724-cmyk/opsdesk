@@ -20,9 +20,10 @@ from backend.app.schemas import (
     TicketCreateSchema, TicketAssignSchema, TicketStatusUpdateSchema,
     TicketEscalateSchema, TicketTransferSchema, TicketLinkSuggestionSchema, MessageCreateSchema,
     SideThreadCreateSchema, SideThreadMessageCreateSchema,
-    IntentSuggestRequestSchema, IntentSuggestResponseSchema, to_utc_aware
+    IntentSuggestRequestSchema, IntentSuggestResponseSchema, to_utc_aware,
+    LoginRequest, LoginResponse
 )
-from backend.app.auth import get_current_user
+from backend.app.auth import get_current_user, verify_password, create_access_token
 from backend.app.events import emit_outbox_event, record_audit_log
 from backend.config.routing_config import (
     DEFAULT_ESCALATION_MANAGER_ID,
@@ -79,10 +80,11 @@ def validate_production_auth_settings():
     Refuses startup when running in production environment with demo authentication,
     unless explicitly overridden via ALLOW_DEMO_AUTH=true.
     """
-    env = os.environ.get("APP_ENV", "development").lower()
+    env = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).lower()
+    auth_mode = os.environ.get("AUTH_MODE", "demo").lower()
     allow_demo = os.environ.get("ALLOW_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
-    if env == "production" and not allow_demo:
-        msg = "Refusing to start in APP_ENV=production with unauthenticated demo headers (X-User-Id) unless ALLOW_DEMO_AUTH=true is explicitly set."
+    if env == "production" and auth_mode == "demo" and not allow_demo:
+        msg = "Production environment requires AUTH_MODE=jwt unless ALLOW_DEMO_AUTH=true (Refusing to start in APP_ENV=production with unauthenticated demo headers)."
         logger.error(msg)
         raise RuntimeError(msg)
     elif env == "production" and allow_demo:
@@ -222,6 +224,42 @@ def api_suggest_intent(
     """Suggests an operations intent category based on regex rules or fallback."""
     intent, source = suggest_ticket_intent(payload.title, payload.description)
     return {"intent": intent, "source": source}
+
+
+# ============================================================================
+# AUTHENTICATION ENDPOINTS
+# ============================================================================
+
+@app.post("/api/auth/login", response_model=LoginResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    """
+    Authenticates user with email and password, returning a JWT access token.
+    Raises 401 Unauthorized if invalid credentials.
+    """
+    user = db.query(User).filter(func.lower(User.email) == payload.email.strip().lower()).first()
+    if not user or not user.hashed_password:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    try:
+        jwt_expire_minutes = int(os.environ.get("JWT_EXPIRE_MINUTES", "480"))
+    except ValueError:
+        jwt_expire_minutes = 480
+    expires_in_seconds = jwt_expire_minutes * 60
+
+    token = create_access_token({
+        "sub": user.id,
+        "email": user.email,
+        "role": user.role,
+        "name": user.name
+    })
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": expires_in_seconds
+    }
 
 
 # ============================================================================

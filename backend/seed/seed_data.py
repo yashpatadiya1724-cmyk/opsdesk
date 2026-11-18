@@ -36,6 +36,7 @@ from backend.app.models import (
     SideConversation, SideConversationRecipient, SideConversationMessage,
     TicketTheme, AuditLog
 )
+from backend.app.auth import hash_password
 from backend.services.routing_engine import CandidateAgent, select_agent_tier1
 
 # Rule-based theme mapping based on ticket intent
@@ -78,17 +79,18 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
     db.commit()
 
     print("Creating users...")
+    demo_hashed_password = hash_password("demo123")
     users = [
         # Internal Operations Staff (Tier-1 Desk Agents: USR-101, USR-102)
-        User(id="USR-101", name="Aisha Khan", email="aisha.ops@tbo.test", role="Agent", region="MEA", is_available=True),
-        User(id="USR-102", name="Rahul Verma", email="rahul.ops@tbo.test", role="Agent", region="MEA", is_available=True),
+        User(id="USR-101", name="Aisha Khan", email="aisha.ops@tbo.test", role="Agent", region="MEA", is_available=True, hashed_password=demo_hashed_password),
+        User(id="USR-102", name="Rahul Verma", email="rahul.ops@tbo.test", role="Agent", region="MEA", is_available=True, hashed_password=demo_hashed_password),
         # Internal Supervisory Staff (Escalation & Lead roles)
-        User(id="USR-103", name="Vikram Malhotra", email="vikram.esc@tbo.test", role="EscalationManager", region="APAC", is_available=True),
-        User(id="USR-104", name="Elena Rostova", email="elena.lead@tbo.test", role="Lead", region="EUR", is_available=True),
+        User(id="USR-103", name="Vikram Malhotra", email="vikram.esc@tbo.test", role="EscalationManager", region="APAC", is_available=True, hashed_password=demo_hashed_password),
+        User(id="USR-104", name="Elena Rostova", email="elena.lead@tbo.test", role="Lead", region="EUR", is_available=True, hashed_password=demo_hashed_password),
         # Agency Requesters (RFC 2606 email domains)
-        User(id="USR-201", name="Krypton Desk", email="agent@krypton.example.com", role="Requester", region="MEA", agency_id="AGY-001"),
-        User(id="USR-202", name="Vectora Desk", email="agent@vectora.example.com", role="Requester", region="APAC", agency_id="AGY-002"),
-        User(id="USR-203", name="Aethelgard Desk", email="agent@aethelgard.example.com", role="Requester", region="EUR", agency_id="AGY-003")
+        User(id="USR-201", name="Krypton Desk", email="agent@krypton.example.com", role="Requester", region="MEA", agency_id="AGY-001", hashed_password=demo_hashed_password),
+        User(id="USR-202", name="Vectora Desk", email="agent@vectora.example.com", role="Requester", region="APAC", agency_id="AGY-002", hashed_password=demo_hashed_password),
+        User(id="USR-203", name="Aethelgard Desk", email="agent@aethelgard.example.com", role="Requester", region="EUR", agency_id="AGY-003", hashed_password=demo_hashed_password)
     ]
     db.add_all(users)
     db.commit()
