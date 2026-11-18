@@ -72,6 +72,8 @@ def invalidate_triage_cache():
         _triage_refreshing.clear()
 
 # Global in-flight concurrency limiter and load shedding
+CONCURRENCY_LOAD_SHEDDING_ENABLED = os.environ.get("CONCURRENCY_LOAD_SHEDDING_ENABLED", "false").lower() == "true"
+_concurrency_enabled = CONCURRENCY_LOAD_SHEDDING_ENABLED
 MAX_CONCURRENT_REQUESTS = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "60"))
 MAX_QUEUE_WAIT_TIMEOUT_SEC = float(os.environ.get("MAX_QUEUE_WAIT_TIMEOUT_SEC", "2.0"))
 _concurrency_semaphore: Optional[asyncio.Semaphore] = None
@@ -82,10 +84,11 @@ def get_concurrency_semaphore() -> asyncio.Semaphore:
         _concurrency_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
     return _concurrency_semaphore
 
-def set_concurrency_limit(limit: int, wait_timeout: float = 2.0):
-    global _concurrency_semaphore, MAX_CONCURRENT_REQUESTS, MAX_QUEUE_WAIT_TIMEOUT_SEC
+def set_concurrency_limit(limit: int, wait_timeout: float = 2.0, enabled: bool = True):
+    global _concurrency_semaphore, MAX_CONCURRENT_REQUESTS, MAX_QUEUE_WAIT_TIMEOUT_SEC, _concurrency_enabled
     MAX_CONCURRENT_REQUESTS = limit
     MAX_QUEUE_WAIT_TIMEOUT_SEC = wait_timeout
+    _concurrency_enabled = enabled
     _concurrency_semaphore = asyncio.Semaphore(limit)
 
 
@@ -219,7 +222,7 @@ async def opsdesk_protection_middleware(request: Request, call_next):
 
     # Concurrency limit check: /health and /ready are strictly exempt
     is_exempt = request.url.path in ["/health", "/ready"]
-    sem = None if is_exempt else get_concurrency_semaphore()
+    sem = get_concurrency_semaphore() if (_concurrency_enabled and not is_exempt) else None
 
     if sem is not None:
         try:
