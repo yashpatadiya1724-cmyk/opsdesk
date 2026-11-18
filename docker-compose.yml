@@ -13,6 +13,8 @@ services:
     environment:
       - OPSDESK_DEV_DB=/app/opsdesk.db
       - ALLOWED_CORS_ORIGINS=http://localhost:3000
+      # Optional: Switch to PostgreSQL container by uncommenting the line below:
+      # - DATABASE_URL=postgresql+psycopg://opsdesk:opsdesk_password@postgres:5432/opsdesk
     volumes:
       - dev-db-data:/app
     healthcheck:
@@ -33,5 +35,18 @@ services:
       backend:
         condition: service_healthy
 
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: opsdesk
+      POSTGRES_PASSWORD: opsdesk_password
+      POSTGRES_DB: opsdesk
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
 volumes:
   dev-db-data:
+  postgres-data:

@@ -55,6 +55,20 @@ python -m backend.seed.seed_data --reset
 ```
 *Seeds the development database (`opsdesk.db`) with 5,000 realistic operations tickets, calibrating Journey fixtures `TCK-1001` through `TCK-1008` relative to wall-clock time.*
 
+#### Database Migrations (Alembic)
+OpsDesk tracks schema migrations using Alembic. For production PostgreSQL deployments or explicit schema upgrades:
+```powershell
+# Run all pending migrations up to latest revision
+alembic upgrade head
+
+# Rollback one migration revision
+alembic downgrade -1
+
+# Generate new migration revision after modifying models
+alembic revision --autogenerate -m "describe_change"
+```
+*Note: For lightweight local development with SQLite, `ensure_schema_migrations()` executes automatically on backend startup as a zero-configuration fallback.*
+
 ### 2. Run Backend API
 ```powershell
 uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
