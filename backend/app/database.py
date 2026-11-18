@@ -61,6 +61,54 @@ def ensure_schema_migrations(engine_obj):
                 if cols and "hotel_timezone" not in cols:
                     conn.execute(text("ALTER TABLE tickets ADD COLUMN hotel_timezone VARCHAR(64) DEFAULT 'UTC'"))
                     conn.commit()
+                if cols and "effective_deadline_at" not in cols:
+                    conn.execute(text("ALTER TABLE tickets ADD COLUMN effective_deadline_at DATETIME"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tickets_effective_deadline_at ON tickets (effective_deadline_at)"))
+                    conn.commit()
+                if cols and "queue_score" not in cols:
+                    conn.execute(text("ALTER TABLE tickets ADD COLUMN queue_score FLOAT"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tickets_queue_score ON tickets (queue_score)"))
+                    conn.commit()
+
+                res_check = conn.execute(text("PRAGMA table_info(tickets)")).fetchall()
+                updated_cols = [r[1] for r in res_check]
+                if "queue_score" in updated_cols and "effective_deadline_at" in updated_cols:
+                    null_rows = conn.execute(text(
+                        "SELECT id, priority, check_in_date, lcd_date, intent, agency_id FROM tickets WHERE queue_score IS NULL"
+                    )).fetchall()
+                    if null_rows:
+                        agencies_rows = conn.execute(text("SELECT id, tier FROM agencies")).fetchall()
+                        agency_tier_map = {row[0]: row[1] for row in agencies_rows}
+                        from datetime import datetime, timezone
+                        from backend.services.routing_engine import calculate_queue_score_tier2
+                        from backend.services.sla_engine import to_utc_aware
+                        now = datetime.now(timezone.utc)
+                        for t_id, prio, cid_raw, lcd_raw, intent_val, agy_id in null_rows:
+                            cid = datetime.fromisoformat(cid_raw) if isinstance(cid_raw, str) else cid_raw
+                            lcd = datetime.fromisoformat(lcd_raw) if isinstance(lcd_raw, str) and lcd_raw else (lcd_raw if lcd_raw else None)
+                            cid_aware = to_utc_aware(cid)
+                            lcd_aware = to_utc_aware(lcd) if lcd else None
+                            cancellation_intents = {"Refund Request", "Cancellation Inconvenience", "Unclassified", None}
+                            if intent_val in cancellation_intents and lcd_aware is not None:
+                                eff_deadline = min(cid_aware, lcd_aware) if cid_aware else lcd_aware
+                            else:
+                                eff_deadline = cid_aware
+
+                            agy_tier = agency_tier_map.get(agy_id, "standard")
+                            score = calculate_queue_score_tier2(
+                                priority=prio,
+                                check_in_date=cid,
+                                agency_tier=agy_tier,
+                                lcd_date=lcd,
+                                intent=intent_val,
+                                now=now
+                            )
+                            deadline_val = eff_deadline.replace(tzinfo=None) if eff_deadline else None
+                            conn.execute(
+                                text("UPDATE tickets SET effective_deadline_at = :deadline, queue_score = :score WHERE id = :tid"),
+                                {"deadline": deadline_val, "score": score, "tid": t_id}
+                            )
+                        conn.commit()
 
                 res_agencies = conn.execute(text("PRAGMA table_info(agencies)")).fetchall()
                 cols_agencies = [r[1] for r in res_agencies]

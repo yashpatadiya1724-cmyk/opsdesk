@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime as _DateTime, ForeignKey, Text, Integer, Index, TypeDecorator
+from sqlalchemy import Column, String, Boolean, DateTime as _DateTime, ForeignKey, Text, Integer, Index, TypeDecorator, Float
 from sqlalchemy.orm import relationship
 from backend.app.database import Base
 
@@ -77,6 +77,8 @@ class Ticket(Base):
     status = Column(String(50), nullable=False, default="New", index=True)        # 'New', 'Open', 'Pending', 'Escalated', 'Resolved', 'Closed'
     check_in_date = Column(DateTime, nullable=False, index=True)
     lcd_date = Column(DateTime, nullable=True)
+    effective_deadline_at = Column(DateTime, nullable=True, index=True)
+    queue_score = Column(Float, nullable=True, index=True)
     hotel_timezone = Column(String(64), nullable=False, default="UTC", server_default="UTC")
     assigned_to = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     routing_reason = Column(Text, nullable=True)

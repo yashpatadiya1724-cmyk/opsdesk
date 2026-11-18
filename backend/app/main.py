@@ -32,7 +32,7 @@ from backend.config.routing_config import (
 )
 from backend.services.sla_engine import evaluate_travel_sla, effective_deadline_hours
 from backend.services.routing_engine import (
-    CandidateAgent, select_agent_tier1, calculate_queue_score_tier2
+    CandidateAgent, select_agent_tier1, calculate_queue_score_tier2, compute_ticket_urgency_fields
 )
 from backend.services.intent_classifier import suggest_ticket_intent
 
@@ -272,7 +272,7 @@ def list_tickets(
     intent: Optional[str] = Query(None, description="Optional intent category filter"),
     priority: Optional[str] = Query(None, description="Optional priority filter (Low, Medium, High, Urgent)"),
     status: Optional[str] = Query(None, description="Optional status filter (New, Open, Pending, Escalated, Resolved, Closed)"),
-    search: Optional[str] = Query(None, description="Keyword search across tboh_id, id, title, and description"),
+    search: Optional[str] = Query(None, description="Keyword search across tboh_id, id, and title"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
@@ -296,8 +296,7 @@ def list_tickets(
             or_(
                 Ticket.tboh_id.ilike(term),
                 Ticket.id.ilike(term),
-                Ticket.title.ilike(term),
-                Ticket.description.ilike(term)
+                Ticket.title.ilike(term)
             )
         )
 
@@ -320,8 +319,6 @@ def list_tickets(
         elif view == "by_intent":
             if intent:
                 query = query.filter(Ticket.intent == intent)
-            else:
-                query = query.order_by(Ticket.intent, Ticket.created_at.desc())
     else:
         # Internal Staff views
         if view == "my_queue":
@@ -343,8 +340,6 @@ def list_tickets(
         elif view == "by_intent":
             if intent:
                 query = query.filter(Ticket.intent == intent)
-            else:
-                query = query.order_by(Ticket.intent, Ticket.created_at.desc())
         elif view == "triage":
             # Active queue: strictly unassigned active tickets (unless an explicit search term is provided)
             if not (search and search.strip()):
@@ -353,106 +348,57 @@ def list_tickets(
                     Ticket.assigned_to.is_(None)
                 )
 
-    now = datetime.now(timezone.utc)
-    agency_map = {a[0]: a[1] for a in db.query(Agency.id, Agency.tier).all()}
-
-    # Note: At demo scale (5,000 records), computing SLA and queue_score across filtered candidate tickets in Python
-    # and sorting globally prior to offset/limit slicing provides exact queue prioritization without requiring database-specific
-    # procedural extensions. For production scale (millions of records), queue_score is maintained via indexed column or Rust/Go scoring sidecar.
     if view in ["triage", "my_queue"]:
-        all_candidates = query.options(defer(Ticket.description)).all()
-        total_count = len(all_candidates)
-
-        scored_tickets = []
-        for t in all_candidates:
-            sla = evaluate_travel_sla(
-                status=t.status,
-                check_in_date=t.check_in_date,
-                lcd_date=t.lcd_date,
-                priority=t.priority,
-                intent=t.intent,
-                now=now
-            )
-            agency_tier = agency_map.get(t.agency_id) or (t.agency.tier if t.agency else None)
-            queue_score = calculate_queue_score_tier2(
-                priority=t.priority,
-                check_in_date=t.check_in_date,
-                agency_tier=agency_tier,
-                lcd_date=t.lcd_date,
-                intent=t.intent,
-                now=now
-            )
-            scored_tickets.append((queue_score, sla, t))
-
-        # Global sort by queue_score descending, tie-breaking by created_at
-        scored_tickets.sort(key=lambda x: (x[0], -x[2].created_at.timestamp() if x[2].created_at else 0), reverse=True)
-
-        paginated_slice = scored_tickets[offset : offset + limit]
-
-        results = []
-        for queue_score, sla, t in paginated_slice:
-            results.append({
-                "id": t.id,
-                "tboh_id": t.tboh_id,
-                "agency_id": t.agency_id,
-                "title": t.title,
-                "intent": t.intent,
-                "priority": t.priority,
-                "status": t.status,
-                "hotel_timezone": t.hotel_timezone or "UTC",
-                "check_in_date": t.check_in_date.isoformat(),
-                "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
-                "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
-                "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
-                "sla": sla,
-                "queue_score": queue_score if current_user.role != "Requester" else None,
-                "created_at": t.created_at.isoformat()
-            })
-
-        return {"total": total_count, "tickets": results}
-
+        query = query.order_by(
+            Ticket.queue_score.desc(),
+            Ticket.effective_deadline_at.asc(),
+            Ticket.id.asc()
+        )
+    elif view == "by_intent":
+        query = query.order_by(
+            Ticket.intent.asc(),
+            Ticket.created_at.desc(),
+            Ticket.id.asc()
+        )
     else:
-        total_count = query.count()
-        tickets = query.options(defer(Ticket.description)).offset(offset).limit(limit).all()
+        query = query.order_by(
+            Ticket.created_at.desc(),
+            Ticket.id.asc()
+        )
 
-        results = []
-        for t in tickets:
-            sla = evaluate_travel_sla(
-                status=t.status,
-                check_in_date=t.check_in_date,
-                lcd_date=t.lcd_date,
-                priority=t.priority,
-                intent=t.intent,
-                now=now
-            )
-            agency_tier = agency_map.get(t.agency_id) or (t.agency.tier if t.agency else None)
-            queue_score = calculate_queue_score_tier2(
-                priority=t.priority,
-                check_in_date=t.check_in_date,
-                agency_tier=agency_tier,
-                lcd_date=t.lcd_date,
-                intent=t.intent,
-                now=now
-            )
-            results.append({
-                "id": t.id,
-                "tboh_id": t.tboh_id,
-                "agency_id": t.agency_id,
-                "title": t.title,
-                "intent": t.intent,
-                "priority": t.priority,
-                "status": t.status,
-                "hotel_timezone": t.hotel_timezone or "UTC",
-                "check_in_date": t.check_in_date.isoformat(),
-                "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
-                "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
-                "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
-                "sla": sla,
-                "queue_score": queue_score if current_user.role != "Requester" else None,
-                "created_at": t.created_at.isoformat()
-            })
+    total_count = query.count()
+    tickets = query.options(defer(Ticket.description)).offset(offset).limit(limit).all()
 
-        return {"total": total_count, "tickets": results}
+    now = datetime.now(timezone.utc)
+    results = []
+    for t in tickets:
+        sla = evaluate_travel_sla(
+            status=t.status,
+            check_in_date=t.check_in_date,
+            lcd_date=t.lcd_date,
+            priority=t.priority,
+            intent=t.intent,
+            now=now
+        )
+        results.append({
+            "id": t.id,
+            "tboh_id": t.tboh_id,
+            "agency_id": t.agency_id,
+            "title": t.title,
+            "intent": t.intent,
+            "priority": t.priority,
+            "status": t.status,
+            "hotel_timezone": t.hotel_timezone or "UTC",
+            "check_in_date": t.check_in_date.isoformat(),
+            "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
+            "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
+            "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
+            "sla": sla,
+            "queue_score": t.queue_score if current_user.role != "Requester" else None,
+            "created_at": t.created_at.isoformat()
+        })
+
+    return {"total": total_count, "tickets": results}
 
 
 @app.post("/api/tickets", status_code=status.HTTP_201_CREATED)
@@ -576,6 +522,7 @@ def create_ticket(
         created_at=now,
         updated_at=now
     )
+    compute_ticket_urgency_fields(new_ticket, agency_tier=agency.tier, now=now)
     db.add(new_ticket)
     db.flush()
 
@@ -752,14 +699,16 @@ def get_ticket_details(
         if agency:
             agency_tier = agency.tier
 
-    queue_score = calculate_queue_score_tier2(
-        priority=ticket.priority,
-        check_in_date=ticket.check_in_date,
-        agency_tier=agency_tier,
-        lcd_date=ticket.lcd_date,
-        intent=ticket.intent,
-        now=now
-    )
+    queue_score = ticket.queue_score
+    if queue_score is None:
+        queue_score = calculate_queue_score_tier2(
+            priority=ticket.priority,
+            check_in_date=ticket.check_in_date,
+            agency_tier=agency_tier,
+            lcd_date=ticket.lcd_date,
+            intent=ticket.intent,
+            now=now
+        )
 
     return {
         "id": ticket.id,
@@ -824,10 +773,16 @@ def assign_ticket(
 
     new_status = "Open" if ticket.status == "New" else ticket.status
     now = datetime.now(timezone.utc)
+    ticket.status = new_status
+    ticket.assigned_to = payload.agent_id
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
     rowcount = db.query(Ticket).filter(*filter_conditions).update(
         {
             Ticket.assigned_to: payload.agent_id,
             Ticket.status: new_status,
+            Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -877,15 +832,24 @@ def unassign_ticket(
     old_agent = ticket.assigned_to
     current_version = ticket.version
 
+    new_status = "Open" if ticket.status in ["New", "Open"] else ticket.status
+    now = datetime.now(timezone.utc)
+    ticket.status = new_status
+    ticket.assigned_to = None
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
+
     rowcount = db.query(Ticket).filter(
         Ticket.id == ticket_id,
         Ticket.version == current_version
     ).update(
         {
             Ticket.assigned_to: None,
-            Ticket.status: "Open" if ticket.status in ["New", "Open"] else ticket.status,
+            Ticket.status: new_status,
+            Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.now(timezone.utc)
+            Ticket.updated_at: now
         },
         synchronize_session=False
     )
@@ -953,6 +917,10 @@ def update_ticket_status(
 
     old_status = ticket.status
     current_version = ticket.version
+    now = datetime.now(timezone.utc)
+    ticket.status = payload.status
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
 
     rowcount = db.query(Ticket).filter(
         Ticket.id == ticket_id,
@@ -960,8 +928,10 @@ def update_ticket_status(
     ).update(
         {
             Ticket.status: payload.status,
+            Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.now(timezone.utc)
+            Ticket.updated_at: now
         },
         synchronize_session=False
     )
@@ -1031,6 +1001,13 @@ def escalate_ticket(
     current_version = ticket.version
     routing_reason = f"Escalated to Escalation Manager ({DEFAULT_ESCALATION_MANAGER_ID})"
 
+    now = datetime.now(timezone.utc)
+    ticket.status = "Escalated"
+    ticket.assigned_to = DEFAULT_ESCALATION_MANAGER_ID
+    ticket.routing_reason = routing_reason
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
+
     rowcount = db.query(Ticket).filter(
         Ticket.id == ticket_id,
         Ticket.version == current_version
@@ -1039,8 +1016,10 @@ def escalate_ticket(
             Ticket.status: "Escalated",
             Ticket.assigned_to: DEFAULT_ESCALATION_MANAGER_ID,
             Ticket.routing_reason: routing_reason,
+            Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.now(timezone.utc)
+            Ticket.updated_at: now
         },
         synchronize_session=False
     )
@@ -1118,6 +1097,11 @@ def transfer_ticket(
         )
 
     routing_reason = f"Transferred from {old_agent} to {payload.target_agent_id}"
+    now = datetime.now(timezone.utc)
+    ticket.assigned_to = payload.target_agent_id
+    ticket.routing_reason = routing_reason
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
 
     rowcount = db.query(Ticket).filter(
         Ticket.id == ticket_id,
@@ -1126,8 +1110,10 @@ def transfer_ticket(
         {
             Ticket.assigned_to: payload.target_agent_id,
             Ticket.routing_reason: routing_reason,
+            Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.now(timezone.utc)
+            Ticket.updated_at: now
         },
         synchronize_session=False
     )
