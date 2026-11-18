@@ -59,6 +59,12 @@ def ensure_schema_migrations(engine_obj):
                     conn.execute(text("ALTER TABLE tickets ADD COLUMN version INTEGER DEFAULT 1 NOT NULL"))
                     conn.commit()
 
+                res_agencies = conn.execute(text("PRAGMA table_info(agencies)")).fetchall()
+                cols_agencies = [r[1] for r in res_agencies]
+                if cols_agencies and "tier" not in cols_agencies:
+                    conn.execute(text("ALTER TABLE agencies ADD COLUMN tier VARCHAR(32) DEFAULT 'standard'"))
+                    conn.commit()
+
                 res_idem = conn.execute(text("PRAGMA table_info(idempotency_records)")).fetchall()
                 cols_idem = [r[1] for r in res_idem]
                 if cols_idem and "request_hash" not in cols_idem:

@@ -4,7 +4,8 @@ from backend.config.routing_config import (
     REGION_MAPPING,
     DEFAULT_FALLBACK_REGION,
     PRIORITY_SCORES,
-    CHECKIN_URGENCY_MODIFIERS
+    CHECKIN_URGENCY_MODIFIERS,
+    AGENCY_TIER_MULTIPLIERS
 )
 from backend.services.sla_engine import effective_deadline_hours
 
@@ -65,7 +66,8 @@ def select_agent_tier1(
 def calculate_queue_score_tier2(
     priority: str,
     check_in_date: datetime,
-    *,
+    *args,
+    agency_tier: Optional[str] = None,
     lcd_date: Optional[datetime] = None,
     intent: Optional[str] = None,
     now: Optional[datetime] = None
@@ -77,10 +79,14 @@ def calculate_queue_score_tier2(
       2. Time Window / Urgency Proximity (closer effective deadline = higher queue position)
          - For cancellation intents (Refund/Cancellation/Unclassified), effective deadline = min(check_in, lcd)
          - For other operational intents, effective deadline strictly = check_in
+      3. Agency Tier Multiplier (Platinum: 1.3x, Gold: 1.15x, Standard: 1.0x)
     
     Returns:
       numerical queue score (higher = should be handled first)
     """
+    if agency_tier is None and args:
+        agency_tier = args[0]
+
     if now is None:
         now = datetime.utcnow()
         
@@ -104,4 +110,9 @@ def calculate_queue_score_tier2(
     else:
         time_modifier = 0.0
         
-    return base_score + time_modifier
+    score = base_score + time_modifier
+    if agency_tier is not None:
+        multiplier = AGENCY_TIER_MULTIPLIERS.get(agency_tier.lower(), 1.0)
+        score *= multiplier
+
+    return score
