@@ -42,6 +42,10 @@ import logging
 import threading
 from collections import defaultdict
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.background import BackgroundTask
+from backend.app.rate_limiter import (
+    RateLimiter, InMemoryRateLimiter, RedisRateLimiter, get_rate_limiter, get_client_ip
+)
 
 logger = logging.getLogger("opsdesk.access")
 logging.basicConfig(level=logging.INFO)
@@ -71,8 +75,13 @@ IDEMPOTENCY_TTL_HOURS = int(os.environ.get("IDEMPOTENCY_TTL_HOURS", "24"))
 APP_ENV = os.environ.get("APP_ENV", "development").lower()
 ALLOW_DEMO_AUTH = os.environ.get("ALLOW_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
 
-_rate_limit_lock = threading.Lock()
-_rate_limit_records: Dict[str, List[float]] = {}
+_rate_limiter: RateLimiter = get_rate_limiter()
+_rate_limit_lock = getattr(_rate_limiter, "_lock", None)
+if _rate_limit_lock is None:
+    _rate_limit_lock = threading.Lock()
+_rate_limit_records: Dict[str, List[float]] = getattr(_rate_limiter, "_records", None)
+if _rate_limit_records is None:
+    _rate_limit_records = {}
 
 
 def validate_production_auth_settings():
@@ -121,12 +130,9 @@ async def opsdesk_protection_middleware(request: Request, call_next):
     start_time = time.time()
 
     # Rate limiting check: Keyed on both X-User-Id and client IP
-    # NOTE: Behind a reverse proxy (e.g. Nginx, Cloudflare), request.client.host represents the proxy IP
-    # unless trusted proxy forwarding (e.g. X-Forwarded-For with CIDR verification) is configured.
-    # Status: planned trusted proxy config, not built.
     if request.url.path not in ["/health", "/ready", "/docs", "/openapi.json"]:
         user_id = request.headers.get("X-User-Id")
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = get_client_ip(request)
 
         keys_to_check = []
         if user_id:
@@ -134,42 +140,21 @@ async def opsdesk_protection_middleware(request: Request, call_next):
         if client_ip:
             keys_to_check.append(f"ip:{client_ip}")
 
-        now = time.time()
-        window_start = now - RATE_LIMIT_WINDOW
+        rate_limited_key = None
+        for key in keys_to_check:
+            if _rate_limiter.is_rate_limited(key, RATE_LIMIT_PER_MINUTE, RATE_LIMIT_WINDOW):
+                rate_limited_key = key
+                break
 
-        with _rate_limit_lock:
-            # 1. Check if any key violates limit
-            for key in keys_to_check:
-                existing = _rate_limit_records.get(key, [])
-                active = [t for t in existing if t > window_start]
-                if len(active) >= RATE_LIMIT_PER_MINUTE:
-                    _rate_limit_records[key] = active
-                    logger.warning(f'{{"event": "rate_limited", "key": "{key}", "request_id": "{request_id}", "path": "{request.url.path}"}}')
-                    resp = Response(
-                        content=json.dumps({"detail": "Rate limit exceeded. Please retry later."}),
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        media_type="application/json",
-                        headers={"Retry-After": "60", "X-Request-ID": request_id}
-                    )
-                    return resp
-
-            # 2. Bounded dict eviction: remove stale keys if size exceeds max bound
-            if len(_rate_limit_records) >= RATE_LIMIT_MAX_KEYS:
-                stale_keys = [k for k, v in _rate_limit_records.items() if not v or v[-1] <= window_start]
-                for k in stale_keys:
-                    del _rate_limit_records[k]
-                if len(_rate_limit_records) >= RATE_LIMIT_MAX_KEYS:
-                    # Drop oldest 10% of entries if still at capacity
-                    sorted_keys = sorted(_rate_limit_records.keys(), key=lambda k: _rate_limit_records[k][-1] if _rate_limit_records[k] else 0)
-                    for k in sorted_keys[: max(1, len(_rate_limit_records) // 10)]:
-                        del _rate_limit_records[k]
-
-            # 3. Append current timestamp to all applicable keys
-            for key in keys_to_check:
-                existing = _rate_limit_records.get(key, [])
-                active = [t for t in existing if t > window_start]
-                active.append(now)
-                _rate_limit_records[key] = active
+        if rate_limited_key:
+            logger.warning(f'{{"event": "rate_limited", "key": "{rate_limited_key}", "request_id": "{request_id}", "path": "{request.url.path}"}}')
+            resp = Response(
+                content=json.dumps({"detail": "Rate limit exceeded. Please retry later."}),
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                media_type="application/json",
+                headers={"Retry-After": "60", "X-Request-ID": request_id}
+            )
+            return resp
 
     try:
         response = await call_next(request)
@@ -1530,6 +1515,8 @@ def export_tickets_csv(
     agency_id: Optional[str] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
+    cursor: Optional[str] = Query(None, description="Cursor for pagination: ID of the last seen ticket"),
+    limit: Optional[int] = Query(None, description="Max rows per page"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1550,20 +1537,61 @@ def export_tickets_csv(
             headers={"Retry-After": "10"}
         )
 
-    query = db.query(Ticket)
-    if status:
-        query = query.filter(Ticket.status == status)
-    if agency_id:
-        query = query.filter(Ticket.agency_id == agency_id)
-    if from_date:
-        query = query.filter(Ticket.created_at >= from_date)
-    if to_date:
-        query = query.filter(Ticket.created_at <= to_date)
+    released = False
+    def release_semaphore():
+        nonlocal released
+        if not released:
+            released = True
+            try:
+                _export_semaphore.release()
+            except ValueError:
+                pass
 
-    query = query.order_by(Ticket.created_at.desc())
+    try:
+        query = db.query(Ticket)
+        if status:
+            query = query.filter(Ticket.status == status)
+        if agency_id:
+            query = query.filter(Ticket.agency_id == agency_id)
+        if from_date:
+            query = query.filter(Ticket.created_at >= from_date)
+        if to_date:
+            query = query.filter(Ticket.created_at <= to_date)
+
+        if cursor:
+            cursor_ticket = db.query(Ticket).filter(Ticket.id == cursor).first()
+            if not cursor_ticket:
+                raise HTTPException(status_code=404, detail=f"Cursor ticket '{cursor}' not found")
+            query = query.filter(
+                or_(
+                    Ticket.created_at < cursor_ticket.created_at,
+                    (Ticket.created_at == cursor_ticket.created_at) & (Ticket.id < cursor_ticket.id)
+                )
+            )
+
+        query = query.order_by(Ticket.created_at.desc(), Ticket.id.desc())
+
+        has_more = False
+        next_cursor = None
+        rows_to_export = None
+
+        if limit is not None and limit > 0:
+            tickets_page = query.limit(limit + 1).all()
+            if len(tickets_page) > limit:
+                has_more = True
+                rows_to_export = tickets_page[:limit]
+                next_cursor = rows_to_export[-1].id
+            else:
+                has_more = False
+                rows_to_export = tickets_page
+                next_cursor = None
+    except Exception:
+        release_semaphore()
+        raise
 
     def iter_csv():
         start_time = time.time()
+        last_ticket_id = None
         try:
             output = io.StringIO()
             writer = csv.writer(output)
@@ -1577,11 +1605,18 @@ def export_tickets_csv(
             output.seek(0)
             output.truncate(0)
 
-            # Stream rows in chunks of 500 without loading all rows into RAM
-            for ticket in query.yield_per(500):
+            ticket_iterable = rows_to_export if rows_to_export is not None else query.yield_per(500)
+            timed_out = False
+
+            for ticket in ticket_iterable:
                 if time.time() - start_time > CSV_EXPORT_MAX_DURATION_SECONDS:
+                    timed_out = True
                     writer.writerow(["# [ABORTED: Export exceeded maximum duration limit]"])
+                    if last_ticket_id:
+                        writer.writerow([f"# [NEXT_CURSOR: {last_ticket_id}]"])
                     yield output.getvalue()
+                    output.seek(0)
+                    output.truncate(0)
                     break
 
                 writer.writerow([
@@ -1597,18 +1632,31 @@ def export_tickets_csv(
                     sanitize_csv_cell(ticket.assigned_to or ""),
                     sanitize_csv_cell(ticket.created_at.isoformat() if ticket.created_at else "")
                 ])
+                last_ticket_id = ticket.id
                 yield output.getvalue()
                 output.seek(0)
                 output.truncate(0)
+
+            if not timed_out and has_more and next_cursor:
+                writer.writerow([f"# [NEXT_CURSOR: {next_cursor}]"])
+                yield output.getvalue()
+                output.seek(0)
+                output.truncate(0)
+
         finally:
-            try:
-                _export_semaphore.release()
-            except ValueError:
-                pass
+            release_semaphore()
 
     headers = {
         "Content-Disposition": "attachment; filename=opsdesk_tickets_export.csv",
         "Content-Type": "text/csv; charset=utf-8"
     }
-    return StreamingResponse(iter_csv(), headers=headers, media_type="text/csv")
+    if has_more and next_cursor:
+        headers["X-Next-Cursor"] = next_cursor
+
+    return StreamingResponse(
+        iter_csv(),
+        headers=headers,
+        media_type="text/csv",
+        background=BackgroundTask(release_semaphore)
+    )
 
