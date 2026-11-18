@@ -159,4 +159,13 @@ class TicketResponseSchema(BaseModel):
     hotel_timezone: Optional[str] = "UTC"
     linked_tickets_count: Optional[int] = 0
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
 

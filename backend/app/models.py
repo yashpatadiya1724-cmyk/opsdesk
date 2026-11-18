@@ -58,6 +58,7 @@ class User(Base):
     region = Column(String(50), nullable=False)  # 'MEA', 'APAC', 'EUR'
     is_available = Column(Boolean, default=True)
     agency_id = Column(String(50), ForeignKey("agencies.id", ondelete="SET NULL"), nullable=True)
+    hashed_password = Column(String(255), nullable=True)
 
     agency = relationship("Agency", back_populates="users")
     assigned_tickets = relationship("Ticket", back_populates="assignee", foreign_keys="Ticket.assigned_to")

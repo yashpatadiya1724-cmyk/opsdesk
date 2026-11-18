@@ -68,6 +68,12 @@ def ensure_schema_migrations(engine_obj):
                     conn.execute(text("ALTER TABLE agencies ADD COLUMN tier VARCHAR(32) DEFAULT 'standard'"))
                     conn.commit()
 
+                res_users = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+                cols_users = [r[1] for r in res_users]
+                if cols_users and "hashed_password" not in cols_users:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN hashed_password VARCHAR(255)"))
+                    conn.commit()
+
                 res_idem = conn.execute(text("PRAGMA table_info(idempotency_records)")).fetchall()
                 cols_idem = [r[1] for r in res_idem]
                 if cols_idem and "request_hash" not in cols_idem:
