@@ -1,0 +1,20 @@
+DETERMINISTIC DEADLOCK / NESTED CHECKOUT TEST
+Config: DB_POOL_SIZE=1, DB_MAX_OVERFLOW=0, DB_POOL_TIMEOUT=3s
+
+Endpoint                                      | Method | Status | Latency (ms) | NESTED_CHECKOUT?
+--------------------------------------------------------------------------------------------------------------
+/api/tickets?view=triage                      | GET    | 200    |      32.81 ms | NO
+/api/tickets?view=my_queue                    | GET    | 200    |      11.69 ms | NO
+/api/tickets?view=by_intent                   | GET    | 200    |      14.50 ms | NO
+/api/tickets/TCK-1001                         | GET    | 200    |      10.33 ms | NO
+/api/tickets                                  | POST   | 422    |       6.25 ms | NO
+/api/tickets/TCK-1001/assign                  | POST   | 200    |      14.08 ms | NO
+/api/tickets/TCK-1001/status                  | POST   | 422    |       5.58 ms | NO
+/api/tickets/TCK-1001/escalate                | POST   | 409    |       7.08 ms | NO
+/api/tickets/TCK-1001/transfer                | POST   | 409    |       6.90 ms | NO
+/api/tickets/TCK-1001/messages                | POST   | 422    |       5.09 ms | NO
+/api/tickets/TCK-1001/side-threads            | POST   | 422    |       5.53 ms | NO
+/api/tickets/TCK-1001/link-suggestion         | POST   | 200    |       7.86 ms | NO
+/api/insights/themes                          | GET    | 200    |      51.54 ms | NO
+==============================================================================================================
+CONCLUSION: nested checkout NAHI mila (hypothesis reject)
