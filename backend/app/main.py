@@ -58,15 +58,18 @@ ALLOW_DEMO_AUTH = os.environ.get("ALLOW_DEMO_AUTH", "false").lower() in ("true",
 _rate_limit_lock = threading.Lock()
 _rate_limit_records: Dict[str, List[float]] = {}
 
-# 2-second in-memory single-flight TTL cache for triage/my_queue queries
+# 2-second TTL with Stale-While-Revalidate (SWR) cache for triage/my_queue queries
 _triage_cache_lock = threading.Lock()
 _triage_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
-TRIAGE_CACHE_TTL_SEC = 2.0
+_triage_refreshing: set = set()
+TRIAGE_CACHE_TTL_SEC = float(os.environ.get("TRIAGE_CACHE_TTL_SEC", "2.0"))
+TRIAGE_CACHE_MAX_STALE_SEC = float(os.environ.get("TRIAGE_CACHE_MAX_STALE_SEC", "5.0"))
 TRIAGE_CACHE_ENABLED = os.environ.get("TRIAGE_CACHE_ENABLED", "true").lower() in ("true", "1", "yes")
 
 def invalidate_triage_cache():
     with _triage_cache_lock:
         _triage_cache.clear()
+        _triage_refreshing.clear()
 
 # Global in-flight concurrency limiter and load shedding
 MAX_CONCURRENT_REQUESTS = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "60"))
@@ -290,6 +293,151 @@ def api_suggest_intent(
     return {"intent": intent, "source": source}
 
 
+def _evaluate_and_paginate_triage_query(query, db, role: str, limit: int, offset: int, now: datetime) -> Dict[str, Any]:
+    # Projected lightweight tuple query for triage scoring (avoids ORM hydration overhead)
+    candidate_rows = query.with_entities(
+        Ticket.id,
+        Ticket.priority,
+        Ticket.check_in_date,
+        Ticket.lcd_date,
+        Ticket.intent,
+        Ticket.created_at,
+        Ticket.status
+    ).all()
+    total_count = len(candidate_rows)
+
+    scored_items = []
+    for row in candidate_rows:
+        t_id, priority_val, check_in_date_val, lcd_date_val, intent_val, created_at_val, status_val = row
+        sla = evaluate_travel_sla(
+            status=status_val,
+            check_in_date=check_in_date_val,
+            lcd_date=lcd_date_val,
+            priority=priority_val,
+            intent=intent_val,
+            now=now
+        )
+        queue_score = calculate_queue_score_tier2(
+            priority=priority_val,
+            check_in_date=check_in_date_val,
+            lcd_date=lcd_date_val,
+            intent=intent_val,
+            now=now
+        )
+        scored_items.append((queue_score, sla, t_id, created_at_val))
+
+    # Global sort by queue_score descending, tie-breaking by created_at (identical ordering to baseline)
+    scored_items.sort(key=lambda x: (x[0], -x[3].timestamp() if x[3] else 0), reverse=True)
+
+    paginated_slice = scored_items[offset : offset + limit]
+
+    if not paginated_slice:
+        return {"total": total_count, "tickets": []}
+
+    # Load full ticket details only for the paginated top-K slice
+    slice_ids = [item[2] for item in paginated_slice]
+    slice_tickets_by_id = {
+        t.id: t for t in db.query(Ticket).options(defer(Ticket.description)).filter(Ticket.id.in_(slice_ids)).all()
+    }
+
+    results = []
+    for queue_score, sla, t_id, _ in paginated_slice:
+        t = slice_tickets_by_id.get(t_id)
+        if not t:
+            continue
+        results.append({
+            "id": t.id,
+            "tboh_id": t.tboh_id,
+            "agency_id": t.agency_id,
+            "title": t.title,
+            "intent": t.intent,
+            "priority": t.priority,
+            "status": t.status,
+            "check_in_date": t.check_in_date.isoformat(),
+            "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
+            "assigned_to": t.assigned_to if role != "Requester" else None,
+            "routing_reason": t.routing_reason if role != "Requester" else None,
+            "sla": sla,
+            "queue_score": queue_score if role != "Requester" else None,
+            "created_at": t.created_at.isoformat()
+        })
+
+    return {"total": total_count, "tickets": results}
+
+
+def _background_refresh_triage_cache(
+    cache_key: str,
+    role: str,
+    agency_id: Optional[str],
+    user_id: str,
+    view: str,
+    intent: Optional[str],
+    priority: Optional[str],
+    status_filter: Optional[str],
+    search: Optional[str],
+    limit: int,
+    offset: int,
+    region: Optional[str]
+):
+    gen = None
+    db_session = None
+    try:
+        from backend.app.database import get_db, SessionLocal
+        override = app.dependency_overrides.get(get_db)
+        if override:
+            gen = override()
+            db_session = next(gen)
+        else:
+            db_session = SessionLocal()
+
+        query = db_session.query(Ticket)
+        if priority:
+            query = query.filter(Ticket.priority == priority)
+        if status_filter:
+            query = query.filter(Ticket.status == status_filter)
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            query = query.filter(
+                or_(
+                    Ticket.tboh_id.ilike(term),
+                    Ticket.id.ilike(term),
+                    Ticket.title.ilike(term),
+                    Ticket.description.ilike(term)
+                )
+            )
+        if role == "Requester":
+            query = query.filter(Ticket.agency_id == agency_id)
+        else:
+            if view == "my_queue":
+                query = query.filter(
+                    Ticket.assigned_to == user_id,
+                    Ticket.status.in_(["New", "Open", "Pending", "Escalated"])
+                )
+            elif view == "triage":
+                if not (search and search.strip()):
+                    query = query.filter(
+                        Ticket.status.in_(["New", "Open", "Pending", "Escalated"]),
+                        Ticket.assigned_to.is_(None)
+                    )
+        payload = _evaluate_and_paginate_triage_query(
+            query=query, db=db_session, role=role, limit=limit, offset=offset, now=datetime.utcnow()
+        )
+        with _triage_cache_lock:
+            _triage_cache[cache_key] = (time.time(), payload)
+    except Exception as exc:
+        logger.warning(f"Background triage cache refresh error for {cache_key}: {exc}")
+    finally:
+        if gen:
+            try:
+                next(gen)
+            except StopIteration:
+                pass
+        elif db_session:
+            db_session.close()
+        with _triage_cache_lock:
+            _triage_refreshing.discard(cache_key)
+
+
 # ============================================================================
 # 2. TICKETS ENDPOINTS
 # ============================================================================
@@ -392,82 +540,25 @@ def list_tickets(
         if TRIAGE_CACHE_ENABLED:
             with _triage_cache_lock:
                 cached = _triage_cache.get(cache_key)
-                if cached and (curr_time - cached[0]) < TRIAGE_CACHE_TTL_SEC:
-                    return cached[1]
+                if cached:
+                    age = curr_time - cached[0]
+                    if age < TRIAGE_CACHE_TTL_SEC:
+                        # Fresh cache hit
+                        return cached[1]
+                    elif age < (TRIAGE_CACHE_TTL_SEC + TRIAGE_CACHE_MAX_STALE_SEC):
+                        # Stale-While-Revalidate: return stale immediately, single-flight background refresh
+                        if cache_key not in _triage_refreshing:
+                            _triage_refreshing.add(cache_key)
+                            threading.Thread(
+                                target=_background_refresh_triage_cache,
+                                args=(cache_key, current_user.role, current_user.agency_id, current_user.id, view, intent, priority, status, search, limit, offset, current_user.region),
+                                daemon=True
+                            ).start()
+                        return cached[1]
 
-        # Projected lightweight tuple query for triage scoring (avoids ORM hydration overhead)
-        candidate_rows = query.with_entities(
-            Ticket.id,
-            Ticket.priority,
-            Ticket.check_in_date,
-            Ticket.lcd_date,
-            Ticket.intent,
-            Ticket.created_at,
-            Ticket.status
-        ).all()
-        total_count = len(candidate_rows)
-
-        scored_items = []
-        for row in candidate_rows:
-            t_id, priority_val, check_in_date_val, lcd_date_val, intent_val, created_at_val, status_val = row
-            sla = evaluate_travel_sla(
-                status=status_val,
-                check_in_date=check_in_date_val,
-                lcd_date=lcd_date_val,
-                priority=priority_val,
-                intent=intent_val,
-                now=now
-            )
-            queue_score = calculate_queue_score_tier2(
-                priority=priority_val,
-                check_in_date=check_in_date_val,
-                lcd_date=lcd_date_val,
-                intent=intent_val,
-                now=now
-            )
-            scored_items.append((queue_score, sla, t_id, created_at_val))
-
-        # Global sort by queue_score descending, tie-breaking by created_at (identical ordering to baseline)
-        scored_items.sort(key=lambda x: (x[0], -x[3].timestamp() if x[3] else 0), reverse=True)
-
-        paginated_slice = scored_items[offset : offset + limit]
-
-        if not paginated_slice:
-            response_payload = {"total": total_count, "tickets": []}
-            if TRIAGE_CACHE_ENABLED:
-                with _triage_cache_lock:
-                    _triage_cache[cache_key] = (curr_time, response_payload)
-            return response_payload
-
-        # Load full ticket details only for the paginated top-K slice
-        slice_ids = [item[2] for item in paginated_slice]
-        slice_tickets_by_id = {
-            t.id: t for t in db.query(Ticket).options(defer(Ticket.description)).filter(Ticket.id.in_(slice_ids)).all()
-        }
-
-        results = []
-        for queue_score, sla, t_id, _ in paginated_slice:
-            t = slice_tickets_by_id.get(t_id)
-            if not t:
-                continue
-            results.append({
-                "id": t.id,
-                "tboh_id": t.tboh_id,
-                "agency_id": t.agency_id,
-                "title": t.title,
-                "intent": t.intent,
-                "priority": t.priority,
-                "status": t.status,
-                "check_in_date": t.check_in_date.isoformat(),
-                "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
-                "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
-                "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
-                "sla": sla,
-                "queue_score": queue_score if current_user.role != "Requester" else None,
-                "created_at": t.created_at.isoformat()
-            })
-
-        response_payload = {"total": total_count, "tickets": results}
+        response_payload = _evaluate_and_paginate_triage_query(
+            query=query, db=db, role=current_user.role, limit=limit, offset=offset, now=now
+        )
         if TRIAGE_CACHE_ENABLED:
             with _triage_cache_lock:
                 _triage_cache[cache_key] = (curr_time, response_payload)
