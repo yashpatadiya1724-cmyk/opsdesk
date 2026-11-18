@@ -1,0 +1,43 @@
+{
+  "label": "Defaults ON (RateLimit=120/min)",
+  "variant": "a",
+  "cache_enabled": true,
+  "clients": 100,
+  "duration": 30,
+  "repeats": 1,
+  "think_time_ms": 0,
+  "median_rps": 889.5123880661658,
+  "min_rps": 889.5123880661658,
+  "max_rps": 889.5123880661658,
+  "median_p50": 51.54509999556467,
+  "min_p50": 51.54509999556467,
+  "max_p50": 51.54509999556467,
+  "median_p95": 71.25855000049341,
+  "min_p95": 71.25855000049341,
+  "max_p95": 71.25855000049341,
+  "median_p99": 93.77610999219107,
+  "min_p99": 93.77610999219107,
+  "max_p99": 93.77610999219107,
+  "combined_statuses": {
+    "429": 26711
+  },
+  "total_locked": 0,
+  "runs": [
+    {
+      "t0_wall": "2026-11-17T21:32:51.198394",
+      "rps": 889.5123880661658,
+      "p50": 51.54509999556467,
+      "p95": 71.25855000049341,
+      "p99": 93.77610999219107,
+      "statuses": {
+        "429": 26711
+      },
+      "total_requests": 26711,
+      "locked_errors": 0,
+      "duration_sec": 30.02881169319153
+    }
+  ],
+  "pool_log": "[2026-11-17T21:32:44.404930] threads=2 pool=Pool size: 10  Connections in pool: 0 Current Overflow: -10 Current Checked out connections: 0\n[2026-11-17T21:32:49.406217] threads=14 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:32:54.406803] threads=14 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:32:59.407755] threads=14 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:33:04.408035] threads=14 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:33:09.410432] threads=14 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:33:14.410746] threads=14 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:33:19.411430] threads=14 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n",
+  "dump_content": "",
+  "cpu_content": "\ufeffTime,ServerCpu,ClientCpu\n2026-11-18T03:02:46,0.640625,197.765625\n2026-11-18T03:02:48,1.625,199.296875\n2026-11-18T03:02:50,3.53125,200.546875\n2026-11-18T03:02:52,3.90625,202.453125\n2026-11-18T03:02:54,3.90625,204.484375\n2026-11-18T03:02:56,3.90625,206.40625\n2026-11-18T03:02:58,3.90625,208.359375\n2026-11-18T03:03:00,3.90625,210.296875\n2026-11-18T03:03:02,3.90625,212.265625\n2026-11-18T03:03:04,3.90625,214.203125\n2026-11-18T03:03:06,3.90625,216.234375\n2026-11-18T03:03:08,4.53125,218.125\n2026-11-18T03:03:10,5.28125,220.09375\n2026-11-18T03:03:12,6,222.078125\n2026-11-18T03:03:14,6.765625,223.984375\n2026-11-18T03:03:16,7.4375,225.984375\n2026-11-18T03:03:18,8.234375,227.90625\n2026-11-18T03:03:20,9.140625,229.890625\n"
+}

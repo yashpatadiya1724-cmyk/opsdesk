@@ -1,0 +1,73 @@
+{
+  "label": "Var(a) Cache-ON [456 unassigned]",
+  "variant": "a",
+  "cache_enabled": true,
+  "clients": 100,
+  "duration": 30,
+  "repeats": 3,
+  "think_time_ms": 0,
+  "median_rps": 2.3508561914616664,
+  "min_rps": 2.206391928001484,
+  "max_rps": 2.389540868177586,
+  "median_p50": 36127.814999985276,
+  "min_p50": 35607.86449999432,
+  "max_p50": 37630.996099993354,
+  "median_p95": 43354.547720000846,
+  "min_p95": 43051.663780014496,
+  "max_p95": 44676.99599999469,
+  "median_p99": 43997.21737599233,
+  "min_p99": 43679.08338000649,
+  "max_p99": 45242.69179999828,
+  "combined_statuses": {
+    "200": 17,
+    "599": 300
+  },
+  "total_locked": 0,
+  "runs": [
+    {
+      "t0_wall": "2026-11-17T21:24:41.179738",
+      "rps": 2.206391928001484,
+      "p50": 37630.996099993354,
+      "p95": 44676.99599999469,
+      "p99": 45242.69179999828,
+      "statuses": {
+        "200": 1,
+        "599": 100
+      },
+      "total_requests": 101,
+      "locked_errors": 0,
+      "duration_sec": 45.77609205245972
+    },
+    {
+      "t0_wall": "2026-11-17T21:25:27.752931",
+      "rps": 2.389540868177586,
+      "p50": 35607.86449999432,
+      "p95": 43051.663780014496,
+      "p99": 43679.08338000649,
+      "statuses": {
+        "200": 9,
+        "599": 100
+      },
+      "total_requests": 109,
+      "locked_errors": 0,
+      "duration_sec": 45.61545753479004
+    },
+    {
+      "t0_wall": "2026-11-17T21:26:14.178345",
+      "rps": 2.3508561914616664,
+      "p50": 36127.814999985276,
+      "p95": 43354.547720000846,
+      "p99": 43997.21737599233,
+      "statuses": {
+        "200": 7,
+        "599": 100
+      },
+      "total_requests": 107,
+      "locked_errors": 0,
+      "duration_sec": 45.515331983566284
+    }
+  ],
+  "pool_log": "[2026-11-17T21:24:34.282374] threads=2 pool=Pool size: 10  Connections in pool: 0 Current Overflow: -10 Current Checked out connections: 0\n[2026-11-17T21:24:39.283011] threads=14 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 0 Current Checked out connections: 10\n[2026-11-17T21:24:44.284081] threads=14 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:24:49.284550] threads=14 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:24:54.284943] threads=14 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:24:59.287267] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:25:04.287739] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:25:09.288234] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:25:14.288807] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:25:19.289402] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:25:24.289877] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:25:29.291273] threads=63 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:25:34.291768] threads=63 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:25:39.292058] threads=63 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:25:44.292711] threads=44 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:25:49.293311] threads=44 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:25:54.293753] threads=44 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:25:59.294273] threads=44 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:26:04.294682] threads=44 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:26:09.295568] threads=44 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:26:14.296485] threads=57 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:26:19.297023] threads=57 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:26:24.297555] threads=57 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:26:29.297908] threads=57 pool=Pool size: 10  Connections in pool: 10 Current Overflow: 0 Current Checked out connections: 0\n[2026-11-17T21:26:34.298130] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:26:39.298951] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:26:44.299546] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:26:49.300061] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:26:54.300658] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n[2026-11-17T21:26:59.301440] threads=43 pool=Pool size: 10  Connections in pool: 0 Current Overflow: 20 Current Checked out connections: 30\n",
+  "dump_content": "",
+  "cpu_content": "\ufeffTime,ServerCpu,ClientCpu\n2026-11-18T02:54:35,0.625,50.140625\n2026-11-18T02:54:37,1.75,51.578125\n2026-11-18T02:54:39,5.265625,51.921875\n2026-11-18T02:54:42,7.015625,53.046875\n2026-11-18T02:54:44,7.015625,55.015625\n2026-11-18T02:54:46,7.015625,57.03125\n2026-11-18T02:54:48,7.015625,59.015625\n2026-11-18T02:54:50,7.015625,61.046875\n2026-11-18T02:54:52,7.015625,63.03125\n2026-11-18T02:54:54,7.03125,65.015625\n2026-11-18T02:54:56,7.03125,66.953125\n2026-11-18T02:54:58,7.109375,67.703125\n2026-11-18T02:55:00,7.109375,67.703125\n2026-11-18T02:55:02,7.109375,67.703125\n2026-11-18T02:55:04,7.109375,67.703125\n2026-11-18T02:55:06,7.109375,67.703125\n2026-11-18T02:55:08,7.109375,67.703125\n2026-11-18T02:55:10,7.125,67.703125\n2026-11-18T02:55:12,7.125,67.703125\n2026-11-18T02:55:14,7.125,67.703125\n2026-11-18T02:55:16,7.125,67.703125\n2026-11-18T02:55:18,7.140625,67.703125\n2026-11-18T02:55:20,7.140625,67.703125\n2026-11-18T02:55:22,7.140625,67.703125\n2026-11-18T02:55:24,7.140625,67.703125\n2026-11-18T02:55:26,7.140625,67.703125\n2026-11-18T02:55:28,8.796875,68.796875\n2026-11-18T02:55:30,8.796875,70.78125\n2026-11-18T02:55:32,8.796875,72.796875\n2026-11-18T02:55:34,8.796875,74.78125\n2026-11-18T02:55:36,8.796875,76.78125\n2026-11-18T02:55:38,8.796875,78.765625\n2026-11-18T02:55:40,8.796875,80.75\n2026-11-18T02:55:42,8.796875,82.75\n2026-11-18T02:55:44,9.125,83.25\n2026-11-18T02:55:46,9.125,83.25\n2026-11-18T02:55:48,9.125,83.25\n2026-11-18T02:55:50,9.125,83.25\n2026-11-18T02:55:52,9.125,83.25\n2026-11-18T02:55:54,9.125,83.25\n2026-11-18T02:55:56,9.140625,83.25\n2026-11-18T02:55:58,9.140625,83.25\n2026-11-18T02:56:00,9.140625,83.25\n2026-11-18T02:56:02,9.140625,83.25\n2026-11-18T02:56:04,9.1875,83.25\n2026-11-18T02:56:06,9.1875,83.25\n2026-11-18T02:56:09,9.1875,83.25\n2026-11-18T02:56:11,9.1875,83.25\n2026-11-18T02:56:13,9.1875,83.25\n2026-11-18T02:56:15,10.890625,84.375\n2026-11-18T02:56:17,10.890625,86.328125\n2026-11-18T02:56:19,10.90625,88.296875\n2026-11-18T02:56:21,10.90625,90.296875\n2026-11-18T02:56:23,10.90625,92.28125\n2026-11-18T02:56:25,10.9375,94.234375\n2026-11-18T02:56:27,10.9375,96.21875\n2026-11-18T02:56:29,10.9375,98.203125\n2026-11-18T02:56:31,11.28125,98.546875\n2026-11-18T02:56:33,11.28125,98.546875\n2026-11-18T02:56:35,11.28125,98.546875\n2026-11-18T02:56:37,11.28125,98.546875\n2026-11-18T02:56:39,11.28125,98.546875\n2026-11-18T02:56:41,11.28125,98.546875\n2026-11-18T02:56:43,11.296875,98.546875\n2026-11-18T02:56:45,11.296875,98.546875\n2026-11-18T02:56:47,11.296875,98.546875\n2026-11-18T02:56:49,11.3125,98.546875\n2026-11-18T02:56:51,11.328125,98.546875\n2026-11-18T02:56:53,11.328125,98.546875\n2026-11-18T02:56:55,11.328125,98.546875\n2026-11-18T02:56:57,11.328125,98.546875\n2026-11-18T02:56:59,11.34375,98.5625\n"
+}

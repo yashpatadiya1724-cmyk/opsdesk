@@ -1,0 +1,847 @@
+﻿C:\Users\yashp\projects\opsdesk\.venv\Scripts\python.exe : INFO:opsdesk.access:{"event": "request_completed", 
+"request_id": "f988e926-fcf2-4636-a0a4-efd92ce6f7d2", "method": "GET", "path": "/health", "status_code": 200, 
+"duration_ms": 7.01}
+At line:2 char:1
++ C:\Users\yashp\projects\opsdesk\.venv\Scripts\python.exe scripts/diag ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (INFO:opsdesk.ac...tion_ms": 7.01}:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "1ac0a926-f929-46e7-aa3f-04b32d26ea3f", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 7.01}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "5c90253e-d49c-446d-bf63-77abf8cf4e10", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 6.00}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a141fb97-784d-45b3-9a75-5a0a053ecdc1", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 6.58}
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "dd6ee627-f106-441e-87f5-b4fa78df7c5d", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 6.68}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "627e46ce-1b7c-4829-bdc5-feb30c663382", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 7.68}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "fb9adb95-eeed-4254-8d1e-26aa5aac23a7", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 7.68}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "768b03b1-4a00-490d-8de4-f669c94a1037", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 6.68}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d8e88d59-2102-42c9-a0ad-747a312d8b84", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 8.60}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "24ff5225-5974-4a8c-b770-4da9723626b5", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 7.60}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a2d9b525-c425-4c73-be53-afd579264998", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 7.60}
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "14c572f0-d535-412b-b3f6-8e64e0f0b2d3", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 8.59}
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "03dd8c70-9de1-4cde-a87a-4d2ecbdc6760", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 14.92}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "54167021-3c49-463e-9d6d-82689cb6e5cd", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 18.40}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f6b69f21-28bc-4878-a473-c06a32968b3d", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 20.47}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7a89ef4f-fc5f-487f-b02a-2a65f4672d23", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 20.47}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "0c5a481e-3050-4e1b-9e17-4015ec6c6ed0", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 21.46}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "fa006ff3-278a-4261-8a3d-da95d5c15def", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 21.45}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "8ee115ad-d9f3-411d-a3fa-28a2e1ed9234", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 22.42}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "ddd57fd8-8d5e-4693-9830-8266b17f756b", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 23.41}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "89c30ff6-1283-4559-9d08-dab27708908b", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 24.41}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "8bec7d5d-0a7b-4a3c-92b9-622661c361b1", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 27.41}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "2cf8dd94-4011-40fd-a90a-d5cec4715cc9", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 32.44}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "31387e84-a8f7-4e49-b54c-63180cb90147", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 28.67}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "405d6eac-ee56-4953-85f0-e67140c7c2ea", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 503, "duration_ms": 3065.98}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "c10413ec-60a5-4350-955a-8a11c817303d", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 503, "duration_ms": 3063.98}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7ff1b062-2646-4700-acad-065565175752", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 503, "duration_ms": 3066.98}
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a39e798f-889f-4157-9857-a3ac1822da73", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 503, "duration_ms": 3068.99}
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "2c50cca7-89be-4072-ab74-6ce79fa2798d", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 503, "duration_ms": 6073.99}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "db7ba245-05dc-473c-91cf-608cedac4d34", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 503, "duration_ms": 6071.99}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "b9df43fe-5d24-4354-94f6-56f7d8c3e482", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 503, "duration_ms": 6074.99}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f1210c3c-6981-47f9-a5dc-de22447c237a", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 503, "duration_ms": 6074.99}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "2b20cd5b-e289-475c-b93f-03ae8f50b287", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 200, "duration_ms": 6079.99}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "859a13a6-ff1e-4714-80dd-b574e852021f", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 200, "duration_ms": 6077.99}
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4dedcdd4-3ada-49c2-873e-ecb3b0dfe363", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 200, "duration_ms": 6079.98}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "cefd5a23-60d7-4a85-bfb3-a9b4517b65c3", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 200, "duration_ms": 6081.98}
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "6f4ee6ca-fa92-464a-b560-160a371b0314", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3032.22}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "77157c26-c60a-48c0-a10f-c52e255f2dea", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3030.22}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d8c36701-5520-4361-b472-d18088bfdd10", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3032.22}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d7e4e2dd-eb48-4818-b811-48ac937fb84d", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3035.22}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4c0fe928-64cc-4f68-a315-71940cd07c9a", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6048.45}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "3eb5114a-4786-4c94-9193-9441c2c4f29b", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6046.45}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "85c299cd-1d49-4e40-86ee-7ab71d38ff32", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6049.96}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7f86ffca-f531-4c92-8d64-f4db3b89e106", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6051.96}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d26d1d10-f2ea-4263-87af-f997c330a626", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6054.07}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "ed087002-a307-438e-93ec-22303c2f0856", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6050.97}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "37268ff4-3c29-444f-b9fd-034b789c6866", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6052.97}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "84a07a16-6116-486a-be72-43ebe0b67dd0", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6053.97}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7f92ebb3-671f-4df0-85cf-6192024a8e59", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3028.93}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "40ac5832-c537-486b-898d-b6de86b99930", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3027.93}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "5907d2a7-6170-4707-9390-0e46b65f47e6", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3028.93}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "b9045cc5-58e3-4255-ada4-b6c9656ee666", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3029.92}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "84251c19-3b43-489f-b490-193d8157b32e", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6029.12}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f75da91e-b0fe-4ce7-a48e-3f324619ba8a", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6028.12}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "6fbde44c-4133-45e4-b093-2f74ce64794b", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6053.57}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "63c17e32-c239-4dda-ac24-a310ec8a652c", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6054.57}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d13f3250-8c4e-4fdd-9a66-d32896d219f7", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6059.57}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "368f3944-1ffe-4840-81a9-91b2d51c335b", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6058.56}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "94bc02a3-902d-4e4f-bfb1-9c1d8992eaba", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6063.65}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "0c26f4b9-0732-4286-b354-addac6000120", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6064.65}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f519cc9f-50de-4d1e-aa5e-99e8290f3a90", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3029.79}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7ac745c8-722e-41df-9fbd-18620ffc5839", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3031.79}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "54bbab2c-11d8-45de-b697-b8dc3d4871ee", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3031.79}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "783ef6a9-819c-4d13-bff9-a9b9e44ee0d0", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3030.79}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "75e64744-0b22-4d4b-b107-494b096520ab", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6040.65}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "5bbd799d-302e-43a2-bf1e-d6466fb6dbb4", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6045.66}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7c5be064-953c-4f55-a27a-9a9d9d3ea03e", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6042.67}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "c25d5677-26c3-4a0a-a24f-40f4f44f3324", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6045.84}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "497996e6-eba3-4348-80d3-bdd3a12c8f11", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6051.83}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e2fec35b-81a4-4746-a11f-cdf2fc98da78", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6053.87}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "3744a37a-ebd9-4b8c-92e3-3a53fc61fe7b", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6052.79}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "eb135218-fca4-4617-b1bb-174486d11282", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6055.87}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "fdbde8d4-a0c1-4b24-847e-fe699995803f", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3026.49}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "55f97ffb-19b5-4d89-99ab-4206845d8d84", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3024.49}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "df87255d-7d97-4dba-b830-035a16f41a05", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3023.48}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "68e525da-0504-4da3-a5ae-f088e566086e", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3027.49}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a6f40b48-94a4-425f-9bd2-a7c60aa45e85", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6043.03}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7044a8b9-ca20-4902-8ba8-2cbe3e7c9e58", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6042.03}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "9fd14439-ab11-417d-bc5d-4965aaec3a1e", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6039.02}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "b557d216-8f80-428f-a5aa-2318af6565bc", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6038.02}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "0f367502-ae45-42fa-b64e-f146e56ac8ae", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6048.99}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e949f6c0-6eeb-4443-bf01-6ed01dde202e", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6055.00}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "70a5c86a-0a6b-4eae-97dd-053c44ebf53d", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6051.97}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "1032aa97-3b85-49e8-8677-0cb23397baaa", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6056.00}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "294814b2-b82a-428c-b5fb-6a0c081004c1", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3017.24}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e8331d59-f6fe-4bd2-ad12-b84ff82ea0ef", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3020.26}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "74d1231c-5389-4cd6-af58-70cd9dce34bb", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3045.69}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "8882b299-f0d1-4869-9fbd-9b1cdd8eb974", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3044.19}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "6b420552-d6c1-4aef-b828-2df88408e3f1", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6017.40}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a808710b-1a6b-4a43-8045-4fcc43226be4", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6017.40}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "ad90eb9d-3350-440e-a164-6b6ceae53f11", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6043.46}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4c51100f-7619-44a0-ac96-588c433eea19", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 6039.44}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "b465403e-58b1-4b8e-b05c-06787f44f938", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6050.86}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "74e55c86-126b-41d5-8bdd-46be2840fb24", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6051.38}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "aa8fb746-81df-463c-893f-f2edc908273b", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6051.37}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d3e350fe-d58b-4065-b9fd-17542ecf3c57", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6052.37}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=linked&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "c728c580-5be1-4e02-bbfe-e9b3f3d15907", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 23.00}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "5be5e94c-bd2e-402f-bcaf-beaa498dba1a", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 21.90}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a5384a56-7d36-40f5-b480-43bd4c1d3447", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 23.90}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "2c02b33b-845f-4315-8643-58dadbd4ad61", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 23.89}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "79a5a40a-f162-4564-b9ac-0e50255cb4b0", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 22.90}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "55b8e95b-7216-45e4-a534-f12525767b47", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 23.90}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "b3eb4898-7794-4e12-8bb6-ae743f60fecf", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 23.90}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a4d9a496-f214-45e3-8eb6-ac9698891b25", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 27.93}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "33cf55ed-5ef4-4873-886d-8011f28884c7", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 26.94}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d288ab3e-9f6c-4332-9718-63c71eca862a", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 26.94}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "6c6bafd1-67df-46d6-af92-415cba3bcee7", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 30.93}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "14b5d409-d2d4-468e-b7ae-262731de2c54", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 28.94}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "09ddd85c-cdc6-49f4-b37c-ec165e5990b0", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 503, "duration_ms": 3026.55}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "ec26a5f7-ac36-4a5d-88cf-fc43b771f014", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 503, "duration_ms": 3026.55}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "95131c8d-92a6-4974-9148-6211d322c766", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 503, "duration_ms": 3036.82}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "687b9320-1966-4702-a8ab-544d0a664d21", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 503, "duration_ms": 3035.82}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "8f5bda76-6194-4b4b-b1ab-902026cbb313", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 503, "duration_ms": 6033.64}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "c7b871b7-136b-4f28-bf59-3a4b50c40975", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 503, "duration_ms": 6033.64}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4c1567e3-ec38-428c-a8d8-daeb2d037cb4", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 503, "duration_ms": 6033.64}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "3bf2d9a9-cb3b-4e45-b760-2d8aa4623197", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 503, "duration_ms": 6041.74}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4eb462ee-a67a-4332-8a73-bb2fccf99a29", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 200, "duration_ms": 6046.55}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4f808e13-368f-40bc-80e1-8b9a20281a53", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 200, "duration_ms": 6046.55}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "52340baa-0942-4604-9640-39aac7587683", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 200, "duration_ms": 6049.65}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "20f5a383-2dc6-4f0e-a6fd-70f71475f337", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 200, "duration_ms": 6049.65}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "b549a8e2-fe9e-4468-b250-9b254190adf5", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 503, "duration_ms": 3021.23}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "242b0d3e-264f-4a75-bef2-17c209f15fd3", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 503, "duration_ms": 3022.23}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "8b702b67-40e1-4336-a468-c46ebea72f4d", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 503, "duration_ms": 3023.23}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "3ac5ae67-d2d1-46e6-9137-030f85d98bd1", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 503, "duration_ms": 3023.23}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7e673fd0-1a50-47c7-83c4-87ab844beae3", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 503, "duration_ms": 6039.12}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "8cbbeb82-57b5-4ec3-b5d5-0ed5682ee246", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 503, "duration_ms": 6039.12}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "6d7c5679-0f8e-48ea-ab37-ca7c9158073a", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 503, "duration_ms": 6040.11}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "5951d2a1-de46-40ac-a6a3-0298f54edf63", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 503, "duration_ms": 6041.11}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "762a4476-d052-4d69-af11-89ee149d7790", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 409, "duration_ms": 6048.11}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4907b21a-adbd-454b-a4c2-28f116ef6619", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 200, "duration_ms": 6053.11}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 409 Conflict"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "2d16488d-1e18-4bcd-8e2f-6ede7109df8b", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 200, "duration_ms": 6055.11}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "3d6937d0-103e-4fc5-b239-04484384b146", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 409, "duration_ms": 6072.08}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 409 Conflict"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7728ba00-06be-49ef-93f6-6cc6ed26e2b1", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 503, "duration_ms": 3018.89}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "1c46a016-81a6-44f2-969a-c7e943f83010", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 503, "duration_ms": 3019.82}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4e013ae0-600b-4093-a242-2996e15a5043", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 503, "duration_ms": 3033.25}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "76c38e8c-3218-4030-9003-8c8c2c9b439e", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 503, "duration_ms": 3034.24}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e1896526-68d8-49c1-927c-f3ad87967c1d", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 503, "duration_ms": 6023.06}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7d808937-2a24-4472-a300-3aa23dd55d9f", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 503, "duration_ms": 6023.97}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4bd46996-da91-48c2-87a6-ae172224df3e", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 503, "duration_ms": 6048.04}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "6d744876-af2e-4898-9c89-ae1b491c39f8", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 503, "duration_ms": 6047.03}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "bf53c565-5fd9-43c7-9397-0d0f60bd3f8c", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 200, "duration_ms": 6056.99}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "5191940a-bc16-4852-b893-c33e3fd91993", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 409, "duration_ms": 6057.99}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 409 Conflict"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "ed5c47d7-1201-4fe1-994d-e93ea3e2e312", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 200, "duration_ms": 6060.73}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a3e829df-87a0-43d2-a466-75cffd989850", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 200, "duration_ms": 6061.63}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7eb9ef6e-855b-4f3e-9a98-20aeae031bb0", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 503, "duration_ms": 3024.94}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "da43dd54-a84d-43c8-9f0c-65eb6f286c74", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 503, "duration_ms": 3024.94}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "51dafbcf-28ee-4c97-a6e1-4a935c9e6eaa", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 503, "duration_ms": 3023.94}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7c3219a9-4afd-47b2-bd54-16f80a8542bd", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 503, "duration_ms": 3025.94}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "31fb3ff8-e447-42f2-9604-8a00265fc637", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 503, "duration_ms": 6031.20}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "2b687685-738b-4ca3-954e-1eddc475c7cc", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 503, "duration_ms": 6032.20}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "096cd231-41e8-412e-8376-fab23af242df", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 503, "duration_ms": 6034.14}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "cdc43563-3ff2-45c9-b51a-77598189b2d0", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 503, "duration_ms": 6038.14}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e590c618-ce6a-4a70-952c-72f2e0167062", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 409, "duration_ms": 6043.13}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 409 Conflict"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7b2c569d-2530-423e-a56d-c4f740733dbc", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 200, "duration_ms": 6043.19}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "17e49c99-2068-4259-87eb-a15bd57ef3ab", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 409, "duration_ms": 6043.14}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 409 Conflict"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "05c1f9cc-4692-4a92-991c-ddfb2059efc1", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 409, "duration_ms": 6045.14}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 409 Conflict"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f71ae4ff-a746-43af-bc9a-7a0817463487", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 503, "duration_ms": 3031.42}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "97b8e9f8-1580-46fe-b139-db1251d80900", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 503, "duration_ms": 3031.42}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7de858fe-2fd1-4794-8899-9e951071a27c", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 503, "duration_ms": 3036.33}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "59f2b0bf-2b2c-4dfa-94c3-f33c1b2f8804", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 503, "duration_ms": 3032.28}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "fd22ca31-aa1e-4155-8b69-fd36c6312efe", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 503, "duration_ms": 6050.42}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "67318f7b-daef-40f3-bd98-527b1456c6c5", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 503, "duration_ms": 6050.44}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "6ca1c1b9-0f23-4c08-9958-153901e58ac9", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 503, "duration_ms": 6053.35}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d9f17cc8-2371-4104-9f79-004ded4c613d", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 503, "duration_ms": 6052.42}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "436a5a29-d64b-42c3-b98d-649337864015", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 200, "duration_ms": 6059.35}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e88c1577-f8aa-4f4a-bf88-ec760e420765", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 200, "duration_ms": 6061.35}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "0103a72c-393b-4594-a76f-452aab6775d2", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 200, "duration_ms": 6064.44}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "31094c77-def2-4d01-9dd5-cd3ed0d58749", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 409, "duration_ms": 6070.34}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 409 Conflict"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f3d42705-1d1d-4a1f-9008-13875be449b5", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 503, "duration_ms": 3031.88}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "bcac7388-83c1-4335-9254-d98320180376", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 503, "duration_ms": 3032.88}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4ade5daf-a6fa-431d-bba1-64f559e5d651", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 503, "duration_ms": 3032.88}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "58b72432-8784-444b-9ec5-702a4e6ed4bf", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 503, "duration_ms": 3043.04}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f42094f0-95d5-43dd-934a-c70f3fd92b59", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 503, "duration_ms": 6042.12}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "820df886-73e7-4755-871d-305763b6ea38", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 503, "duration_ms": 6042.12}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "12135233-61cb-40e9-bcab-f31a6274286d", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 503, "duration_ms": 6047.12}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "750729bd-58ff-4b79-8f09-bb1ce981ccfb", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 503, "duration_ms": 6048.17}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "eb720909-aca4-4fa0-a5b8-1ae6c6f8b5a2", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 200, "duration_ms": 6059.14}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f7ab0b7e-1018-4324-a2ae-a7af3a1e4813", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 400, "duration_ms": 6061.17}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 400 Bad Request"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "22609624-24b0-4283-8d53-c86ac98cb1bf", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 400, "duration_ms": 6062.16}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 400 Bad Request"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "38d04864-652e-4f46-9215-a0bba7b964bf", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 409, "duration_ms": 6068.79}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 409 Conflict"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "2b8442f7-6edd-4bc5-891a-d997f963aa55", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 503, "duration_ms": 3012.24}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "299a06ca-de50-461f-b09f-9f8ce95ab7d5", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 503, "duration_ms": 3012.24}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "8caa34b6-7b2a-45c3-8888-12189fbe7ae7", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 503, "duration_ms": 3026.23}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "52753265-4065-4b51-8be6-454c36508e91", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 503, "duration_ms": 3027.23}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "3ff9cb83-b040-458b-960d-fedf74544318", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 503, "duration_ms": 6026.37}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "2a98bda9-76a0-4caa-84d5-b378968e8445", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 503, "duration_ms": 6028.33}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7ad6ffc6-50b5-4cac-8a43-052efda52733", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 503, "duration_ms": 6042.67}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "2cce2834-40d8-4ed0-b9ac-b0b7b1f899a5", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 503, "duration_ms": 6043.67}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4fff807f-d1d4-414f-b504-bbbf2fdc8691", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 201, "duration_ms": 6055.67}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 201 Created"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "88e149fe-cddd-4f2f-9537-eb33559012ca", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 201, "duration_ms": 6057.67}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 201 Created"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "9bc5712e-2017-4004-a2c9-cb05d093834a", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 201, "duration_ms": 6065.66}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 201 Created"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e0a25f74-1206-4475-b416-b7d4924485a9", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 201, "duration_ms": 6066.67}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 201 Created"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "296655e3-6ece-480c-8b40-3765a42ab461", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 3018.47}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "17182821-0472-4c30-b2d8-05c60eb55377", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 3019.47}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4814db9e-95c5-47dc-8610-6b0426d77752", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 3020.47}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "5be5bdaa-abd3-4523-bb82-87b5df9bccca", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 3021.47}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "62d4de6c-7aa6-44a3-ad8b-338ee5f9095d", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 6027.57}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d0f0adb0-bb67-4e50-9612-889a2d194213", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 6027.57}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d40f3a55-4333-40ce-a427-f78f5be495b7", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 6030.56}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "1742c917-5e7f-4f86-871f-8467a7e4b8d4", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 6029.57}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e4528837-2386-427d-b169-ca8130832df9", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 200, "duration_ms": 6037.62}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "fb99c357-94aa-4eae-9847-6720d11562dd", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 200, "duration_ms": 6039.56}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "bef175a5-2f1f-45c2-b94e-7c7517e248dc", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 200, "duration_ms": 6042.56}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "58b338d2-e1fb-47b6-927b-c46c5d4f551f", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 200, "duration_ms": 6042.56}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "94c3b96f-1598-4031-b074-d39f891acc8e", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 3022.76}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "ad684462-089e-4b18-8299-ce81b42cb6e7", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 3023.86}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "8a177271-b18e-40a2-8c41-606a3bcbb25c", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 3026.93}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "b8a7bcc5-0c2d-462c-bf4a-d8bde6dd8bdc", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 3026.93}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "5ac3ea7d-951a-4309-b4ef-95aa37d9dd38", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 6041.01}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "c808b9e0-bc2d-4de9-b091-6bd9be7fe57f", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 6042.02}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e459850b-80f7-4c18-8ebb-31f9b213629c", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 6042.02}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "914dfc3c-91ba-42f4-8bbc-96b908d71e30", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 201, "duration_ms": 6043.02}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e1c3c4ae-059f-4da9-aeb4-94c9b08f4760", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 503, "duration_ms": 6048.02}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 201 Created"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "51ab2421-9d48-4fc7-b251-c0fe27e24189", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 201, "duration_ms": 6062.00}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 201 Created"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f85aa16e-f7e7-4b4e-b3a4-83b31510463f", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 201, "duration_ms": 6061.01}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 201 Created"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "683b6f84-8b37-4e79-805a-104b38191257", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 201, "duration_ms": 6068.01}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 201 Created"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "2cb4a7ba-7ec1-4c05-902c-b4b842899762", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 503, "duration_ms": 3030.45}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4c174981-d51d-417e-99cc-560033f95377", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 503, "duration_ms": 3031.45}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a70a1ccd-a0c0-4e3f-8e31-e3974fbf1d39", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 503, "duration_ms": 3031.45}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "94538aff-87b4-4214-8cce-6adaad912d83", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 503, "duration_ms": 3030.47}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 503 Service 
+Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 503 Service 
+Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 503 Service 
+Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 503 Service 
+Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "b0c7c8ab-1591-4a54-a3d4-723a1e30ba17", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 503, "duration_ms": 6041.26}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a2c5c26f-d141-48a5-b83e-b3080ec4ea00", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 503, "duration_ms": 6040.26}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "13ceb3a6-a81f-4867-931f-ad4041689f76", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 503, "duration_ms": 6041.26}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 503 Service 
+Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 503 Service 
+Unavailable"
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 503 Service 
+Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "9bf05f51-0126-45c8-85ae-42862997a775", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 503, "duration_ms": 6048.26}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 503 Service 
+Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d652a69f-0ee5-4ecd-882e-ea92fcc4c98a", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 200, "duration_ms": 6056.24}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "3eda6430-c3bb-425b-a744-4c9a190fad54", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 200, "duration_ms": 6062.23}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "cb4f4fbe-7352-4b16-b516-75675577d819", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 200, "duration_ms": 6062.89}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "6cebaec6-5d89-418b-bcbf-ed364d6ad366", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 200, "duration_ms": 6067.89}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "97799518-3a1c-4093-acea-7806f09d1741", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 503, "duration_ms": 3025.98}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "ff0a0627-5068-493d-99d7-80ed65590776", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 503, "duration_ms": 3024.97}
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "c94b4812-8534-4d38-8419-4658be6d22a2", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 503, "duration_ms": 3037.76}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d6e90d47-3d57-4e53-b9d2-7d3b6d680069", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 503, "duration_ms": 3037.76}
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "871796d8-adcc-407a-b7f8-f906b6afd98e", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 503, "duration_ms": 6036.18}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "330e59ba-dfc2-460f-a6e3-45539ef6538a", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 503, "duration_ms": 6036.18}
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7a68ea1e-93de-4f42-a738-e68cc5e21b1f", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 503, "duration_ms": 6062.71}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "35a4996a-ddcb-4360-9325-b3d632c709e4", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 503, "duration_ms": 6063.61}
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "031c9eec-7c10-43be-940b-f52564c652fe", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 200, "duration_ms": 6078.62}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a1381f55-6396-425f-bd5f-ade69c90cf23", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 200, "duration_ms": 6079.63}
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "21e50802-87ab-4bd5-8c48-4257777bfb6b", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 200, "duration_ms": 6084.63}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "1e4f802d-3a68-4ee2-8cc9-cb570dbe0032", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 200, "duration_ms": 6084.63}
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f7d2c28a-28be-4aa3-8a83-02fecb0c4390", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 503, "duration_ms": 3027.20}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "68a5ebb0-5fad-408a-98a9-c0b0a0e78a6b", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 503, "duration_ms": 3030.20}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7d0d7102-cd33-4c89-87dd-f1694ebbe5a4", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 503, "duration_ms": 3031.20}
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "273340a8-5d60-495f-9d8d-31823b94ca61", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 503, "duration_ms": 3029.20}
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4b9652c3-2f25-4508-af3a-c2469a7a415c", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 503, "duration_ms": 6024.38}
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "d7eb014d-5b80-4d48-b501-667e2473a1cd", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 503, "duration_ms": 6027.51}
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "908bad76-af97-4914-b675-a36dc9e02b97", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 503, "duration_ms": 6043.59}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "8f28c5c3-7584-43da-994b-a294691920ff", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 503, "duration_ms": 6044.60}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "b35f3414-df58-43ca-bc45-3be147fd13ad", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 200, "duration_ms": 6046.59}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "bbbf1776-2048-493b-a1cc-2344d6634ef0", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 200, "duration_ms": 6046.59}
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "bd1eea70-2082-4fab-819b-0bb9214b434b", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 200, "duration_ms": 6067.36}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "72ee9621-a85c-454e-97f7-94484d9f55a7", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 200, "duration_ms": 6068.32}
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "a0f61f1a-1c67-4eb1-b9d6-7d107650864c", "method": 
+"GET", "path": "/health", "status_code": 200, "duration_ms": 13.06}
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4350fd46-fe8a-40a5-99de-aef9baef33c2", "method": 
+"GET", "path": "/api/tickets", "status_code": 503, "duration_ms": 3033.58}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f29adc98-1fcd-4be0-81f0-5879e225801e", "method": 
+"GET", "path": "/ready", "status_code": 503, "duration_ms": 3031.57}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=my_queue&limit=25 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 503 Service Unavailable"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "fddfdd6d-eb82-4df2-bb4a-092c1fc43b86", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 3042.56}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "3a4a5c68-d99c-43d2-9068-9609148654fe", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 503, "duration_ms": 3041.57}
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "09ca8a39-c4f5-4f96-b4e8-71c2bed76c13", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 503, "duration_ms": 3038.57}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 503 Service Unavailable"
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=triage&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "5a76b73d-74d6-47b9-ae8f-0bc4b660ff9c", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 200, "duration_ms": 3047.68}
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "940500c8-5bd9-4ccb-9ffe-9b55d759fd10", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 3049.62}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_intent&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "ca996e61-5a3b-4527-acfb-88c872fd2b34", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 200, "duration_ms": 3050.57}
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "5d5ae9a7-2873-4bda-b7a1-b10dad88d94c", "method": 
+"POST", "path": "/api/tickets", "status_code": 422, "duration_ms": 3054.57}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 422 Unprocessable Content"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "097e9e1c-4b34-4502-8dd3-c23d41483dc2", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 3056.57}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets?view=by_region&limit=25 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "7adbb034-142b-4b52-8d54-dfe48e91979c", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 200, "duration_ms": 3064.57}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 200 OK"
+==========================================================================================
+STEP 2: CONCURRENCY-ONLY DEADLOCK BISECT SETUP
+==========================================================================================
+DB_POOL_SIZE: 2
+DB_MAX_OVERFLOW: 0
+DB_POOL_TIMEOUT: 3
+AnyIO Default Thread Limiter total_tokens: 4
+Creating agencies...
+Creating users...
+Seeding Journey fixtures (TCK-1001, TCK-1002, TCK-1004, TCK-1005, TCK-1006, TCK-1007, TCK-1008)...
+Generating remaining 43 synthetic tickets...
+Database successfully seeded with 50 tickets.
+
+--- PART A: PER-ENDPOINT CONCURRENCY BISECT (12 concurrent requests) ---
+Endpoint                                   | Statuses                 | Drain Time  | Idle CheckedOut  | Candidate?
+-------------------------------------------------------------------------------------------------------------------
+health_check                               | 200:12                   |     0.01 s | 0                | NO
+readiness_check                            | 200:12                   |     0.04 s | 0                | NO
+api_suggest_intent                         | 200:4, 503:8             |     6.09 s | 0                | YES
+list_tickets [view=triage]                 | 200:4, 503:8             |     6.06 s | 0                | YES
+list_tickets [view=my_queue]               | 200:4, 503:8             |     6.07 s | 0                | YES
+list_tickets [view=by_region]              | 200:4, 503:8             |     6.06 s | 0                | YES
+list_tickets [view=by_intent]              | 200:4, 503:8             |     6.06 s | 0                | YES
+list_tickets [view=linked]                 | 200:4, 503:8             |     6.06 s | 0                | YES
+create_ticket                              | 422:12                   |     0.04 s | 0                | NO
+get_ticket_details                         | 200:4, 503:8             |     6.05 s | 0                | YES
+assign_ticket                              | 200:2, 409:2, 503:8      |     6.08 s | 0                | YES
+unassign_ticket                            | 200:3, 409:1, 503:8      |     6.07 s | 0                | YES
+update_ticket_status                       | 200:1, 409:3, 503:8      |     6.05 s | 0                | YES
+escalate_ticket                            | 200:3, 409:1, 503:8      |     6.07 s | 0                | YES
+transfer_ticket                            | 200:1, 400:2, 409:1, 503:8 |     6.07 s | 0                | YES
+post_ticket_message                        | 201:4, 503:8             |     6.07 s | 0                | YES
+list_side_threads                          | 200:4, 503:8             |     6.05 s | 0                | YES
+create_side_thread                         | 201:4, 503:8             |     6.07 s | 0                | YES
+link_suggested_bug                         | 200:4, 503:8             |     6.07 s | 0                | YES
+get_top_themes                             | 200:4, 503:8             |     6.09 s | 0                | YES
+export_tickets_csv                         | 200:4, 503:8             |     6.09 s | 0                | YES
+
+--- MIXED SET CONCURRENCY TEST (12 concurrent requests across endpoints) ---
+Mixed Set | Statuses: 200:7, 422:1, 503:4 | Drain Time: 3.07 s | Idle CheckedOut: 0

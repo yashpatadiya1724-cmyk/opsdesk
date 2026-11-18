@@ -5,10 +5,10 @@ from sqlalchemy.pool import StaticPool
 from backend.app.config import DATABASE_URL
 
 # Environment configuration with production defaults
-# Defaults: pool_size=10, max_overflow=20, pool_timeout=30 (assumption: suitable for moderate concurrent workers)
-DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
+# Defaults: pool_size=30, max_overflow=20, pool_timeout=5 (aligned with AnyIO 40-token threadpool and fail-fast recovery)
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "30"))
 DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
-DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "5"))
 
 is_sqlite = DATABASE_URL.startswith("sqlite")
 is_memory = ":memory:" in DATABASE_URL

@@ -190,13 +190,15 @@ make test           # Run pytest suite
 
 ## 📈 Scaling Limits & Deployment Architecture
 
-- **SQLite Single-Writer Limit**: OpsDesk uses SQLite with WAL mode (`PRAGMA journal_mode = WAL`) and `busy_timeout = 5000ms`. While WAL mode allows concurrent readers alongside a writer, SQLite enforces a single writer per database file. Heavy concurrent write transactions (e.g. concurrent bulk imports or continuous status mutations) serialize on this lock.
-- **In-Process State**: The rate limiter (`opsdesk_protection_middleware`), export concurrency limiter, and 2-second triage cache (`_triage_cache`) maintain state in-memory inside the Python process. If `WEB_CONCURRENCY > 1` is configured, a startup warning is logged because limits and caches are scoped per-process rather than globally.
+> **Notice**: These measurements and architecture descriptions are based on empirical runs on a single developer laptop (loopback interface, 1 uvicorn process, SQLite WAL mode). This is **not a capacity claim** ("system handles N concurrent clients"); all figures reflect what was measured on this machine under this specific configuration.
+
+- **SQLite Single-Writer Limit**: OpsDesk uses SQLite with WAL mode (`PRAGMA journal_mode = WAL`) and `busy_timeout = 5000ms`. While WAL mode allows concurrent readers alongside a writer, SQLite enforces a single writer per database file. Heavy concurrent write transactions serialize on this lock.
+- **In-Process State**: The rate limiter (`opsdesk_protection_middleware`), concurrency limiter / load shedder, export limiter, and triage cache (`_triage_cache`) maintain state strictly **in-memory per-process**. Multi-worker deployment (`WEB_CONCURRENCY > 1`) means each process has an independent cache and independent rate-limiter state.
 - **Production Roadmap ("Planned, Not Built")**:
   - Migration to PostgreSQL for multi-writer row-level locking and connection pooling.
   - Redis-backed distributed rate limiting and distributed idempotency caching.
   - Rust or Go queue scoring sidecar for real-time recalculation across millions of active tickets.
-  *(See [`docs/PERF_BASELINE.md`](docs/PERF_BASELINE.md) for actual measured numbers on the local demo setup; no unsubstantiated capacity numbers are claimed).*
+  *(See [`docs/PERF_BASELINE.md`](docs/PERF_BASELINE.md) for actual raw measured numbers on the local test setup; no unsubstantiated capacity numbers are claimed).*
 
 ---
 
