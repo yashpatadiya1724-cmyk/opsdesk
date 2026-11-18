@@ -17,15 +17,19 @@ This roadmap outlines the engineering initiatives required to transition OpsDesk
 
 ## 2. Database & Data Tier Evolution
 
-- **Current State (Milestone 4 Hardened):**
-  - SQLite with WAL mode (`PRAGMA journal_mode=WAL`), `PRAGMA busy_timeout=5000`, and `PRAGMA synchronous=NORMAL`.
+- **Current State (Milestone 4 Hardened & Production Transition in Progress):**
+  - SQLite with WAL mode (`PRAGMA journal_mode=WAL`), `PRAGMA busy_timeout=5000`, and `PRAGMA synchronous=NORMAL` supported for zero-configuration local development.
   - Composite indexes added (`ix_tickets_status_assigned`, `ix_tickets_assigned_status`, `ix_tickets_agency_status`, `ix_tickets_intent`).
   - Atomic ticket claim and optimistic concurrency version checking (`Ticket.version`) returning HTTP 409 Conflict.
   - Request deduplication cache via `IdempotencyRecord` table and `Idempotency-Key` header.
-- **Target Architecture (Status: Planned, not built):**
+  - **Alembic Baseline Revision Created:** `alembic.ini`, `backend/alembic/env.py`, `backend/alembic/script.py.mako`, and baseline revision `0001_baseline_schema.py` tracking all 12 operational tables and indexes.
+  - **PostgreSQL Dialect & Connection Pooling:** Engine creation logic in `backend/app/database.py` dynamically configures production connection pooling (`pool_size=10, max_overflow=20, pool_pre_ping=True, pool_timeout=30`) when `DATABASE_URL` starts with `postgresql` or `postgresql+psycopg`, stripping SQLite-specific connect args.
+  - **Container & CI Pipeline Readiness:** `docker-compose.yml` updated with an optional PostgreSQL 16 Alpine container, and `.github/workflows/ci.yml` enhanced with a containerized PostgreSQL test job running the backend test suite under live PostgreSQL.
+  - Fallback schema migration (`ensure_schema_migrations`) hardened with structured logging (`opsdesk.database`) and explicit exception re-raising.
+- **Target Architecture (Next Steps):**
   - Managed PostgreSQL 16+ (AWS Aurora / Cloud SQL) with connection pooling (PgBouncer).
   - PostgreSQL row-level locking (`SELECT ... FOR UPDATE SKIP LOCKED`) for multi-worker Tier-1 routing.
-  - Schema migrations managed via **Alembic** (`alembic upgrade head`) integrated into CI/CD deployment pipelines.
+  - Schema migrations executed via **Alembic** (`alembic upgrade head`) automatically on container startup or CD release pipeline.
   - Read-replicas for high-volume read queries (e.g. queue dashboard and analytics aggregations).
   - Enforcement of data retention lifecycle policies (see [DATA_RETENTION.md](DATA_RETENTION.md)).
 

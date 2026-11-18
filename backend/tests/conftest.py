@@ -40,26 +40,42 @@ def dev_db_initial_state():
 @pytest.fixture(scope="session")
 def test_db_setup():
     """
-    Creates an isolated temporary SQLite database for tests.
+    Creates an isolated test database for tests.
+    If DATABASE_URL is set to PostgreSQL, uses that database.
+    Otherwise creates an isolated temporary SQLite database.
     Guarantees dev opsdesk.db is NEVER touched, cleared, or altered by test suite.
     """
-    temp_dir = tempfile.gettempdir()
-    db_file = os.path.join(temp_dir, f"test_opsdesk_{uuid.uuid4().hex[:8]}.db")
-    engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
-    
-    TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = TestSessionLocal()
-    seed_database(session, engine_bind=engine, total_tickets=5000)
-    session.close()
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url and database_url.startswith("postgresql"):
+        from backend.app.database import create_db_engine
+        engine = create_db_engine(database_url)
+        TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        session = TestSessionLocal()
+        seed_database(session, engine_bind=engine, total_tickets=5000, drop_existing=True)
+        session.close()
 
-    yield engine, TestSessionLocal
+        yield engine, TestSessionLocal
 
-    engine.dispose()
-    if os.path.exists(db_file):
-        try:
-            os.remove(db_file)
-        except Exception:
-            pass
+        engine.dispose()
+    else:
+        temp_dir = tempfile.gettempdir()
+        db_file = os.path.join(temp_dir, f"test_opsdesk_{uuid.uuid4().hex[:8]}.db")
+        from backend.app.database import create_db_engine
+        engine = create_db_engine(f"sqlite:///{db_file}")
+        
+        TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        session = TestSessionLocal()
+        seed_database(session, engine_bind=engine, total_tickets=5000)
+        session.close()
+
+        yield engine, TestSessionLocal
+
+        engine.dispose()
+        if os.path.exists(db_file):
+            try:
+                os.remove(db_file)
+            except Exception:
+                pass
 
 
 @pytest.fixture(scope="function")
