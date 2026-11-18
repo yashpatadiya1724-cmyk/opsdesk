@@ -2,6 +2,53 @@ import { TicketsListResponse, TicketDetail, InsightsResponse } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+export class ApiError extends Error {
+  status: number;
+  retryAfter?: number;
+
+  constructor(message: string, status: number, retryAfter?: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.retryAfter = retryAfter;
+  }
+}
+
+export function computePollDelay(
+  baseDelay: number,
+  error?: { status?: number; retryAfter?: number },
+  currentBackoff: number = 5000
+): { delay: number; nextBackoff: number } {
+  if (error) {
+    if (error.retryAfter && error.retryAfter > 0) {
+      return {
+        delay: error.retryAfter * 1000,
+        nextBackoff: currentBackoff,
+      };
+    }
+    if (error.status === 429 || error.status === 503) {
+      const nextBackoff = Math.min(currentBackoff * 2, 60000);
+      return {
+        delay: currentBackoff,
+        nextBackoff,
+      };
+    }
+    const nextBackoff = Math.min(currentBackoff * 1.5, 60000);
+    return {
+      delay: currentBackoff,
+      nextBackoff,
+    };
+  }
+
+  // Normal poll: baseDelay with +-20% random jitter (0.8 to 1.2 multiplier)
+  const jitterFactor = 0.8 + Math.random() * 0.4;
+  const delay = Math.round(baseDelay * jitterFactor);
+  return {
+    delay,
+    nextBackoff: 5000,
+  };
+}
+
 async function request<T>(path: string, options: RequestInit = {}, userId: string = "USR-101"): Promise<T> {
   const url = `${API_BASE}${path}`;
   const headers = new Headers(options.headers || {});
@@ -19,7 +66,9 @@ async function request<T>(path: string, options: RequestInit = {}, userId: strin
     } catch {
       // ignore json parse error
     }
-    throw new Error(errorDetail);
+    const retryHeader = res.headers.get("Retry-After");
+    const retryAfter = retryHeader ? parseInt(retryHeader, 10) : undefined;
+    throw new ApiError(errorDetail, res.status, isNaN(retryAfter as number) ? undefined : retryAfter);
   }
   return res.json();
 }

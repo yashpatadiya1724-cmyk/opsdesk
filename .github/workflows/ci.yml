@@ -68,9 +68,7 @@ jobs:
         run: npm run build
 
       - name: Dependency security audit
-        # Warn-only if upstream ecosystem vulnerability (e.g. postcss/next.js) exists
-        run: |
-          npm audit --omit=dev --audit-level=high || echo "::warning::Non-blocking production dependency audit warnings detected"
+        run: npm audit --omit=dev --audit-level=high
 
   docker:
     name: Container Build & Runtime Verification

@@ -183,6 +183,20 @@ make test           # Run pytest suite
 - **Security Policy:** Details regarding multi-tenant agency isolation, vulnerability reporting, and demo auth migration are documented in [`SECURITY.md`](SECURITY.md).
 - **Data Retention:** Tiered retention policies (Hot, Warm, Cold) and compliance boundaries are detailed in [`docs/DATA_RETENTION.md`](docs/DATA_RETENTION.md).
 - **Architecture & ADRs:** Key architectural decisions (FastAPI source of truth, transactional outbox, intent-aware SLA) are recorded in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/adr/`](docs/adr/).
+- **Incident Response:** Diagnostic runbook for operational symptoms (429, 503, 409, DLQ, lock contention) is located in [`docs/RUNBOOK_INCIDENTS.md`](docs/RUNBOOK_INCIDENTS.md).
+- **Performance Benchmarks:** Measured load testing and profiling metrics are recorded in [`docs/PERF_BASELINE.md`](docs/PERF_BASELINE.md).
+
+---
+
+## 📈 Scaling Limits & Deployment Architecture
+
+- **SQLite Single-Writer Limit**: OpsDesk uses SQLite with WAL mode (`PRAGMA journal_mode = WAL`) and `busy_timeout = 5000ms`. While WAL mode allows concurrent readers alongside a writer, SQLite enforces a single writer per database file. Heavy concurrent write transactions (e.g. concurrent bulk imports or continuous status mutations) serialize on this lock.
+- **In-Process State**: The rate limiter (`opsdesk_protection_middleware`), export concurrency limiter, and 2-second triage cache (`_triage_cache`) maintain state in-memory inside the Python process. If `WEB_CONCURRENCY > 1` is configured, a startup warning is logged because limits and caches are scoped per-process rather than globally.
+- **Production Roadmap ("Planned, Not Built")**:
+  - Migration to PostgreSQL for multi-writer row-level locking and connection pooling.
+  - Redis-backed distributed rate limiting and distributed idempotency caching.
+  - Rust or Go queue scoring sidecar for real-time recalculation across millions of active tickets.
+  *(See [`docs/PERF_BASELINE.md`](docs/PERF_BASELINE.md) for actual measured numbers on the local demo setup; no unsubstantiated capacity numbers are claimed).*
 
 ---
 

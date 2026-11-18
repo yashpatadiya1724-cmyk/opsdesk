@@ -457,6 +457,11 @@ if __name__ == "__main__":
     parser.add_argument("--tickets", type=int, default=5000, help="Total ticket count (default: 5000)")
     args = parser.parse_args()
 
+    # Safety validation: strictly refuse database reset when APP_ENV is production
+    if args.reset and os.environ.get("APP_ENV", "").lower() == "production":
+        print("Safety Refusal: Resetting database is strictly prohibited when APP_ENV=production.")
+        sys.exit(1)
+
     # Safety validation: ensure target is a local dev database unless --yes passed
     is_sqlite = DATABASE_URL.startswith("sqlite")
     is_dev_db = "opsdesk.db" in DATABASE_URL or ":memory:" in DATABASE_URL
