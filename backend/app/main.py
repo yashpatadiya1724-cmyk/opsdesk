@@ -26,9 +26,10 @@ from backend.app.auth import get_current_user
 from backend.app.events import emit_outbox_event, record_audit_log
 from backend.config.routing_config import (
     DEFAULT_ESCALATION_MANAGER_ID,
-    REGION_MAPPING
+    REGION_MAPPING,
+    EMERGENCY_BYPASS_HOURS
 )
-from backend.services.sla_engine import evaluate_travel_sla
+from backend.services.sla_engine import evaluate_travel_sla, effective_deadline_hours
 from backend.services.routing_engine import (
     CandidateAgent, select_agent_tier1, calculate_queue_score_tier2
 )
@@ -315,6 +316,7 @@ def list_tickets(
                 )
 
     now = datetime.utcnow()
+    agency_map = {a[0]: a[1] for a in db.query(Agency.id, Agency.tier).all()}
 
     # Note: At demo scale (5,000 records), computing SLA and queue_score across filtered candidate tickets in Python
     # and sorting globally prior to offset/limit slicing provides exact queue prioritization without requiring database-specific
@@ -333,9 +335,11 @@ def list_tickets(
                 intent=t.intent,
                 now=now
             )
+            agency_tier = agency_map.get(t.agency_id) or (t.agency.tier if t.agency else None)
             queue_score = calculate_queue_score_tier2(
                 priority=t.priority,
                 check_in_date=t.check_in_date,
+                agency_tier=agency_tier,
                 lcd_date=t.lcd_date,
                 intent=t.intent,
                 now=now
@@ -382,9 +386,11 @@ def list_tickets(
                 intent=t.intent,
                 now=now
             )
+            agency_tier = agency_map.get(t.agency_id) or (t.agency.tier if t.agency else None)
             queue_score = calculate_queue_score_tier2(
                 priority=t.priority,
                 check_in_date=t.check_in_date,
+                agency_tier=agency_tier,
                 lcd_date=t.lcd_date,
                 intent=t.intent,
                 now=now
@@ -490,6 +496,28 @@ def create_ticket(
     ticket_id = f"TCK-{uuid.uuid4().hex[:8].upper()}"
     now = datetime.utcnow()
 
+    # Calculate effective deadline hours for Tier-1 Emergency Bypass check
+    deadline_hours = effective_deadline_hours(
+        check_in_date=payload.check_in_date,
+        lcd_date=payload.lcd_date,
+        intent=resolved_intent,
+        now=now
+    )
+
+    priority = payload.priority
+    ticket_status = "Open" if assigned_agent_id else "New"
+    is_emergency_bypass = (
+        deadline_hours is not None and deadline_hours <= EMERGENCY_BYPASS_HOURS
+    )
+
+    if is_emergency_bypass:
+        priority = "Urgent"
+        ticket_status = "Escalated"
+        routing_reason = (
+            f"Tier-1 Emergency Bypass: effective deadline {deadline_hours:.1f}h <= {EMERGENCY_BYPASS_HOURS}h"
+        )
+        assigned_agent_id = DEFAULT_ESCALATION_MANAGER_ID
+
     new_ticket = Ticket(
         id=ticket_id,
         tboh_id=payload.tboh_id,
@@ -497,8 +525,8 @@ def create_ticket(
         title=payload.title,
         description=payload.description,
         intent=resolved_intent,
-        priority=payload.priority,
-        status="Open" if assigned_agent_id else "New",
+        priority=priority,
+        status=ticket_status,
         check_in_date=payload.check_in_date,
         lcd_date=payload.lcd_date,
         assigned_to=assigned_agent_id,
@@ -549,10 +577,35 @@ def create_ticket(
         details={"tboh_id": payload.tboh_id, "agency_id": resolved_agency_id}
     )
 
+    if is_emergency_bypass:
+        record_audit_log(
+            db=db,
+            ticket_id=ticket_id,
+            actor_id=current_user.id,
+            action="ticket.emergency_bypass",
+            details={
+                "reason": routing_reason,
+                "effective_deadline_hours": deadline_hours,
+                "threshold_hours": EMERGENCY_BYPASS_HOURS,
+                "priority": "Urgent",
+                "status": "Escalated",
+                "assigned_to": assigned_agent_id
+            }
+        )
+        db.add(TicketMessage(
+            id=f"MSG-{uuid.uuid4().hex[:8].upper()}",
+            ticket_id=ticket_id,
+            sender_id=None,
+            message_type="InternalNote",
+            content=f"[Emergency Bypass] {routing_reason}",
+            created_at=now
+        ))
+
     response_data = {
         "id": new_ticket.id,
         "tboh_id": new_ticket.tboh_id,
         "agency_id": new_ticket.agency_id,
+        "priority": new_ticket.priority,
         "status": new_ticket.status,
         "assigned_to": new_ticket.assigned_to,
         "routing_reason": new_ticket.routing_reason,
@@ -650,9 +703,16 @@ def get_ticket_details(
         intent=ticket.intent,
         now=now
     )
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    if not agency_tier:
+        agency = db.query(Agency).filter(Agency.id == ticket.agency_id).first()
+        if agency:
+            agency_tier = agency.tier
+
     queue_score = calculate_queue_score_tier2(
         priority=ticket.priority,
         check_in_date=ticket.check_in_date,
+        agency_tier=agency_tier,
         lcd_date=ticket.lcd_date,
         intent=ticket.intent,
         now=now

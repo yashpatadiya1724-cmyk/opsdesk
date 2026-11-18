@@ -112,3 +112,10 @@ class IntentSuggestRequestSchema(BaseModel):
 class IntentSuggestResponseSchema(BaseModel):
     intent: str
     source: str
+
+class AgencySchema(BaseModel):
+    id: str
+    name: str
+    country_code: str
+    tier: Optional[str] = "standard"
+

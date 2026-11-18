@@ -768,12 +768,20 @@ def test_triage_queue_score_global_sorting(client: TestClient, db_session: Sessi
 
     # First ticket on page 1 must match the global maximum queue_score
     now = datetime.utcnow()
+    agency_map = {a.id: a.tier for a in db_session.query(Agency.id, Agency.tier).all()}
     all_unassigned = db_session.query(Ticket).filter(
         Ticket.status.in_(["New", "Open", "Pending", "Escalated"]),
         Ticket.assigned_to.is_(None)
     ).all()
     global_max_score = max(
-        calculate_queue_score_tier2(t.priority, t.check_in_date, lcd_date=t.lcd_date, intent=t.intent, now=now)
+        calculate_queue_score_tier2(
+            t.priority,
+            t.check_in_date,
+            lcd_date=t.lcd_date,
+            intent=t.intent,
+            now=now,
+            agency_tier=agency_map.get(t.agency_id)
+        )
         for t in all_unassigned
     )
     assert abs(data_p1["tickets"][0]["queue_score"] - global_max_score) < 0.01

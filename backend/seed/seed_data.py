@@ -70,9 +70,9 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
 
     print("Creating agencies...")
     agencies = [
-        Agency(id="AGY-001", name="Demo Agency A (fictional)", country_code="AE", tier="Premium"),
-        Agency(id="AGY-002", name="Demo Agency B (fictional)", country_code="IN", tier="Standard"),
-        Agency(id="AGY-003", name="Aethelgard Holidays", country_code="UK", tier="Premium")
+        Agency(id="AGY-001", name="Demo Agency A (fictional)", country_code="AE", tier="platinum"),
+        Agency(id="AGY-002", name="Demo Agency B (fictional)", country_code="IN", tier="gold"),
+        Agency(id="AGY-003", name="Aethelgard Holidays", country_code="UK", tier="standard")
     ]
     db.add_all(agencies)
     db.commit()

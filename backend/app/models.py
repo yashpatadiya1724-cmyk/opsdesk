@@ -9,7 +9,7 @@ class Agency(Base):
     id = Column(String(50), primary_key=True)
     name = Column(String(200), nullable=False)
     country_code = Column(String(10), nullable=False)
-    tier = Column(String(50), default="Standard")
+    tier = Column(String(32), nullable=False, default="standard", server_default="standard")
 
     users = relationship("User", back_populates="agency")
     tickets = relationship("Ticket", back_populates="agency")

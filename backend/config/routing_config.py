@@ -26,3 +26,12 @@ CHECKIN_URGENCY_MODIFIERS = {
     "SAME_DAY_6H": 800.0,   # Check-in in <= 6 hours
     "NEXT_DAY_24H": 300.0   # Check-in in <= 24 hours
 }
+
+AGENCY_TIER_MULTIPLIERS = {
+    "platinum": 1.3,
+    "gold": 1.15,
+    "standard": 1.0,
+}
+
+EMERGENCY_BYPASS_HOURS = 4
+
