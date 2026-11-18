@@ -1,0 +1,125 @@
+﻿C:\Users\yashp\projects\opsdesk\.venv\Scripts\python.exe : INFO:opsdesk.access:{"event": "request_completed", 
+"request_id": "3e18a177-566e-45cf-9d7b-e432c3d01755", "method": "GET", "path": "/health", "status_code": 200, 
+"duration_ms": 5.00}
+At line:2 char:1
++ C:\Users\yashp\projects\opsdesk\.venv\Scripts\python.exe scripts/diag ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (INFO:opsdesk.ac...tion_ms": 5.00}:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+INFO:httpx2:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "1a7958d1-d571-4ea9-b865-021aa3a6c36a", "method": 
+"GET", "path": "/ready", "status_code": 200, "duration_ms": 1.99}
+INFO:httpx2:HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "0af6ec0b-3f26-4a0b-b669-ff82c4520fd2", "method": 
+"POST", "path": "/api/ai/suggest-intent", "status_code": 200, "duration_ms": 3.00}
+INFO:httpx2:HTTP Request: POST http://testserver/api/ai/suggest-intent "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e77b8107-8f23-4582-9e31-6309be54d2e9", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 6.00}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "be1740ab-190e-41a2-843f-89505315a368", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 4.00}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "54212d64-c094-4295-889a-06c50b6ca70b", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 3.00}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "1110b9c5-098c-42c4-a13e-deb1f0109b78", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 2.00}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e85dc654-13d9-45c5-baa5-c4964b015d0f", "method": 
+"GET", "path": "/api/tickets", "status_code": 200, "duration_ms": 2.00}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "f0c6a886-2f47-4a3d-9df6-5883f959b1f7", "method": 
+"POST", "path": "/api/tickets", "status_code": 201, "duration_ms": 11.01}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets "HTTP/1.1 201 Created"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "72802db9-1eda-4f4f-93a5-bf83758ce0f8", "method": 
+"GET", "path": "/api/tickets/TCK-1004", "status_code": 200, "duration_ms": 6.92}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004 "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "cd6d4f4f-4fad-4a9b-a5b1-ad258b451ef0", "method": 
+"POST", "path": "/api/tickets/TCK-1004/assign", "status_code": 200, "duration_ms": 8.02}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/assign "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "17c17bd9-f160-49cb-92f5-ad7814d1c468", "method": 
+"POST", "path": "/api/tickets/TCK-1004/unassign", "status_code": 200, "duration_ms": 7.03}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/unassign "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "e97b13b0-2e82-44f1-a572-5933cada70ce", "method": 
+"POST", "path": "/api/tickets/TCK-1004/status", "status_code": 200, "duration_ms": 25.18}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/status "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "b57ad8fc-c266-44fd-8521-ed1cc7461cd0", "method": 
+"POST", "path": "/api/tickets/TCK-1004/escalate", "status_code": 200, "duration_ms": 6.01}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/escalate "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "6753f0ef-8f24-48c0-93e6-dd278e6a012e", "method": 
+"POST", "path": "/api/tickets/TCK-1004/transfer", "status_code": 200, "duration_ms": 7.02}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/transfer "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "4ec04d74-96e4-42e7-83c3-617d2f4a0078", "method": 
+"POST", "path": "/api/tickets/TCK-1004/messages", "status_code": 201, "duration_ms": 6.51}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/messages "HTTP/1.1 201 Created"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "297d2d1c-115c-4f8c-8297-0cc1d58b29db", "method": 
+"GET", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 200, "duration_ms": 4.00}
+INFO:httpx2:HTTP Request: GET http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "000a132c-ba3c-4127-b9ea-07fa796a09db", "method": 
+"POST", "path": "/api/tickets/TCK-1004/side-threads", "status_code": 201, "duration_ms": 10.00}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/side-threads "HTTP/1.1 201 Created"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "3150735b-cdfa-4e4a-9591-09e8ff9f8c72", "method": 
+"POST", "path": "/api/tickets/TCK-1004/link-suggestion", "status_code": 200, "duration_ms": 9.00}
+INFO:httpx2:HTTP Request: POST http://testserver/api/tickets/TCK-1004/link-suggestion "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "3af87ae5-d757-4a9a-99ff-8bb55d0c8bb4", "method": 
+"GET", "path": "/api/insights/themes", "status_code": 200, "duration_ms": 8.00}
+INFO:httpx2:HTTP Request: GET http://testserver/api/insights/themes "HTTP/1.1 200 OK"
+INFO:opsdesk.access:{"event": "request_completed", "request_id": "997a8ee4-9cfa-4cf0-a78b-1e9ce74b0d7d", "method": 
+"GET", "path": "/api/export/tickets.csv", "status_code": 200, "duration_ms": 3.00}
+INFO:httpx2:HTTP Request: GET http://testserver/api/export/tickets.csv "HTTP/1.1 200 OK"
+Creating agencies...
+Creating users...
+Seeding Journey fixtures (TCK-1001, TCK-1002, TCK-1004, TCK-1005, TCK-1006, TCK-1007, TCK-1008)...
+Generating remaining 43 synthetic tickets...
+Database successfully seeded with 50 tickets.
+==========================================================================================
+EXTRACTING REAL ROUTES DYNAMICALLY FROM app.routes:
+==========================================================================================
+  GET    /health                                            (health_check)
+  GET    /ready                                             (readiness_check)
+  POST   /api/ai/suggest-intent                             (api_suggest_intent)
+  GET    /api/tickets                                       (list_tickets)
+  POST   /api/tickets                                       (create_ticket)
+  GET    /api/tickets/{ticket_id}                           (get_ticket_details)
+  POST   /api/tickets/{ticket_id}/assign                    (assign_ticket)
+  POST   /api/tickets/{ticket_id}/unassign                  (unassign_ticket)
+  POST   /api/tickets/{ticket_id}/status                    (update_ticket_status)
+  POST   /api/tickets/{ticket_id}/escalate                  (escalate_ticket)
+  POST   /api/tickets/{ticket_id}/transfer                  (transfer_ticket)
+  POST   /api/tickets/{ticket_id}/messages                  (post_ticket_message)
+  GET    /api/tickets/{ticket_id}/side-threads              (list_side_threads)
+  POST   /api/tickets/{ticket_id}/side-threads              (create_side_thread)
+  POST   /api/tickets/{ticket_id}/side-threads/{side_thread_id}/messages (post_side_thread_message)
+  POST   /api/tickets/{ticket_id}/link-suggestion           (link_suggested_bug)
+  GET    /api/insights/themes                               (get_top_themes)
+  GET    /api/export/tickets.csv                            (export_tickets_csv)
+
+==========================================================================================
+STEP 1: DETERMINISTIC DEADLOCK & NESTED CHECKOUT AUDIT TABLE (POOL=1, OVERFLOW=0, TIMEOUT=3s)
+==========================================================================================
+Endpoint / Action                              | Method | Status | Latency   | MaxChecked | Nested?
+---------------------------------------------------------------------------------------------------
+health_check                                   | GET    | 200    |   25.3 ms | 0          | N      
+readiness_check                                | GET    | 200    |    5.2 ms | 1          | N      
+api_suggest_intent                             | POST   | 200    |    7.6 ms | 1          | N      
+list_tickets [view=triage]                     | GET    | 200    |   10.3 ms | 1          | N      
+list_tickets [view=my_queue]                   | GET    | 200    |    8.4 ms | 1          | N      
+list_tickets [view=by_region]                  | GET    | 200    |    6.2 ms | 1          | N      
+list_tickets [view=by_intent]                  | GET    | 200    |    6.4 ms | 1          | N      
+list_tickets [view=linked]                     | GET    | 200    |    5.3 ms | 1          | N      
+create_ticket                                  | POST   | 201    |   13.6 ms | 1          | N      
+get_ticket_details                             | GET    | 200    |   10.7 ms | 1          | N      
+assign_ticket                                  | POST   | 200    |   11.3 ms | 1          | N      
+unassign_ticket                                | POST   | 200    |    9.5 ms | 1          | N      
+update_ticket_status                           | POST   | 200    |   28.8 ms | 1          | N      
+escalate_ticket                                | POST   | 200    |    9.0 ms | 1          | N      
+transfer_ticket                                | POST   | 200    |    9.8 ms | 1          | N      
+post_ticket_message                            | POST   | 201    |    8.8 ms | 1          | N      
+list_side_threads                              | GET    | 200    |    6.9 ms | 1          | N      
+create_side_thread                             | POST   | 201    |   15.2 ms | 1          | N      
+link_suggested_bug                             | POST   | 200    |   12.9 ms | 1          | N      
+get_top_themes                                 | GET    | 200    |   11.2 ms | 1          | N      
+export_tickets_csv                             | GET    | 200    |   19.8 ms | 1          | N      
+==========================================================================================
+Overall Result: PASS (Zero nested checkouts, zero deadlocks across all real routes)
