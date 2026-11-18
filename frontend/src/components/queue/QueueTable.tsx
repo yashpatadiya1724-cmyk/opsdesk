@@ -26,7 +26,7 @@ import {
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { assignTicket, escalateTicket } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, parseUtc } from "@/lib/utils";
 
 export interface QueueTableProps {
   tickets: TicketSummary[];
@@ -102,7 +102,7 @@ export function QueueTable({
 
     tickets.forEach((t, idx) => {
       const rank = page * pageSize + idx + 1;
-      const checkInTime = new Date(t.check_in_date).getTime();
+      const checkInTime = parseUtc(t.check_in_date)?.getTime() ?? 0;
       const diffHours = (checkInTime - now) / (3600 * 1000);
 
       if (diffHours >= 0 && diffHours < 4) {
@@ -216,7 +216,7 @@ export function QueueTable({
               {/* Bucket Rows */}
               {bucket.items.map(({ ticket: t, rank }) => {
                 const now = Date.now();
-                const checkInTime = new Date(t.check_in_date).getTime();
+                const checkInTime = parseUtc(t.check_in_date)?.getTime() ?? 0;
                 const checkInDiffMs = checkInTime - now;
                 const checkInDiffHours = checkInDiffMs / (3600 * 1000);
 
@@ -257,7 +257,7 @@ export function QueueTable({
                 }
 
                 const lcdFormatted = t.lcd_date
-                  ? `LCD ${new Date(t.lcd_date).toLocaleDateString("en-GB", {
+                  ? `LCD ${parseUtc(t.lcd_date)?.toLocaleDateString("en-GB", {
                       day: "numeric",
                       month: "short",
                     })}`

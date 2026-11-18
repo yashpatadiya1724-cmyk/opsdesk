@@ -8,7 +8,7 @@ import { SlaBadge, SlaRing, PriorityMark, StatusChip, Chip } from "@/components/
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { assignTicket, escalateTicket } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, parseUtc } from "@/lib/utils";
 
 export interface QueueCardsViewProps {
   tickets: TicketSummary[];
@@ -67,16 +67,17 @@ export function QueueCardsView({
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
       {tickets.map((t, idx) => {
 
-        const checkInFormatted = new Date(t.check_in_date).toLocaleDateString("en-US", {
+        const checkInFormatted = parseUtc(t.check_in_date)?.toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
           hour12: false,
-        });
+          timeZoneName: "short",
+        }) ?? t.check_in_date;
 
         const lcdFormatted = t.lcd_date
-          ? new Date(t.lcd_date).toLocaleDateString("en-US", {
+          ? parseUtc(t.lcd_date)?.toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
             })

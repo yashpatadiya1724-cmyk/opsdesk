@@ -5,11 +5,47 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return "—";
+/**
+ * Shared helper to parse API datetime strings safely as UTC.
+ * If the string lacks a timezone designator (Z or +hh:mm), 'Z' is appended
+ * so that naive UTC strings from backend SQLite/FastAPI are never mistakenly
+ * parsed as local client time.
+ */
+export function parseUtc(dateInput: string | Date | number | null | undefined): Date | null {
+  if (dateInput === null || dateInput === undefined || dateInput === "") {
+    return null;
+  }
+  if (dateInput instanceof Date) {
+    return isNaN(dateInput.getTime()) ? null : new Date(dateInput.getTime());
+  }
+  if (typeof dateInput === "number") {
+    const d = new Date(dateInput);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof dateInput === "string") {
+    const trimmed = dateInput.trim();
+    if (!trimmed) return null;
+    // If already has timezone indicator (Z or +/-offset), parse directly
+    if (/[zZ]|[+-]\d{2}(?::?\d{2})?$/.test(trimmed)) {
+      const d = new Date(trimmed);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    // Naive string: normalize space to 'T' if present, append 'Z'
+    const normalized = trimmed.includes(" ") && !trimmed.includes("T") ? trimmed.replace(" ", "T") : trimmed;
+    const d = new Date(normalized + "Z");
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+export function formatDate(
+  dateInput: string | Date | number | null | undefined,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  if (!dateInput) return "—";
   try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return dateString;
+    const d = parseUtc(dateInput);
+    if (!d || isNaN(d.getTime())) return typeof dateInput === "string" ? dateInput : "—";
     return d.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -17,17 +53,19 @@ export function formatDate(dateString: string | null | undefined): string {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
+      timeZoneName: "short",
+      ...options,
     });
   } catch {
-    return dateString;
+    return typeof dateInput === "string" ? dateInput : "—";
   }
 }
 
-export function formatRelativeTime(dateString: string | null | undefined): string {
-  if (!dateString) return "—";
+export function formatRelativeTime(dateInput: string | Date | number | null | undefined): string {
+  if (!dateInput) return "—";
   try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return dateString;
+    const d = parseUtc(dateInput);
+    if (!d || isNaN(d.getTime())) return typeof dateInput === "string" ? dateInput : "—";
     const now = new Date();
     const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
 
@@ -38,9 +76,8 @@ export function formatRelativeTime(dateString: string | null | undefined): strin
     if (diffHrs < 24) return `${diffHrs}h ago`;
     const diffDays = Math.floor(diffHrs / 24);
     if (diffDays < 7) return `${diffDays}d ago`;
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZoneName: "short" });
   } catch {
-    return dateString;
+    return typeof dateInput === "string" ? dateInput : "—";
   }
 }
-
