@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import { TicketDetail } from "@/lib/types";
 import { Tooltip, Chip } from "@/components/ui";
-import { formatDate, formatRelativeTime, cn } from "@/lib/utils";
+import { formatDate, formatRelativeTime, cn, parseUtc } from "@/lib/utils";
 import { Clock } from "lucide-react";
 
 export interface ActivityEvent {
@@ -121,7 +121,7 @@ export function TicketActivityTimeline({ ticket }: TicketActivityTimelineProps) 
     }
 
     // Sort descending by time
-    return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return list.sort((a, b) => (parseUtc(b.timestamp)?.getTime() ?? 0) - (parseUtc(a.timestamp)?.getTime() ?? 0));
   }, [ticket]);
 
   // Group events by day label
@@ -130,7 +130,7 @@ export function TicketActivityTimeline({ ticket }: TicketActivityTimelineProps) 
     const now = new Date();
 
     events.forEach((ev) => {
-      const d = new Date(ev.timestamp);
+      const d = parseUtc(ev.timestamp) ?? new Date(ev.timestamp);
       let dayLabel = "Earlier";
 
       if (!isNaN(d.getTime())) {

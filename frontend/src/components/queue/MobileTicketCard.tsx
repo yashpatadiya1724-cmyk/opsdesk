@@ -26,7 +26,7 @@ import {
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { assignTicket, escalateTicket } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, parseUtc } from "@/lib/utils";
 
 export interface MobileTicketCardProps {
   ticket: TicketSummary;
@@ -46,7 +46,7 @@ export function MobileTicketCard({
   const { showToast } = useToast();
 
   const now = Date.now();
-  const checkInTime = new Date(ticket.check_in_date).getTime();
+  const checkInTime = parseUtc(ticket.check_in_date)?.getTime() ?? 0;
   const checkInDiffMs = checkInTime - now;
   const checkInDiffHours = checkInDiffMs / (3600 * 1000);
 
@@ -247,7 +247,7 @@ export function MobileTicketCard({
           {ticket.lcd_date && (
             <span className="inline-flex items-center gap-1 text-content-tertiary">
               <Clock className="w-3 h-3" />
-              LCD {new Date(ticket.lcd_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+              LCD {parseUtc(ticket.lcd_date)?.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
             </span>
           )}
         </div>

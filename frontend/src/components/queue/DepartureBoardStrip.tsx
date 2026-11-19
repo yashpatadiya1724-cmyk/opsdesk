@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plane, ChevronRight } from "lucide-react";
 import { TicketSummary } from "@/lib/types";
 import { SplitFlap } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, parseUtc } from "@/lib/utils";
 
 export interface DepartureBoardStripProps {
   tickets: TicketSummary[];
@@ -49,8 +49,8 @@ export function DepartureBoardStrip({
     // Sort by check_in_date ascending (earliest check-in first)
     return [...active]
       .sort((a, b) => {
-        const timeA = new Date(a.check_in_date).getTime();
-        const timeB = new Date(b.check_in_date).getTime();
+        const timeA = parseUtc(a.check_in_date)?.getTime() ?? 0;
+        const timeB = parseUtc(b.check_in_date)?.getTime() ?? 0;
         return timeA - timeB;
       })
       .slice(0, 5);
@@ -62,7 +62,7 @@ export function DepartureBoardStrip({
 
   // Format countdown string: "03:42:10" or "1d 04:12:05"
   const formatCountdown = (checkInIso: string) => {
-    const checkInTime = new Date(checkInIso).getTime();
+    const checkInTime = parseUtc(checkInIso)?.getTime() ?? 0;
     const diffMs = checkInTime - now;
 
     if (diffMs <= 0) {

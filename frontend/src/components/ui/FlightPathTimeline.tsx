@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Plane } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, parseUtc } from "@/lib/utils";
 
 export interface FlightPathTimelineProps {
   nowDate?: string | Date;
@@ -32,9 +32,9 @@ export function FlightPathTimeline({
   variant = "full",
   className,
 }: FlightPathTimelineProps) {
-  const now = nowDate ? new Date(nowDate).getTime() : Date.now();
-  const lcdTime = lcd ? new Date(lcd).getTime() : null;
-  const checkInTime = checkIn ? new Date(checkIn).getTime() : null;
+  const now = nowDate ? (parseUtc(nowDate)?.getTime() ?? Date.now()) : Date.now();
+  const lcdTime = lcd ? (parseUtc(lcd)?.getTime() ?? null) : null;
+  const checkInTime = checkIn ? (parseUtc(checkIn)?.getTime() ?? null) : null;
 
   // Determine past states & deadlines
   const isLcdPast = lcdTime !== null && lcdTime < now;
@@ -73,17 +73,18 @@ export function FlightPathTimeline({
     }
   }
 
-  // Format date helper: "Oct 14, 18:00"
+  // Format date helper: "Oct 14, 18:00 IST"
   const formatDate = (dateVal?: string | Date | number | null): string => {
     if (!dateVal) return "N/A";
-    const d = typeof dateVal === "number" || typeof dateVal === "string" ? new Date(dateVal) : dateVal;
-    if (isNaN(d.getTime())) return "N/A";
+    const d = parseUtc(dateVal);
+    if (!d || isNaN(d.getTime())) return "N/A";
     return d.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
+      timeZoneName: "short",
     });
   };
 

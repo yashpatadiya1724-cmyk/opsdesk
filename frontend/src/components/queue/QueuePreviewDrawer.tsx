@@ -30,6 +30,7 @@ import {
 } from "@/components/ui";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
+import { formatDate, parseUtc } from "@/lib/utils";
 
 export interface QueuePreviewDrawerProps {
   ticketId: string | null;
@@ -316,12 +317,7 @@ export function QueuePreviewDrawer({
               <span className="text-content-tertiary text-[11px] block">Check-in Date</span>
               <span className="font-mono-numbers text-content-primary flex items-center gap-1 mt-0.5">
                 <Calendar className="w-3 h-3 text-content-tertiary" />
-                {new Date(ticket.check_in_date).toLocaleString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {formatDate(ticket.check_in_date)}
               </span>
             </div>
 
@@ -329,12 +325,7 @@ export function QueuePreviewDrawer({
               <span className="text-content-tertiary text-[11px] block">Last Cancellation Date</span>
               <span className="font-mono-numbers text-content-primary flex items-center gap-1 mt-0.5">
                 <Clock className="w-3 h-3 text-content-tertiary" />
-                {ticket.lcd_date
-                  ? new Date(ticket.lcd_date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  : "None"}
+                {ticket.lcd_date ? formatDate(ticket.lcd_date) : "None"}
               </span>
             </div>
           </div>
@@ -402,7 +393,7 @@ export function QueuePreviewDrawer({
                         {msg.sender_name}
                       </span>
                       <span className="font-mono-numbers">
-                        {new Date(msg.created_at).toLocaleTimeString([], {
+                        {parseUtc(msg.created_at)?.toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}

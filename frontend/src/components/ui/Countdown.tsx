@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, parseUtc } from "@/lib/utils";
 
 export interface CountdownProps {
   targetDate: string | Date;
@@ -14,7 +14,7 @@ export function Countdown({ targetDate, className, prefix }: CountdownProps) {
 
   useEffect(() => {
     const calculateTime = () => {
-      const target = new Date(targetDate).getTime();
+      const target = parseUtc(targetDate)?.getTime() ?? Date.now();
       const now = Date.now();
       const diffMs = target - now;
       const isPast = diffMs < 0;
