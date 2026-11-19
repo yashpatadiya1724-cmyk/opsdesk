@@ -25,7 +25,8 @@ from backend.app.schemas import (
 )
 from backend.app.auth import (
     get_current_user, verify_password, create_access_token,
-    DEFAULT_JWT_SECRET, DEFAULT_JWT_ALGORITHM, ALLOWED_JWT_ALGORITHMS
+    DEFAULT_JWT_SECRET, DEFAULT_JWT_ALGORITHM, ALLOWED_JWT_ALGORITHMS,
+    is_production, get_bcrypt_rounds
 )
 from backend.app.events import emit_outbox_event, record_audit_log
 from backend.config.routing_config import (
@@ -99,7 +100,6 @@ def validate_production_auth_settings():
     2. Running in AUTH_MODE=jwt and JWT_SECRET is empty, shorter than 32 characters, or equal to DEFAULT_JWT_SECRET.
     3. Running in production environment with demo authentication, unless explicitly overridden via ALLOW_DEMO_AUTH=true.
     """
-    env = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).lower()
     auth_mode = os.environ.get("AUTH_MODE", "demo").lower()
     allow_demo = os.environ.get("ALLOW_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
     jwt_secret = os.environ.get("JWT_SECRET", "")
@@ -116,12 +116,20 @@ def validate_production_auth_settings():
             logger.error(msg)
             raise RuntimeError(msg)
 
-    if env == "production" and auth_mode == "demo" and not allow_demo:
-        msg = "Production environment requires AUTH_MODE=jwt unless ALLOW_DEMO_AUTH=true (Refusing to start in APP_ENV=production with unauthenticated demo headers)."
-        logger.error(msg)
-        raise RuntimeError(msg)
-    elif env == "production" and allow_demo:
-        logger.warning("WARNING: APP_ENV=production is running with demo authentication because ALLOW_DEMO_AUTH=true is set. Ensure this is intentional!")
+    if is_production():
+        # Enforce secure bcrypt rounds in production
+        try:
+            get_bcrypt_rounds()
+        except ValueError as e:
+            logger.error(str(e))
+            raise RuntimeError(f"Startup refused: {e}")
+
+        if auth_mode == "demo" and not allow_demo:
+            msg = "Production environment requires AUTH_MODE=jwt unless ALLOW_DEMO_AUTH=true (Refusing to start in APP_ENV=production with unauthenticated demo headers)."
+            logger.error(msg)
+            raise RuntimeError(msg)
+        elif allow_demo:
+            logger.warning("WARNING: APP_ENV=production is running with demo authentication because ALLOW_DEMO_AUTH=true is set. Ensure this is intentional!")
 
 
 def purge_expired_idempotency_records(db: Session) -> int:

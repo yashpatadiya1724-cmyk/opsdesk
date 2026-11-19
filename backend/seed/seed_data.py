@@ -36,7 +36,7 @@ from backend.app.models import (
     SideConversation, SideConversationRecipient, SideConversationMessage,
     TicketTheme, AuditLog
 )
-from backend.app.auth import hash_password
+from backend.app.auth import hash_password, is_production
 from backend.services.routing_engine import CandidateAgent, select_agent_tier1, compute_ticket_urgency_fields
 
 # Rule-based theme mapping based on ticket intent
@@ -60,8 +60,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
     - Standard assigned queue tickets are strictly restricted to Tier-1 desk agents: USR-101 and USR-102.
     - Workload and assignments for Journey fixtures are dynamically computed via select_agent_tier1.
     """
-    env = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).lower()
-    if env == "production":
+    if is_production():
         raise RuntimeError(
             "Startup refused: Seeding database with default demo passwords is strictly prohibited in production (APP_ENV=production)."
         )

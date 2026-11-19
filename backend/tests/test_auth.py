@@ -199,6 +199,7 @@ def test_startup_failure_in_production_environment(monkeypatch):
     when ALLOW_DEMO_AUTH is not true.
     """
     # 1. APP_ENV=production, AUTH_MODE=demo, ALLOW_DEMO_AUTH=false -> raises RuntimeError
+    monkeypatch.setenv("BCRYPT_ROUNDS", "12")
     monkeypatch.setenv("AUTH_MODE", "demo")
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("ALLOW_DEMO_AUTH", "false")
@@ -342,4 +343,79 @@ def test_seed_refuses_production_environment(monkeypatch, db_session):
     with pytest.raises(RuntimeError) as exc_env2:
         seed_database(db_session)
     assert "Seeding database with default demo passwords is strictly prohibited in production" in str(exc_env2.value)
+
+    # Verify with ENV=prod as fallback
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.setenv("ENV", "prod")
+    with pytest.raises(RuntimeError) as exc_env3:
+        seed_database(db_session)
+    assert "Seeding database with default demo passwords is strictly prohibited in production" in str(exc_env3.value)
+
+
+def test_is_production_helper(monkeypatch):
+    """
+    Verifies is_production() returns True if APP_ENV, ENVIRONMENT, or ENV
+    equals 'production' or 'prod' (case-insensitive), and False otherwise.
+    """
+    from backend.app.auth import is_production
+
+    # Clear all env vars
+    for var in ("APP_ENV", "ENVIRONMENT", "ENV"):
+        monkeypatch.delenv(var, raising=False)
+    assert is_production() is False
+
+    for var in ("APP_ENV", "ENVIRONMENT", "ENV"):
+        for val in ("production", "prod", "PRODUCTION", "PROD", "  prod  ", "Production"):
+            monkeypatch.setenv(var, val)
+            assert is_production() is True, f"Expected is_production() to be True for {var}={val}"
+            monkeypatch.delenv(var, raising=False)
+
+    # Negative cases
+    for var in ("APP_ENV", "ENVIRONMENT", "ENV"):
+        for val in ("development", "dev", "test", "staging", "local", ""):
+            monkeypatch.setenv(var, val)
+            assert is_production() is False, f"Expected is_production() to be False for {var}={val}"
+            monkeypatch.delenv(var, raising=False)
+
+
+def test_bcrypt_rounds_refused_below_10_in_production(monkeypatch):
+    """
+    Verifies that get_bcrypt_rounds() refuses BCRYPT_ROUNDS < 10 in production,
+    while allowing >= 10 in production and allowing < 10 in non-production.
+    """
+    from backend.app.auth import get_bcrypt_rounds
+
+    # 1. In production, rounds < 10 must raise ValueError
+    for prod_val in ("production", "prod"):
+        monkeypatch.setenv("APP_ENV", prod_val)
+        for insecure_round in ("4", "8", "9"):
+            monkeypatch.setenv("BCRYPT_ROUNDS", insecure_round)
+            with pytest.raises(ValueError) as exc:
+                get_bcrypt_rounds()
+            assert "is refused in production (must be >= 10)" in str(exc.value)
+
+        # In production, rounds >= 10 must succeed
+        for secure_round in ("10", "12", "14"):
+            monkeypatch.setenv("BCRYPT_ROUNDS", secure_round)
+            assert get_bcrypt_rounds() == int(secure_round)
+
+    # 2. In non-production, rounds < 10 are allowed for fast tests
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("BCRYPT_ROUNDS", "4")
+    assert get_bcrypt_rounds() == 4
+
+
+def test_auth_startup_guard_enforces_production_bcrypt_rounds(monkeypatch):
+    """
+    Verifies that validate_production_auth_settings() raises RuntimeError if
+    BCRYPT_ROUNDS < 10 in production.
+    """
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AUTH_MODE", "jwt")
+    monkeypatch.setenv("JWT_SECRET", "this_is_a_sufficiently_long_production_jwt_secret_32_chars")
+    monkeypatch.setenv("BCRYPT_ROUNDS", "4")
+
+    with pytest.raises(RuntimeError) as exc:
+        validate_production_auth_settings()
+    assert "Insecure BCRYPT_ROUNDS=4 is refused in production" in str(exc.value)
 

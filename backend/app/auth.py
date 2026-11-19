@@ -21,16 +21,37 @@ DEFAULT_BCRYPT_ROUNDS = 12
 ALLOWED_JWT_ALGORITHMS = {"HS256", "HS384", "HS512"}
 
 
+def is_production() -> bool:
+    """
+    Returns True if APP_ENV, ENVIRONMENT, or ENV equals 'production' or 'prod' (case-insensitive).
+    """
+    for var in ("APP_ENV", "ENVIRONMENT", "ENV"):
+        val = os.environ.get(var)
+        if val is not None and val.strip().lower() in ("production", "prod"):
+            return True
+    return False
+
+
 def get_bcrypt_rounds() -> int:
     """
     Returns configured bcrypt rounds from BCRYPT_ROUNDS environment variable,
     falling back to DEFAULT_BCRYPT_ROUNDS (12).
+    Refuses BCRYPT_ROUNDS < 10 in production.
     """
-    try:
-        val = int(os.environ.get("BCRYPT_ROUNDS", str(DEFAULT_BCRYPT_ROUNDS)))
-        return max(4, min(31, val))
-    except (ValueError, TypeError):
-        return DEFAULT_BCRYPT_ROUNDS
+    raw = os.environ.get("BCRYPT_ROUNDS")
+    if raw is not None:
+        try:
+            val = int(raw)
+        except (ValueError, TypeError):
+            val = DEFAULT_BCRYPT_ROUNDS
+    else:
+        val = DEFAULT_BCRYPT_ROUNDS
+
+    if is_production() and val < 10:
+        raise ValueError(
+            f"Insecure BCRYPT_ROUNDS={val} is refused in production (must be >= 10)."
+        )
+    return max(4, min(31, val))
 
 
 def hash_password(password: str, rounds: Optional[int] = None) -> str:
