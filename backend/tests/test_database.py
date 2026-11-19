@@ -185,6 +185,33 @@ def test_alembic_baseline_revision_mock_execution():
         assert dropped_tables[-1] == "agencies"
 
 
+def test_alembic_revision_0002_structure_and_mock_execution():
+    """Verify 0002_timezone_aware_and_queue_score.py revision exports valid upgrade and downgrade."""
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    rev_path = os.path.join(root_dir, "backend", "alembic", "versions", "0002_timezone_aware_and_queue_score.py")
+    assert os.path.isfile(rev_path), f"revision 0002 not found at {rev_path}"
+
+    rev_module = importlib.import_module("backend.alembic.versions.0002_timezone_aware_and_queue_score")
+    assert rev_module.revision == "0002_timezone_aware_and_queue_score"
+    assert rev_module.down_revision == "0001_baseline_schema"
+    assert callable(rev_module.upgrade)
+    assert callable(rev_module.downgrade)
+
+    mock_op = MagicMock()
+    mock_batch = MagicMock()
+    mock_op.batch_alter_table.return_value.__enter__.return_value = mock_batch
+    mock_bind = MagicMock()
+    mock_bind.dialect.name = "sqlite"
+    mock_op.get_bind.return_value = mock_bind
+
+    with patch.object(rev_module, "op", mock_op):
+        rev_module.upgrade()
+        assert mock_batch.add_column.called
+
+        rev_module.downgrade()
+        assert mock_batch.drop_column.called
+
+
 def test_alembic_cli_upgrade_downgrade_sqlite():
     """Run alembic upgrade head and downgrade base if alembic is installed."""
     if importlib.util.find_spec("alembic") is None:

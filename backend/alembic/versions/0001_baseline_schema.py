@@ -58,18 +58,17 @@ def upgrade() -> None:
         sa.Column('intent', sa.String(length=100), server_default='Unclassified', nullable=False),
         sa.Column('priority', sa.String(length=50), server_default='Medium', nullable=False),
         sa.Column('status', sa.String(length=50), server_default='New', nullable=False),
-        sa.Column('check_in_date', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('lcd_date', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('effective_deadline_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('priority_weight', sa.Float(), server_default='200.0', nullable=False),
+        sa.Column('check_in_date', sa.DateTime(), nullable=False),
+        sa.Column('lcd_date', sa.DateTime(), nullable=True),
+        sa.Column('effective_deadline_at', sa.DateTime(), nullable=True),
         sa.Column('queue_score', sa.Float(), nullable=True),
         sa.Column('hotel_timezone', sa.String(length=64), server_default='UTC', nullable=False),
         sa.Column('assigned_to', sa.String(length=50), nullable=True),
         sa.Column('routing_reason', sa.Text(), nullable=True),
         sa.Column('suggested_bug_link', sa.String(length=200), nullable=True),
         sa.Column('version', sa.Integer(), server_default='1', nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['agency_id'], ['agencies.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['assigned_to'], ['users.id'], ondelete='SET NULL'),
         sa.PrimaryKeyConstraint('id')
@@ -96,8 +95,8 @@ def upgrade() -> None:
         sa.Column('agency_id', sa.String(length=50), nullable=False),
         sa.Column('visibility', sa.String(length=20), nullable=False),
         sa.Column('payload_json', sa.Text(), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('delivered_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('delivered_at', sa.DateTime(), nullable=True),
         sa.Column('status', sa.String(length=20), server_default='pending', nullable=False),
         sa.Column('retry_count', sa.Integer(), server_default='0', nullable=False),
         sa.Column('last_error', sa.Text(), nullable=True),
@@ -133,7 +132,7 @@ def upgrade() -> None:
         sa.Column('sender_id', sa.String(length=50), nullable=True),
         sa.Column('message_type', sa.String(length=50), nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['sender_id'], ['users.id'], ondelete='SET NULL'),
         sa.ForeignKeyConstraint(['ticket_id'], ['tickets.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
@@ -148,7 +147,7 @@ def upgrade() -> None:
         sa.Column('supplier_name', sa.String(length=200), nullable=False),
         sa.Column('subject', sa.String(length=300), nullable=False),
         sa.Column('created_by', sa.String(length=50), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['created_by'], ['users.id'], ondelete='SET NULL'),
         sa.ForeignKeyConstraint(['ticket_id'], ['tickets.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
@@ -173,7 +172,7 @@ def upgrade() -> None:
         sa.Column('side_conversation_id', sa.String(length=50), nullable=False),
         sa.Column('sender_email', sa.String(length=200), nullable=False),
         sa.Column('body', sa.Text(), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['side_conversation_id'], ['side_conversations.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
     )
@@ -185,7 +184,7 @@ def upgrade() -> None:
         sa.Column('id', sa.String(length=50), nullable=False),
         sa.Column('ticket_id', sa.String(length=50), nullable=False),
         sa.Column('theme', sa.String(length=100), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['ticket_id'], ['tickets.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
     )
@@ -201,7 +200,7 @@ def upgrade() -> None:
         sa.Column('actor_id', sa.String(length=50), nullable=False),
         sa.Column('action', sa.String(length=100), nullable=False),
         sa.Column('details', sa.Text(), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['ticket_id'], ['tickets.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
     )
@@ -216,7 +215,7 @@ def upgrade() -> None:
         sa.Column('ticket_id', sa.String(length=50), nullable=False),
         sa.Column('request_hash', sa.String(length=64), nullable=True),
         sa.Column('response_json', sa.Text(), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_idempotency_records_created_at', 'idempotency_records', ['created_at'], unique=False)
