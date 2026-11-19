@@ -1,5 +1,7 @@
 import pytest
-from datetime import timedelta
+import jwt
+from datetime import datetime, timezone, timedelta
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from backend.app.auth import (
     hash_password,
@@ -79,6 +81,7 @@ def test_jwt_mode_valid_token_allows_access(client: TestClient, monkeypatch):
     allows access to protected endpoints (e.g. GET /api/tickets).
     """
     monkeypatch.setenv("AUTH_MODE", "jwt")
+    monkeypatch.setenv("JWT_SECRET", "this_is_a_sufficiently_long_production_jwt_secret_32_chars")
 
     login_resp = client.post("/api/auth/login", json={
         "email": "aisha.ops@tbo.test",
@@ -99,6 +102,7 @@ def test_jwt_mode_expired_token_returns_401(client: TestClient, monkeypatch):
     Case 4: In AUTH_MODE=jwt, an expired JWT token returns HTTP 401 Unauthorized.
     """
     monkeypatch.setenv("AUTH_MODE", "jwt")
+    monkeypatch.setenv("JWT_SECRET", "this_is_a_sufficiently_long_production_jwt_secret_32_chars")
 
     expired_token = create_access_token(
         data={"sub": "USR-101", "email": "aisha.ops@tbo.test"},
@@ -117,6 +121,7 @@ def test_jwt_mode_tampered_token_returns_401(client: TestClient, monkeypatch):
     returns HTTP 401 Unauthorized.
     """
     monkeypatch.setenv("AUTH_MODE", "jwt")
+    monkeypatch.setenv("JWT_SECRET", "this_is_a_sufficiently_long_production_jwt_secret_32_chars")
 
     valid_token = create_access_token(data={"sub": "USR-101", "email": "aisha.ops@tbo.test"})
     parts = valid_token.split(".")
@@ -143,6 +148,7 @@ def test_jwt_mode_missing_token_returns_401(client: TestClient, monkeypatch):
     (even with X-User-Id present) return HTTP 401 Unauthorized.
     """
     monkeypatch.setenv("AUTH_MODE", "jwt")
+    monkeypatch.setenv("JWT_SECRET", "this_is_a_sufficiently_long_production_jwt_secret_32_chars")
 
     # Missing Authorization header completely
     resp_none = client.get("/api/tickets")
@@ -247,3 +253,93 @@ def test_jwt_mode_startup_refusal_empty_or_short_secret(monkeypatch):
     # 4. Valid secret (>= 32 chars) -> succeeds without raising
     monkeypatch.setenv("JWT_SECRET", "this_is_a_valid_secret_key_with_at_least_32_chars!")
     validate_production_auth_settings()
+
+
+def test_decode_access_token_requires_exp_and_sub_claims(monkeypatch):
+    """
+    decode_access_token enforces PyJWT options={'require': ['exp', 'sub']}.
+    Missing exp or missing sub returns 401 Unauthorized.
+    """
+    secret = "a_very_secure_and_long_jwt_secret_with_32_characters_here"
+    monkeypatch.setenv("JWT_SECRET", secret)
+    monkeypatch.setenv("AUTH_MODE", "demo")
+
+    # 1. Token without 'exp' claim
+    token_no_exp = jwt.encode({"sub": "USR-101"}, secret, algorithm="HS256")
+    with pytest.raises(HTTPException) as exc1:
+        decode_access_token(token_no_exp)
+    assert exc1.value.status_code == 401
+    assert "Missing required token claim" in exc1.value.detail
+
+    # 2. Token without 'sub' claim
+    now_utc = datetime.now(timezone.utc)
+    token_no_sub = jwt.encode({"exp": now_utc + timedelta(hours=1)}, secret, algorithm="HS256")
+    with pytest.raises(HTTPException) as exc2:
+        decode_access_token(token_no_sub)
+    assert exc2.value.status_code == 401
+    assert "Missing required token claim" in exc2.value.detail
+
+
+def test_jwt_algorithm_whitelist_refusal(monkeypatch):
+    """
+    Accept only HS256, HS384, HS512 for JWT_ALGORITHM and refuse startup otherwise.
+    """
+    # 1. Invalid / disallowed algorithms
+    for bad_alg in ["none", "RS256", "ES256", "HS128", "INVALID"]:
+        monkeypatch.setenv("JWT_ALGORITHM", bad_alg)
+        with pytest.raises(RuntimeError) as exc:
+            validate_production_auth_settings()
+        assert "Invalid JWT_ALGORITHM" in str(exc.value)
+
+    # 2. Allowed algorithms
+    for good_alg in ["HS256", "HS384", "HS512"]:
+        monkeypatch.setenv("JWT_ALGORITHM", good_alg)
+        monkeypatch.setenv("AUTH_MODE", "demo")
+        validate_production_auth_settings()
+
+
+def test_jwt_mode_refuses_default_secret(monkeypatch):
+    """
+    In AUTH_MODE=jwt, never fall back to DEFAULT_JWT_SECRET.
+    Must refuse startup and refuse runtime token encoding/decoding.
+    """
+    from backend.app.auth import DEFAULT_JWT_SECRET, create_access_token, decode_access_token
+
+    monkeypatch.setenv("AUTH_MODE", "jwt")
+    monkeypatch.setenv("JWT_SECRET", DEFAULT_JWT_SECRET)
+
+    # 1. Refuses startup
+    with pytest.raises(RuntimeError) as exc_startup:
+        validate_production_auth_settings()
+    assert "cannot be the default insecure key" in str(exc_startup.value)
+
+    # 2. Refuses runtime token creation
+    with pytest.raises(HTTPException) as exc_create:
+        create_access_token({"sub": "USR-101"})
+    assert exc_create.value.status_code == 500
+    assert "cannot be empty, shorter than 32 characters, or equal to DEFAULT_JWT_SECRET" in exc_create.value.detail
+
+    # 3. Refuses runtime token decoding
+    with pytest.raises(HTTPException) as exc_decode:
+        decode_access_token("some.dummy.token")
+    assert exc_decode.value.status_code == 500
+
+
+def test_seed_refuses_production_environment(monkeypatch, db_session):
+    """
+    The seed script must refuse to create users with the demo password when APP_ENV=production.
+    """
+    from backend.seed.seed_data import seed_database
+
+    monkeypatch.setenv("APP_ENV", "production")
+    with pytest.raises(RuntimeError) as exc_env:
+        seed_database(db_session)
+    assert "Seeding database with default demo passwords is strictly prohibited in production" in str(exc_env.value)
+
+    # Verify with ENVIRONMENT=production as fallback
+    monkeypatch.delenv("APP_ENV", raising=False)
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(RuntimeError) as exc_env2:
+        seed_database(db_session)
+    assert "Seeding database with default demo passwords is strictly prohibited in production" in str(exc_env2.value)
+

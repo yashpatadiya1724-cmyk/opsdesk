@@ -147,6 +147,57 @@ def test_export_tickets_cursor_pagination(client: TestClient, db_session: Sessio
     assert (page1_ids + page2_ids) == expected_ids, "Export rows must be contiguous with no gaps"
 
 
+def test_export_default_limit_without_limit_param_returns_x_next_cursor(client: TestClient, db_session: Session, monkeypatch):
+    """
+    Verifies that when limit is not given, CSV_EXPORT_DEFAULT_LIMIT is applied:
+    - X-Next-Cursor is returned when more rows exist.
+    - Following cursor returns remaining rows with no overlap or gap.
+    - Body contains only header and data rows, with no line starting with '#'.
+    """
+    monkeypatch.setenv("CSV_EXPORT_DEFAULT_LIMIT", "5")
+
+    # Fetch page 1 without ?limit
+    resp1 = client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-104"})
+    assert resp1.status_code == 200
+    cursor1 = resp1.headers.get("X-Next-Cursor")
+    assert cursor1 is not None, "Expected X-Next-Cursor header when DB has more rows than default limit"
+
+    # Verify no line in body starts with '#'
+    lines1 = [line.strip() for line in resp1.text.splitlines() if line.strip()]
+    for line in lines1:
+        assert not line.startswith("#"), f"CSV body must not contain comment rows, got: {line}"
+
+    reader1 = csv.reader(io.StringIO(resp1.text))
+    rows1 = list(reader1)
+    assert len(rows1) == 6, f"Expected 1 header + 5 data rows, got {len(rows1)}"
+    data1_ids = [r[0] for r in rows1[1:]]
+
+    # Fetch page 2 using cursor1
+    resp2 = client.get(f"/api/export/tickets.csv?cursor={cursor1}", headers={"X-User-Id": "USR-104"})
+    assert resp2.status_code == 200
+
+    lines2 = [line.strip() for line in resp2.text.splitlines() if line.strip()]
+    for line in lines2:
+        assert not line.startswith("#"), f"CSV body must not contain comment rows, got: {line}"
+
+    reader2 = csv.reader(io.StringIO(resp2.text))
+    rows2 = list(reader2)
+    data2_ids = [r[0] for r in rows2[1:]]
+
+    # No overlap (disjoint)
+    assert set(data1_ids).isdisjoint(set(data2_ids)), "Pages 1 and 2 must have no overlap"
+
+    # Contiguous with no gap
+    expected_top_10 = (
+        db_session.query(Ticket.id)
+        .order_by(Ticket.created_at.desc(), Ticket.id.desc())
+        .limit(10)
+        .all()
+    )
+    expected_ids = [t[0] for t in expected_top_10]
+    assert (data1_ids + data2_ids) == expected_ids[:len(data1_ids) + len(data2_ids)]
+
+
 def test_export_tickets_cursor_not_found_404(client: TestClient):
     """Verifies that an unknown cursor ID returns 404 Not Found."""
     resp = client.get("/api/export/tickets.csv?cursor=NONEXISTENT-TCK", headers={"X-User-Id": "USR-104"})

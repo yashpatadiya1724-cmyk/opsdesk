@@ -118,6 +118,19 @@ def ensure_schema_migrations(engine_obj):
                     conn.execute(text("ALTER TABLE tickets ADD COLUMN queue_score FLOAT"))
                     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tickets_queue_score ON tickets (queue_score)"))
                     conn.commit()
+                if cols and "priority_weight" not in cols:
+                    logger.info("Adding column 'priority_weight' to tickets table")
+                    conn.execute(text("ALTER TABLE tickets ADD COLUMN priority_weight FLOAT DEFAULT 200.0"))
+                    conn.execute(text("""
+                        UPDATE tickets SET priority_weight = CASE
+                            WHEN priority = 'Urgent' THEN 1000.0
+                            WHEN priority = 'High' THEN 500.0
+                            WHEN priority = 'Medium' THEN 200.0
+                            WHEN priority = 'Low' THEN 50.0
+                            ELSE 200.0
+                        END
+                    """))
+                    conn.commit()
 
                 res_check = conn.execute(text("PRAGMA table_info(tickets)")).fetchall()
                 updated_cols = [r[1] for r in res_check]

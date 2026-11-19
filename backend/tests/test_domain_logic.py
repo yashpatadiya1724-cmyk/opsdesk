@@ -7,10 +7,11 @@ from backend.config.routing_config import (
     AGENCY_TIER_MULTIPLIERS,
     EMERGENCY_BYPASS_HOURS,
     PRIORITY_SCORES,
-    CHECKIN_URGENCY_MODIFIERS
+    CHECKIN_URGENCY_MODIFIERS,
+    DEFAULT_ESCALATION_MANAGER_ID
 )
 from backend.services.routing_engine import calculate_queue_score_tier2
-from backend.app.models import Ticket, Agency, AuditLog, TicketMessage, EventOutbox
+from backend.app.models import Ticket, Agency, AuditLog, TicketMessage, EventOutbox, TicketLink
 from backend.app.database import ensure_schema_migrations
 from sqlalchemy import or_
 
@@ -18,7 +19,7 @@ from sqlalchemy import or_
 @pytest.fixture(autouse=True)
 def cleanup_test_tickets(db_session: Session):
     yield
-    test_tboh_prefixes = ["TBOH-EMERG-", "TBOH-NORM-", "TBOH-TIER-"]
+    test_tboh_prefixes = ["TBOH-EMERG-", "TBOH-NORM-", "TBOH-TIER-", "TBOH-PAST-"]
     test_tickets = db_session.query(Ticket.id).filter(
         or_(*(Ticket.tboh_id.like(f"{p}%") for p in test_tboh_prefixes))
     ).all()
@@ -27,6 +28,9 @@ def cleanup_test_tickets(db_session: Session):
         db_session.query(EventOutbox).filter(EventOutbox.ticket_id.in_(test_ticket_ids)).delete(synchronize_session=False)
         db_session.query(AuditLog).filter(AuditLog.ticket_id.in_(test_ticket_ids)).delete(synchronize_session=False)
         db_session.query(TicketMessage).filter(TicketMessage.ticket_id.in_(test_ticket_ids)).delete(synchronize_session=False)
+        db_session.query(TicketLink).filter(
+            or_(TicketLink.ticket_id.in_(test_ticket_ids), TicketLink.linked_ticket_id.in_(test_ticket_ids))
+        ).delete(synchronize_session=False)
         db_session.query(Ticket).filter(Ticket.id.in_(test_ticket_ids)).delete(synchronize_session=False)
         db_session.commit()
 
@@ -153,7 +157,63 @@ def test_emergency_bypass_does_not_trigger_at_4_1h(client: TestClient):
     detail = detail_res.json()
     assert detail["priority"] == "Medium"
     assert detail["status"] != "Escalated"
-    assert "Tier-1 Emergency Bypass" not in (detail.get("routing_reason") or "")
+
+
+def test_emergency_bypass_past_check_in_date(client: TestClient, db_session: Session):
+    """
+    Documents current behavior when a check-in time is submitted in the past:
+    1. deadline_hours is negative (e.g. -2.0h).
+    2. Since -2.0 <= EMERGENCY_BYPASS_HOURS (4.0), Tier-1 Emergency Bypass triggers.
+    3. Final priority is forced to 'Urgent'.
+    4. Final status is forced to 'Escalated'.
+    5. Ticket is routed to DEFAULT_ESCALATION_MANAGER_ID ('USR-103').
+    6. AuditLog records action 'ticket.emergency_bypass'.
+    """
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    past_checkin = now - timedelta(hours=2)  # check-in was 2 hours ago
+
+    payload = {
+        "title": "Past Check-in Date Emergency Case",
+        "description": "Traveler arrived yesterday, reporting booking not honored",
+        "tboh_id": "TBOH-PAST-CHECKIN",
+        "priority": "Low",
+        "check_in_date": past_checkin.isoformat(),
+        "intent": "Emergency Check-in Assist",
+        "agency_id": "AGY-001"
+    }
+
+    ticket_id = None
+    try:
+        resp = client.post("/api/tickets", json=payload, headers={"X-User-Id": "USR-101"})
+        assert resp.status_code == 201
+        data = resp.json()
+
+        assert data["priority"] == "Urgent"
+        assert data["status"] == "Escalated"
+        assert "Tier-1 Emergency Bypass" in data["routing_reason"]
+
+        ticket_id = data["id"]
+        detail_res = client.get(f"/api/tickets/{ticket_id}", headers={"X-User-Id": "USR-101"})
+        assert detail_res.status_code == 200
+        detail = detail_res.json()
+        assert detail["priority"] == "Urgent"
+        assert detail["status"] == "Escalated"
+        assert detail["assigned_to"] == DEFAULT_ESCALATION_MANAGER_ID
+
+        audit = db_session.query(AuditLog).filter(
+            AuditLog.ticket_id == ticket_id,
+            AuditLog.action == "ticket.emergency_bypass"
+        ).first()
+        assert audit is not None
+        assert "Tier-1 Emergency Bypass" in detail["routing_reason"]
+    finally:
+        if ticket_id:
+            db_session.query(AuditLog).filter(AuditLog.ticket_id == ticket_id).delete()
+            db_session.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).delete()
+            db_session.query(EventOutbox).filter(EventOutbox.ticket_id == ticket_id).delete()
+            db_session.query(TicketLink).filter(TicketLink.ticket_id == ticket_id).delete()
+            db_session.query(Ticket).filter(Ticket.id == ticket_id).delete()
+            db_session.commit()
 
 
 def test_tier_score_multiplier_ordering_unit():

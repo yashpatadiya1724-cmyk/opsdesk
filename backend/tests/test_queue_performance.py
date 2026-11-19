@@ -462,3 +462,125 @@ def test_stale_queue_score_refresh_over_time(client: TestClient, db_session: Ses
     )
     assert ranked[0].id == "TCK-STALE-7H"
     assert ranked[1].id == "TCK-STALE-20H"
+
+
+def test_dynamic_queue_score_zero_writes_on_get(client: TestClient, db_session: Session, monkeypatch):
+    """
+    Proves that two GET requests at two frozen times produce different dynamic orders
+    with zero writes (updated_at unchanged, zero UPDATE statements issued).
+    Also proves get_ticket_details returns the exact same queue_score as list_tickets.
+    """
+    from sqlalchemy import event
+    from backend.app.database import engine
+
+    t0 = datetime(2026, 11, 20, 10, 0, 0, tzinfo=timezone.utc)
+    t1 = t0 + timedelta(hours=2)  # 2 hours later
+
+    # Create Ticket A (check-in in 7 hours from T0)
+    ticket_a = Ticket(
+        id="TCK-DYN-A",
+        tboh_id="TBOH-DYN-A",
+        agency_id="AGY-003",  # standard tier: 1.0x
+        title="Dynamic Queue Test Ticket A",
+        description="Ticket created 7h before check-in",
+        intent="Emergency Check-in Assist",
+        priority="Medium",  # base 200
+        priority_weight=200.0,
+        status="New",
+        check_in_date=t0 + timedelta(hours=7),
+        created_at=t0,
+        updated_at=t0
+    )
+    compute_ticket_urgency_fields(ticket_a, agency_tier="standard", now=t0)
+
+    # Create Ticket B (check-in in 20 hours from T0)
+    ticket_b = Ticket(
+        id="TCK-DYN-B",
+        tboh_id="TBOH-DYN-B",
+        agency_id="AGY-003",  # standard tier: 1.0x
+        title="Dynamic Queue Test Ticket B",
+        description="Ticket created 20h before check-in",
+        intent="Emergency Check-in Assist",
+        priority="Medium",  # base 200
+        priority_weight=200.0,
+        status="New",
+        check_in_date=t0 + timedelta(hours=20),
+        created_at=t0,
+        updated_at=t0
+    )
+    compute_ticket_urgency_fields(ticket_b, agency_tier="standard", now=t0)
+
+    db_session.add_all([ticket_a, ticket_b])
+    db_session.commit()
+
+    orig_updated_a = ticket_a.updated_at
+    orig_updated_b = ticket_b.updated_at
+
+    # Track executed SQL statements on engine
+    executed_statements = []
+    def statement_listener(conn, cursor, statement, parameters, context, executemany):
+        executed_statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", statement_listener)
+
+    try:
+        # Request 1: at frozen time T0
+        # Mock datetime.now(timezone.utc) in main.py
+        class MockDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return t0
+
+        monkeypatch.setattr("backend.app.main.datetime", MockDateTime)
+
+        resp_t0 = client.get("/api/tickets?view=triage&search=TBOH-DYN-", headers={"X-User-Id": "USR-101"})
+        assert resp_t0.status_code == 200
+        t0_tickets = {t["id"]: t for t in resp_t0.json()["tickets"] if t["id"] in ["TCK-DYN-A", "TCK-DYN-B"]}
+        assert "TCK-DYN-A" in t0_tickets and "TCK-DYN-B" in t0_tickets
+        # At T0, both are in 6h-24h window (+300 modifier) -> 200 + 300 = 500.0
+        assert t0_tickets["TCK-DYN-A"]["queue_score"] == 500.0
+        assert t0_tickets["TCK-DYN-B"]["queue_score"] == 500.0
+
+        # Request 2: at frozen time T1 (2 hours later)
+        class MockDateTimeT1(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return t1
+
+        monkeypatch.setattr("backend.app.main.datetime", MockDateTimeT1)
+
+        resp_t1 = client.get("/api/tickets?view=triage&search=TBOH-DYN-", headers={"X-User-Id": "USR-101"})
+        assert resp_t1.status_code == 200
+        t1_tickets_list = [t for t in resp_t1.json()["tickets"] if t["id"] in ["TCK-DYN-A", "TCK-DYN-B"]]
+        # At T1: Ticket A is now 5h remaining (<=6h window, +800 modifier) -> score = 1000.0
+        # Ticket B is now 18h remaining (<=24h window, +300 modifier) -> score = 500.0
+        assert t1_tickets_list[0]["id"] == "TCK-DYN-A"
+        assert t1_tickets_list[0]["queue_score"] == 1000.0
+        assert t1_tickets_list[1]["id"] == "TCK-DYN-B"
+        assert t1_tickets_list[1]["queue_score"] == 500.0
+
+        # Verify get_ticket_details returns the exact same queue_score as list_tickets
+        detail_a = client.get("/api/tickets/TCK-DYN-A", headers={"X-User-Id": "USR-101"})
+        assert detail_a.status_code == 200
+        assert detail_a.json()["queue_score"] == 1000.0
+
+        detail_b = client.get("/api/tickets/TCK-DYN-B", headers={"X-User-Id": "USR-101"})
+        assert detail_b.status_code == 200
+        assert detail_b.json()["queue_score"] == 500.0
+
+        # Verify ZERO UPDATE statements were executed during these GET requests
+        update_statements = [s for s in executed_statements if s.strip().upper().startswith("UPDATE")]
+        assert len(update_statements) == 0, f"Expected 0 UPDATE statements on read, but found: {update_statements}"
+
+        # Verify updated_at in DB remains completely unchanged
+        db_session.expire_all()
+        reloaded_a = db_session.query(Ticket).filter(Ticket.id == "TCK-DYN-A").first()
+        reloaded_b = db_session.query(Ticket).filter(Ticket.id == "TCK-DYN-B").first()
+        assert reloaded_a.updated_at == orig_updated_a
+        assert reloaded_b.updated_at == orig_updated_b
+
+    finally:
+        event.remove(engine, "before_cursor_execute", statement_listener)
+        db_session.query(Ticket).filter(Ticket.id.in_(["TCK-DYN-A", "TCK-DYN-B"])).delete(synchronize_session=False)
+        db_session.commit()
+

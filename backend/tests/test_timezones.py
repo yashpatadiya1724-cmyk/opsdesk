@@ -293,3 +293,39 @@ def test_no_naive_aware_datetime_comparison_errors():
     assert to_utc_aware(None) is None
     assert to_utc_aware(naive_dt).tzinfo == timezone.utc
     assert to_utc_aware(aware_dt).tzinfo == timezone.utc
+
+
+def test_store_aware_datetime_and_read_back_equal_in_utc(db_session: Session):
+    """
+    Verifies that storing a timezone-aware datetime with an explicit offset
+    persists correctly and reads back exactly equal in UTC (to_utc_aware).
+    """
+    from zoneinfo import ZoneInfo
+    dubai_tz = ZoneInfo("Asia/Dubai")  # UTC+04:00
+    aware_checkin = datetime(2026, 12, 1, 15, 0, 0, tzinfo=dubai_tz)
+    expected_utc = datetime(2026, 12, 1, 11, 0, 0, tzinfo=timezone.utc)
+
+    ticket = Ticket(
+        id="TCK-TZ-STORE-TEST",
+        tboh_id="TBOH-TZ-STORE",
+        agency_id="AGY-001",
+        title="Timezone Storage Precision Test",
+        description="Verify aware datetime persistence and UTC read-back",
+        priority="Medium",
+        status="New",
+        check_in_date=aware_checkin,
+        hotel_timezone="Asia/Dubai",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc)
+    )
+    db_session.add(ticket)
+    db_session.commit()
+
+    db_session.expire_all()
+    loaded = db_session.query(Ticket).filter(Ticket.id == "TCK-TZ-STORE-TEST").first()
+    assert loaded is not None
+
+    loaded_utc = to_utc_aware(loaded.check_in_date)
+    assert loaded_utc == expected_utc
+    assert loaded_utc.tzinfo == timezone.utc
+    assert loaded_utc.isoformat() == "2026-12-01T11:00:00+00:00"

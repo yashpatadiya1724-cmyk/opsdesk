@@ -23,16 +23,22 @@ from backend.app.schemas import (
     IntentSuggestRequestSchema, IntentSuggestResponseSchema, to_utc_aware,
     LoginRequest, LoginResponse
 )
-from backend.app.auth import get_current_user, verify_password, create_access_token
+from backend.app.auth import (
+    get_current_user, verify_password, create_access_token,
+    DEFAULT_JWT_SECRET, DEFAULT_JWT_ALGORITHM, ALLOWED_JWT_ALGORITHMS
+)
 from backend.app.events import emit_outbox_event, record_audit_log
 from backend.config.routing_config import (
     DEFAULT_ESCALATION_MANAGER_ID,
     REGION_MAPPING,
-    EMERGENCY_BYPASS_HOURS
+    EMERGENCY_BYPASS_HOURS,
+    PRIORITY_SCORES
 )
 from backend.services.sla_engine import evaluate_travel_sla, effective_deadline_hours
 from backend.services.routing_engine import (
-    CandidateAgent, select_agent_tier1, calculate_queue_score_tier2, compute_ticket_urgency_fields, refresh_stale_queue_scores
+    CandidateAgent, select_agent_tier1, calculate_queue_score_tier2,
+    compute_ticket_urgency_fields, refresh_stale_queue_scores,
+    get_sql_queue_score_expr
 )
 from backend.services.intent_classifier import suggest_ticket_intent
 
@@ -87,17 +93,24 @@ if _rate_limit_records is None:
 def validate_production_auth_settings():
     """
     Refuses startup when:
-    1. Running in AUTH_MODE=jwt and JWT_SECRET is empty or shorter than 32 characters.
-    2. Running in production environment with demo authentication, unless explicitly overridden via ALLOW_DEMO_AUTH=true.
+    1. JWT_ALGORITHM is not one of the allowed HMAC algorithms (HS256, HS384, HS512).
+    2. Running in AUTH_MODE=jwt and JWT_SECRET is empty, shorter than 32 characters, or equal to DEFAULT_JWT_SECRET.
+    3. Running in production environment with demo authentication, unless explicitly overridden via ALLOW_DEMO_AUTH=true.
     """
     env = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).lower()
     auth_mode = os.environ.get("AUTH_MODE", "demo").lower()
     allow_demo = os.environ.get("ALLOW_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
     jwt_secret = os.environ.get("JWT_SECRET", "")
+    jwt_algorithm = os.environ.get("JWT_ALGORITHM", DEFAULT_JWT_ALGORITHM)
+
+    if jwt_algorithm not in ALLOWED_JWT_ALGORITHMS:
+        msg = f"Startup refused: Invalid JWT_ALGORITHM '{jwt_algorithm}'. Allowed algorithms are: {', '.join(sorted(ALLOWED_JWT_ALGORITHMS))}."
+        logger.error(msg)
+        raise RuntimeError(msg)
 
     if auth_mode == "jwt":
-        if not jwt_secret or len(jwt_secret.strip()) < 32:
-            msg = f"Startup refused: In AUTH_MODE=jwt, JWT_SECRET must be set and at least 32 characters long (got {len(jwt_secret.strip()) if jwt_secret else 0} chars)."
+        if not jwt_secret or len(jwt_secret.strip()) < 32 or jwt_secret == DEFAULT_JWT_SECRET:
+            msg = f"Startup refused: In AUTH_MODE=jwt, JWT_SECRET must be explicitly configured, at least 32 characters long, and cannot be the default insecure key (got {len(jwt_secret.strip()) if jwt_secret else 0} chars)."
             logger.error(msg)
             raise RuntimeError(msg)
 
@@ -342,9 +355,12 @@ def list_tickets(
                     Ticket.assigned_to.is_(None)
                 )
 
+    now = datetime.now(timezone.utc)
     if view in ["triage", "my_queue"]:
-        query = query.order_by(
-            Ticket.queue_score.desc(),
+        dialect = db.bind.dialect.name if (db.bind is not None) else "sqlite"
+        score_expr = get_sql_queue_score_expr(now=now, dialect_name=dialect)
+        query = query.outerjoin(Agency, Ticket.agency_id == Agency.id).order_by(
+            score_expr.desc(),
             Ticket.effective_deadline_at.asc(),
             Ticket.id.asc()
         )
@@ -360,12 +376,17 @@ def list_tickets(
             Ticket.id.asc()
         )
 
-    now = datetime.now(timezone.utc)
-    if view in ["triage", "my_queue"]:
-        refresh_stale_queue_scores(db, now=now)
+    # Zero writes on read: no refresh_stale_queue_scores called on GET!
 
     total_count = query.count()
     tickets = query.options(defer(Ticket.description)).offset(offset).limit(limit).all()
+
+    agency_map = {}
+    if current_user.role != "Requester":
+        agency_ids = {t.agency_id for t in tickets if t.agency_id}
+        if agency_ids:
+            agency_rows = db.query(Agency.id, Agency.tier).filter(Agency.id.in_(agency_ids)).all()
+            agency_map = {r[0]: r[1] for r in agency_rows}
 
     results = []
     for t in tickets:
@@ -377,6 +398,19 @@ def list_tickets(
             intent=t.intent,
             now=now
         )
+        if current_user.role != "Requester":
+            agency_tier = agency_map.get(t.agency_id)
+            dynamic_score = calculate_queue_score_tier2(
+                priority=t.priority,
+                check_in_date=t.check_in_date,
+                agency_tier=agency_tier,
+                lcd_date=t.lcd_date,
+                intent=t.intent,
+                now=now
+            )
+        else:
+            dynamic_score = None
+
         results.append({
             "id": t.id,
             "tboh_id": t.tboh_id,
@@ -391,7 +425,7 @@ def list_tickets(
             "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
             "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
             "sla": sla,
-            "queue_score": t.queue_score if current_user.role != "Requester" else None,
+            "queue_score": dynamic_score,
             "created_at": t.created_at.isoformat()
         })
 
@@ -514,6 +548,7 @@ def create_ticket(
         check_in_date=payload.check_in_date,
         lcd_date=payload.lcd_date,
         hotel_timezone=payload.hotel_timezone or "UTC",
+        priority_weight=PRIORITY_SCORES.get(priority, 200.0),
         assigned_to=assigned_agent_id,
         routing_reason=routing_reason,
         created_at=now,
@@ -696,8 +731,7 @@ def get_ticket_details(
         if agency:
             agency_tier = agency.tier
 
-    queue_score = ticket.queue_score
-    if queue_score is None:
+    if current_user.role != "Requester":
         queue_score = calculate_queue_score_tier2(
             priority=ticket.priority,
             check_in_date=ticket.check_in_date,
@@ -706,6 +740,8 @@ def get_ticket_details(
             intent=ticket.intent,
             now=now
         )
+    else:
+        queue_score = None
 
     return {
         "id": ticket.id,
@@ -1533,7 +1569,7 @@ def export_tickets_csv(
     db: Session = Depends(get_db)
 ):
     """
-    Uncapped CSV data streaming export for ops beyond 3K-row UX barrier (MVP-6).
+    CSV data streaming export for ops beyond 3K-row UX barrier (MVP-6).
     Restricted strictly to Lead role. Memory-safe streaming via generator yield_per.
     Applies formula injection sanitization to protect operations spreadsheets.
     Protected by concurrency limiter (max CSV_EXPORT_MAX_CONCURRENCY, default 2).
@@ -1587,23 +1623,24 @@ def export_tickets_csv(
         next_cursor = None
         rows_to_export = None
 
-        if limit is not None and limit > 0:
-            tickets_page = query.limit(limit + 1).all()
-            if len(tickets_page) > limit:
-                has_more = True
-                rows_to_export = tickets_page[:limit]
-                next_cursor = rows_to_export[-1].id
-            else:
-                has_more = False
-                rows_to_export = tickets_page
-                next_cursor = None
+        default_limit = int(os.environ.get("CSV_EXPORT_DEFAULT_LIMIT", "50000"))
+        effective_limit = limit if (limit is not None and limit > 0) else default_limit
+
+        tickets_page = query.limit(effective_limit + 1).all()
+        if len(tickets_page) > effective_limit:
+            has_more = True
+            rows_to_export = tickets_page[:effective_limit]
+            next_cursor = rows_to_export[-1].id
+        else:
+            has_more = False
+            rows_to_export = tickets_page
+            next_cursor = None
     except Exception:
         release_semaphore()
         raise
 
     def iter_csv():
         start_time = time.time()
-        last_ticket_id = None
         try:
             output = io.StringIO()
             writer = csv.writer(output)
@@ -1618,15 +1655,9 @@ def export_tickets_csv(
             output.truncate(0)
 
             ticket_iterable = rows_to_export if rows_to_export is not None else query.yield_per(500)
-            timed_out = False
 
             for ticket in ticket_iterable:
                 if time.time() - start_time > CSV_EXPORT_MAX_DURATION_SECONDS:
-                    timed_out = True
-                    writer.writerow(["# [ABORTED: Export exceeded maximum duration limit]"])
-                    yield output.getvalue()
-                    output.seek(0)
-                    output.truncate(0)
                     break
 
                 writer.writerow([
@@ -1642,7 +1673,6 @@ def export_tickets_csv(
                     sanitize_csv_cell(ticket.assigned_to or ""),
                     sanitize_csv_cell(ticket.created_at.isoformat() if ticket.created_at else "")
                 ])
-                last_ticket_id = ticket.id
                 yield output.getvalue()
                 output.seek(0)
                 output.truncate(0)

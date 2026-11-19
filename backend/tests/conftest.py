@@ -1,4 +1,8 @@
 import os
+
+# Speed up test execution by configuring lightweight bcrypt rounds (4) in test environment
+os.environ["BCRYPT_ROUNDS"] = "4"
+
 import uuid
 import sqlite3
 import tempfile

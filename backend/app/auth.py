@@ -17,16 +17,33 @@ DEFAULT_AUTH_MODE = "demo"
 DEFAULT_JWT_ALGORITHM = "HS256"
 DEFAULT_JWT_EXPIRE_MINUTES = 480
 DEFAULT_JWT_SECRET = "opsdesk-jwt-default-insecure-secret-key-change-in-production"
+DEFAULT_BCRYPT_ROUNDS = 12
+ALLOWED_JWT_ALGORITHMS = {"HS256", "HS384", "HS512"}
 
 
-def hash_password(password: str) -> str:
+def get_bcrypt_rounds() -> int:
+    """
+    Returns configured bcrypt rounds from BCRYPT_ROUNDS environment variable,
+    falling back to DEFAULT_BCRYPT_ROUNDS (12).
+    """
+    try:
+        val = int(os.environ.get("BCRYPT_ROUNDS", str(DEFAULT_BCRYPT_ROUNDS)))
+        return max(4, min(31, val))
+    except (ValueError, TypeError):
+        return DEFAULT_BCRYPT_ROUNDS
+
+
+def hash_password(password: str, rounds: Optional[int] = None) -> str:
     """
     Hashes a password using bcrypt with a generated salt.
+    Rounds are configurable via BCRYPT_ROUNDS (default 12; test suites set 4).
     """
     if not isinstance(password, str):
         password = str(password)
     pw_bytes = password.encode("utf-8")
-    salt = bcrypt.gensalt(rounds=12)
+    if rounds is None:
+        rounds = get_bcrypt_rounds()
+    salt = bcrypt.gensalt(rounds=rounds)
     return bcrypt.hashpw(pw_bytes, salt).decode("utf-8")
 
 
@@ -55,6 +72,36 @@ def verify_password(password: str, hashed: str) -> bool:
         return False
 
 
+def get_active_jwt_secret() -> str:
+    """
+    Resolves the active JWT secret key:
+    In AUTH_MODE=jwt, strictly refuses default insecure secret or secrets < 32 characters.
+    """
+    auth_mode = os.environ.get("AUTH_MODE", DEFAULT_AUTH_MODE).lower()
+    secret = os.environ.get("JWT_SECRET", "")
+    if auth_mode == "jwt":
+        if not secret or len(secret.strip()) < 32 or secret == DEFAULT_JWT_SECRET:
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration error: In AUTH_MODE=jwt, JWT_SECRET must be explicitly configured and cannot be empty, shorter than 32 characters, or equal to DEFAULT_JWT_SECRET."
+            )
+        return secret
+    return secret or DEFAULT_JWT_SECRET
+
+
+def get_active_jwt_algorithm() -> str:
+    """
+    Resolves and verifies active JWT algorithm against whitelist (HS256, HS384, HS512).
+    """
+    algorithm = os.environ.get("JWT_ALGORITHM", DEFAULT_JWT_ALGORITHM)
+    if algorithm not in ALLOWED_JWT_ALGORITHMS:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Server configuration error: Unsupported JWT_ALGORITHM '{algorithm}'. Allowed algorithms: {', '.join(sorted(ALLOWED_JWT_ALGORITHMS))}."
+        )
+    return algorithm
+
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
     Encodes a JWT using PyJWT.
@@ -75,15 +122,16 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         "iat": now_utc,
     })
 
-    secret = os.environ.get("JWT_SECRET", DEFAULT_JWT_SECRET)
-    algorithm = os.environ.get("JWT_ALGORITHM", DEFAULT_JWT_ALGORITHM)
+    secret = get_active_jwt_secret()
+    algorithm = get_active_jwt_algorithm()
     return jwt.encode(to_encode, secret, algorithm=algorithm)
 
 
 def decode_access_token(token: str) -> dict:
     """
     Decodes and verifies a JWT using PyJWT.
-    Raises HTTPException(401) on invalid signature, expired token, or malformed token.
+    Enforces required claims: exp and sub via PyJWT options={'require': ['exp', 'sub']}.
+    Raises HTTPException(401) on invalid signature, expired token, missing claims, or malformed token.
     """
     if not token or not isinstance(token, str):
         raise HTTPException(
@@ -92,16 +140,27 @@ def decode_access_token(token: str) -> dict:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    secret = os.environ.get("JWT_SECRET", DEFAULT_JWT_SECRET)
-    algorithm = os.environ.get("JWT_ALGORITHM", DEFAULT_JWT_ALGORITHM)
+    secret = get_active_jwt_secret()
+    algorithm = get_active_jwt_algorithm()
 
     try:
-        payload = jwt.decode(token, secret, algorithms=[algorithm])
+        payload = jwt.decode(
+            token,
+            secret,
+            algorithms=[algorithm],
+            options={"require": ["exp", "sub"]}
+        )
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=401,
             detail="Unauthorized: Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.MissingRequiredClaimError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Unauthorized: Missing required token claim ({exc})",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except jwt.InvalidAlgorithmError as exc:

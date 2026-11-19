@@ -53,12 +53,18 @@ THEME_MAPPINGS = {
 def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop_existing: bool = False):
     """
     Seeds the database with deterministic fixtures and 5,000 synthetic records.
+    - Refuses execution with demo passwords when APP_ENV=production.
     - All historical tickets (past check-in) are strictly marked 'Closed' or 'Resolved' (SLA STOPPED).
     - All active tickets (New/Open/Pending/Escalated) strictly have future check-in and LCD dates.
     - Escalated tickets are assigned strictly to Escalation Manager USR-103 (Vikram Malhotra).
     - Standard assigned queue tickets are strictly restricted to Tier-1 desk agents: USR-101 and USR-102.
     - Workload and assignments for Journey fixtures are dynamically computed via select_agent_tier1.
     """
+    env = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).lower()
+    if env == "production":
+        raise RuntimeError(
+            "Startup refused: Seeding database with default demo passwords is strictly prohibited in production (APP_ENV=production)."
+        )
     target_bind = engine_bind if engine_bind is not None else db.get_bind()
     fake = Faker()
     Faker.seed(42)

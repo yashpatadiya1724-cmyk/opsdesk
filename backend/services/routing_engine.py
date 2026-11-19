@@ -155,9 +155,64 @@ def compute_ticket_urgency_fields(
         now=now
     )
 
+    ticket.priority_weight = PRIORITY_SCORES.get(ticket.priority, PRIORITY_SCORES["Medium"])
     ticket.effective_deadline_at = effective_deadline
     ticket.queue_score = queue_score
     return ticket
+
+
+def get_sql_queue_score_expr(now: datetime, dialect_name: str = "sqlite"):
+    """
+    Constructs a SQL expression computing the dynamic queue score at read-time inside ORDER BY
+    without issuing any UPDATE statements.
+    Formula: (priority_weight + time_modifier) * tier_multiplier
+    Values from backend/config/routing_config.py:
+      - Priority scores: Urgent=1000.0, High=500.0, Medium=200.0, Low=50.0
+      - Time modifiers: <=2h: 2000.0 (IMMINENT_2H), <=6h: 800.0 (SAME_DAY_6H), <=24h: 300.0 (NEXT_DAY_24H)
+      - Tier multipliers: platinum=1.3, gold=1.15, standard=1.0
+    """
+    from sqlalchemy import case, literal, func
+    from backend.app.models import Ticket, Agency
+
+    # 1. Base Priority Weight
+    priority_fallback = case(
+        (Ticket.priority == "Urgent", literal(PRIORITY_SCORES["Urgent"])),
+        (Ticket.priority == "High", literal(PRIORITY_SCORES["High"])),
+        (Ticket.priority == "Medium", literal(PRIORITY_SCORES["Medium"])),
+        (Ticket.priority == "Low", literal(PRIORITY_SCORES["Low"])),
+        else_=literal(PRIORITY_SCORES["Medium"])
+    )
+    if hasattr(Ticket, "priority_weight"):
+        priority_weight_expr = func.coalesce(Ticket.priority_weight, priority_fallback)
+    else:
+        priority_weight_expr = priority_fallback
+
+    # 2. Hours Remaining from effective_deadline_at to now
+    now_utc = to_utc_aware(now) or datetime.now(timezone.utc)
+    if dialect_name == "postgresql":
+        hours_diff_expr = func.extract("epoch", Ticket.effective_deadline_at - now_utc) / 3600.0
+    else:
+        # SQLite
+        now_iso = now_utc.strftime("%Y-%m-%d %H:%M:%S")
+        hours_diff_expr = (func.julianday(Ticket.effective_deadline_at) - func.julianday(now_iso)) * 24.0
+
+    # 3. Time Urgency Modifier
+    time_modifier_expr = case(
+        (Ticket.effective_deadline_at.is_(None), literal(0.0)),
+        (hours_diff_expr <= 2.0, literal(CHECKIN_URGENCY_MODIFIERS["IMMINENT_2H"])),
+        (hours_diff_expr <= 6.0, literal(CHECKIN_URGENCY_MODIFIERS["SAME_DAY_6H"])),
+        (hours_diff_expr <= 24.0, literal(CHECKIN_URGENCY_MODIFIERS["NEXT_DAY_24H"])),
+        else_=literal(0.0)
+    )
+
+    # 4. Agency Tier Multiplier
+    tier_multiplier_expr = case(
+        (func.lower(Agency.tier) == "platinum", literal(AGENCY_TIER_MULTIPLIERS["platinum"])),
+        (func.lower(Agency.tier) == "gold", literal(AGENCY_TIER_MULTIPLIERS["gold"])),
+        else_=literal(AGENCY_TIER_MULTIPLIERS["standard"])
+    )
+
+    return (priority_weight_expr + time_modifier_expr) * tier_multiplier_expr
 
 
 def refresh_stale_queue_scores(db: Any, now: Optional[datetime] = None) -> int:
