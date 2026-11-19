@@ -40,6 +40,10 @@ def upgrade_legacy_db(db_url: str) -> None:
     print("[*] Running alembic upgrade head...")
     command.upgrade(alembic_cfg, "head")
 
+    # Run lightweight schema safety check for any legacy columns
+    from backend.app.database import ensure_schema_migrations
+    ensure_schema_migrations(engine)
+
     # Verification
     with engine.connect() as conn:
         user_count = conn.execute(text("SELECT COUNT(*) FROM users")).scalar()

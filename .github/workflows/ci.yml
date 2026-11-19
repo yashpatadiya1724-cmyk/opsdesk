@@ -76,6 +76,14 @@ jobs:
         run: |
           python -m pytest backend/tests -v
 
+      - name: Seed Database and Run PostgreSQL Triage EXPLAIN
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: postgresql+psycopg://opsdesk:opsdesk_password@localhost:5432/opsdesk
+        run: |
+          python -m backend.seed.seed_data --reset --yes
+          python scripts/triage_explain.py --pg-only
+
   frontend-build:
     name: Frontend Build & Typecheck
     runs-on: ubuntu-latest
