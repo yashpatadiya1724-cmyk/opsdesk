@@ -1488,7 +1488,7 @@ def test_export_tickets_csv_role_matrix(client: TestClient):
     - Requester (USR-201) -> 403
     - Missing auth -> 401
     """
-    assert client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-104"}).status_code == 200
+    assert client.get("/api/export/tickets.csv?limit=1", headers={"X-User-Id": "USR-104"}).status_code == 200
     assert client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-103"}).status_code == 403
     assert client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-101"}).status_code == 403
     assert client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-201"}).status_code == 403

@@ -207,9 +207,18 @@ def test_export_tickets_cursor_not_found_404(client: TestClient):
 
 def test_export_tickets_last_page_has_no_next_cursor(client: TestClient, db_session: Session):
     """When all remaining rows fit within the page limit, no X-Next-Cursor header is set."""
-    # Find total count of tickets in DB
+    # Fetch second-to-last ticket to use as cursor so we don't serialize 5000 tickets
     total = db_session.query(Ticket).count()
-    resp = client.get(f"/api/export/tickets.csv?limit={total + 100}", headers={"X-User-Id": "USR-104"})
+    second_to_last = (
+        db_session.query(Ticket)
+        .order_by(Ticket.created_at.desc(), Ticket.id.desc())
+        .offset(max(0, total - 2))
+        .first()
+    )
+    resp = client.get(
+        f"/api/export/tickets.csv?cursor={second_to_last.id}&limit=10",
+        headers={"X-User-Id": "USR-104"},
+    )
     assert resp.status_code == 200
     assert "X-Next-Cursor" not in resp.headers
     assert "# [NEXT_CURSOR:" not in resp.text
