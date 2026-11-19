@@ -27,6 +27,12 @@ CHECKIN_URGENCY_MODIFIERS = {
     "NEXT_DAY_24H": 300.0   # Check-in in <= 24 hours
 }
 
+URGENCY_THRESHOLDS = {
+    "IMMINENT_2H": 2.0,
+    "SAME_DAY_6H": 6.0,
+    "NEXT_DAY_24H": 24.0,
+}
+
 AGENCY_TIER_MULTIPLIERS = {
     "platinum": 1.3,
     "gold": 1.15,

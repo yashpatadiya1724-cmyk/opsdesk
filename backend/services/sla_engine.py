@@ -27,9 +27,16 @@ def effective_deadline_hours(
         cancellation deadlines are inapplicable; effective urgency is strictly check_in_hours.
     """
     now_aware = to_utc_aware(now)
+    cancellation_intents = {"Refund Request", "Cancellation Inconvenience", "Unclassified", None}
+
+    if check_in_date is None:
+        if intent in cancellation_intents and lcd_date is not None:
+            lcd_aware = to_utc_aware(lcd_date)
+            return (lcd_aware - now_aware).total_seconds() / 3600.0
+        return float("inf")
+
     cid_aware = to_utc_aware(check_in_date)
     hours_to_checkin = (cid_aware - now_aware).total_seconds() / 3600.0
-    cancellation_intents = {"Refund Request", "Cancellation Inconvenience", "Unclassified", None}
     
     if intent in cancellation_intents and lcd_date is not None:
         lcd_aware = to_utc_aware(lcd_date)

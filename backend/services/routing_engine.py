@@ -5,6 +5,7 @@ from backend.config.routing_config import (
     DEFAULT_FALLBACK_REGION,
     PRIORITY_SCORES,
     CHECKIN_URGENCY_MODIFIERS,
+    URGENCY_THRESHOLDS,
     AGENCY_TIER_MULTIPLIERS
 )
 from backend.services.sla_engine import effective_deadline_hours, to_utc_aware
@@ -65,20 +66,19 @@ def select_agent_tier1(
 
 def calculate_queue_score_tier2(
     priority: str,
-    check_in_date: datetime,
+    check_in_date: Optional[datetime],
     *args,
     agency_tier: Optional[str] = None,
     lcd_date: Optional[datetime] = None,
     intent: Optional[str] = None,
-    now: Optional[datetime] = None
+    now: Optional[datetime] = None,
+    priority_weight: Optional[float] = None
 ) -> float:
     """
     Tier 2 Routing: Queue Ordering / Ranking
-    Orders the triage/assigned queue using 2 factors:
+    Orders the triage/assigned queue using factors from backend/config/routing_config.py:
       1. Priority ranking (Urgent > High > Medium > Low)
       2. Time Window / Urgency Proximity (closer effective deadline = higher queue position)
-         - For cancellation intents (Refund/Cancellation/Unclassified), effective deadline = min(check_in, lcd)
-         - For other operational intents, effective deadline strictly = check_in
       3. Agency Tier Multiplier (Platinum: 1.3x, Gold: 1.15x, Standard: 1.0x)
     
     Returns:
@@ -98,21 +98,24 @@ def calculate_queue_score_tier2(
     )
     
     # Priority base score
-    base_score = PRIORITY_SCORES.get(priority, PRIORITY_SCORES["Medium"])
+    if priority_weight is not None:
+        base_score = priority_weight
+    else:
+        base_score = PRIORITY_SCORES.get(priority, PRIORITY_SCORES["Medium"])
     
     # Time window modifier based on effective deadline hours
-    if hours_remaining <= 2.0:
+    if hours_remaining <= URGENCY_THRESHOLDS["IMMINENT_2H"]:
         time_modifier = CHECKIN_URGENCY_MODIFIERS["IMMINENT_2H"]
-    elif hours_remaining <= 6.0:
+    elif hours_remaining <= URGENCY_THRESHOLDS["SAME_DAY_6H"]:
         time_modifier = CHECKIN_URGENCY_MODIFIERS["SAME_DAY_6H"]
-    elif hours_remaining <= 24.0:
+    elif hours_remaining <= URGENCY_THRESHOLDS["NEXT_DAY_24H"]:
         time_modifier = CHECKIN_URGENCY_MODIFIERS["NEXT_DAY_24H"]
     else:
         time_modifier = 0.0
         
-    score = base_score + time_modifier
+    score = (base_score + time_modifier)
     if agency_tier is not None:
-        multiplier = AGENCY_TIER_MULTIPLIERS.get(agency_tier.lower(), 1.0)
+        multiplier = AGENCY_TIER_MULTIPLIERS.get(agency_tier.lower(), AGENCY_TIER_MULTIPLIERS["standard"])
         score *= multiplier
 
     return score
@@ -176,13 +179,18 @@ def compute_ticket_queue_score(
         return None
     if now is None:
         now = datetime.now(timezone.utc)
+    if agency_tier is None and hasattr(ticket, "agency") and ticket.agency:
+        agency_tier = getattr(ticket.agency, "tier", None)
+    deadline = getattr(ticket, "effective_deadline_at", None) or getattr(ticket, "check_in_date", None)
+    p_weight = getattr(ticket, "priority_weight", None)
     return calculate_queue_score_tier2(
         priority=ticket.priority,
-        check_in_date=ticket.check_in_date,
+        check_in_date=deadline,
         agency_tier=agency_tier,
-        lcd_date=ticket.lcd_date,
-        intent=ticket.intent,
-        now=now
+        lcd_date=getattr(ticket, "lcd_date", None),
+        intent=getattr(ticket, "intent", None),
+        now=now,
+        priority_weight=p_weight,
     )
 
 
@@ -220,14 +228,14 @@ def get_sql_queue_score_expr(now: datetime, dialect_name: str = "sqlite"):
     else:
         # SQLite
         now_iso = now_utc.strftime("%Y-%m-%d %H:%M:%S")
-        hours_diff_expr = (func.julianday(deadline_col) - func.julianday(now_iso)) * 24.0
+        hours_diff_expr = func.round((func.julianday(deadline_col) - func.julianday(now_iso)) * 24.0, 4)
 
     # 3. Time Urgency Modifier
     time_modifier_expr = case(
         (deadline_col.is_(None), literal(0.0)),
-        (hours_diff_expr <= 2.0, literal(CHECKIN_URGENCY_MODIFIERS["IMMINENT_2H"])),
-        (hours_diff_expr <= 6.0, literal(CHECKIN_URGENCY_MODIFIERS["SAME_DAY_6H"])),
-        (hours_diff_expr <= 24.0, literal(CHECKIN_URGENCY_MODIFIERS["NEXT_DAY_24H"])),
+        (hours_diff_expr <= literal(URGENCY_THRESHOLDS["IMMINENT_2H"]), literal(CHECKIN_URGENCY_MODIFIERS["IMMINENT_2H"])),
+        (hours_diff_expr <= literal(URGENCY_THRESHOLDS["SAME_DAY_6H"]), literal(CHECKIN_URGENCY_MODIFIERS["SAME_DAY_6H"])),
+        (hours_diff_expr <= literal(URGENCY_THRESHOLDS["NEXT_DAY_24H"]), literal(CHECKIN_URGENCY_MODIFIERS["NEXT_DAY_24H"])),
         else_=literal(0.0)
     )
 
@@ -243,27 +251,9 @@ def get_sql_queue_score_expr(now: datetime, dialect_name: str = "sqlite"):
 
 def refresh_stale_queue_scores(db: Any, now: Optional[datetime] = None) -> int:
     """
-    Refreshes queue_score on active tickets whose scores have shifted
-    due to time advancing across urgency proximity windows (24h, 6h, 2h).
+    Compatibility helper: tickets.queue_score is no longer a stored column (removed in revision 0003);
+    queue scores are computed dynamically on read in SQL queries (via get_sql_queue_score_expr)
+    and Python endpoints, eliminating stale score drift.
     """
-    if now is None:
-        now = datetime.now(timezone.utc)
-
-    from backend.app.models import Ticket, Agency
-    agency_map = {a[0]: a[1] for a in db.query(Agency.id, Agency.tier).all()}
-    active_tickets = db.query(Ticket).filter(
-        Ticket.status.in_(["New", "Open", "Pending", "Escalated"])
-    ).all()
-
-    updated = 0
-    for t in active_tickets:
-        agency_tier = agency_map.get(t.agency_id)
-        old_score = t.queue_score
-        compute_ticket_urgency_fields(t, agency_tier=agency_tier, now=now)
-        if t.queue_score != old_score:
-            updated += 1
-
-    if updated > 0:
-        db.commit()
-    return updated
+    return 0
 

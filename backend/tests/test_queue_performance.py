@@ -118,11 +118,16 @@ def test_sql_sort_matches_python_sort(db_session: Session):
 
     test_ticket_ids = [t.id for t in test_tickets]
 
-    # Query with SQL ORDER BY
-    sql_ordered = db_session.query(Ticket).filter(
+    # Query with dynamic SQL ORDER BY matching list_tickets
+    from backend.services.routing_engine import get_sql_queue_score_expr, calculate_queue_score_tier2
+    dialect = db_session.bind.dialect.name if db_session.bind else "sqlite"
+    score_expr = get_sql_queue_score_expr(now=now, dialect_name=dialect)
+    sql_ordered = db_session.query(Ticket).outerjoin(
+        Agency, Ticket.agency_id == Agency.id
+    ).filter(
         Ticket.id.in_(test_ticket_ids)
     ).order_by(
-        Ticket.queue_score.desc(),
+        score_expr.desc(),
         Ticket.effective_deadline_at.asc(),
         Ticket.id.asc()
     ).all()
@@ -130,7 +135,19 @@ def test_sql_sort_matches_python_sort(db_session: Session):
     # Python sort with matching order
     python_ordered = sorted(
         test_tickets,
-        key=lambda t: (-t.queue_score, t.effective_deadline_at, t.id)
+        key=lambda t: (
+            -calculate_queue_score_tier2(
+                priority=t.priority,
+                check_in_date=t.effective_deadline_at or t.check_in_date,
+                agency_tier=agency_tiers[t.agency_id],
+                lcd_date=t.lcd_date,
+                intent=t.intent,
+                now=now,
+                priority_weight=t.priority_weight
+            ),
+            t.effective_deadline_at or t.check_in_date,
+            t.id
+        )
     )
 
     sql_ids = [t.id for t in sql_ordered]
@@ -180,7 +197,7 @@ def test_pagination_consistency(client: TestClient):
 def test_ticket_update_recomputes_stored_queue_score(client: TestClient, db_session: Session):
     """
     Verifies that creating and mutating tickets (status update, escalation, assignment, transfer)
-    recomputes and persists effective_deadline_at and queue_score in the database.
+    persists priority_weight and effective_deadline_at, and returns dynamic queue_score in the API.
     """
     now = datetime.now(timezone.utc)
     create_payload = {
@@ -196,12 +213,16 @@ def test_ticket_update_recomputes_stored_queue_score(client: TestClient, db_sess
     assert create_res.status_code == 201
     created_id = create_res.json()["id"]
 
-    # Verify initial stored score
+    details_res = client.get(f"/api/tickets/{created_id}", headers={"X-User-Id": "USR-101"})
+    assert details_res.status_code == 200
+    initial_score = details_res.json()["queue_score"]
+    assert initial_score is not None
+
+    # Verify initial stored fields
     ticket_row = db_session.query(Ticket).filter(Ticket.id == created_id).first()
     assert ticket_row is not None
-    assert ticket_row.queue_score is not None
+    assert ticket_row.priority_weight == 50.0  # Low priority base weight
     assert ticket_row.effective_deadline_at is not None
-    initial_score = ticket_row.queue_score
 
     # Escalate ticket -> status becomes Escalated, priority becomes Urgent
     esc_res = client.post(
@@ -211,13 +232,17 @@ def test_ticket_update_recomputes_stored_queue_score(client: TestClient, db_sess
     )
     assert esc_res.status_code == 200
 
+    details_after = client.get(f"/api/tickets/{created_id}", headers={"X-User-Id": "USR-101"})
+    assert details_after.status_code == 200
+    escalated_score = details_after.json()["queue_score"]
+    assert escalated_score is not None
+    assert escalated_score > initial_score
+
     # Refresh from DB
     db_session.expire_all()
     updated_row = db_session.query(Ticket).filter(Ticket.id == created_id).first()
     assert updated_row.status == "Escalated"
-    assert updated_row.queue_score is not None
-    # Score should be updated and higher or equal
-    assert updated_row.queue_score >= initial_score
+    assert updated_row.priority_weight == 1000.0  # Urgent priority base weight
 
     # Transfer ticket
     trf_res = client.post(
@@ -230,7 +255,7 @@ def test_ticket_update_recomputes_stored_queue_score(client: TestClient, db_sess
     db_session.expire_all()
     transferred_row = db_session.query(Ticket).filter(Ticket.id == created_id).first()
     assert transferred_row.assigned_to == "USR-102"
-    assert transferred_row.queue_score is not None
+    assert transferred_row.priority_weight == 1000.0
 
     # Status update
     status_res = client.post(
@@ -243,7 +268,7 @@ def test_ticket_update_recomputes_stored_queue_score(client: TestClient, db_sess
     db_session.expire_all()
     resolved_row = db_session.query(Ticket).filter(Ticket.id == created_id).first()
     assert resolved_row.status == "Resolved"
-    assert resolved_row.queue_score is not None
+    assert resolved_row.priority_weight == 1000.0
 
 
 def test_search_targets_only_tboh_id_id_and_title(client: TestClient, db_session: Session):
@@ -363,13 +388,12 @@ def test_database_migration_and_backfill():
         with engine.connect() as conn:
             cols = [r[1] for r in conn.execute(text("PRAGMA table_info(tickets)")).fetchall()]
             assert "effective_deadline_at" in cols
-            assert "queue_score" in cols
+            assert "priority_weight" in cols
 
-            row = conn.execute(text("SELECT queue_score, effective_deadline_at FROM tickets WHERE id = 'TCK-LEGACY-1'")).fetchone()
+            row = conn.execute(text("SELECT priority_weight, effective_deadline_at FROM tickets WHERE id = 'TCK-LEGACY-1'")).fetchone()
             assert row is not None
-            assert row[0] is not None, "queue_score must be backfilled"
+            assert row[0] == 1000.0, "priority_weight must be backfilled to 1000.0 for Urgent priority"
             assert row[1] is not None, "effective_deadline_at must be backfilled"
-            assert row[0] > 0.0
 
     finally:
         engine.dispose()
@@ -382,16 +406,15 @@ def test_database_migration_and_backfill():
 
 def test_stale_queue_score_refresh_over_time(client: TestClient, db_session: Session):
     """
-    Verifies that time-based urgency modifiers refresh properly when time advances:
+    Verifies that time-based urgency modifiers refresh dynamically when time advances:
     1. Create Ticket A with check-in in 7h -> at T0, modifier is +300 (NEXT_DAY_24H), score = 500.
     2. Create Ticket B with check-in in 20h -> at T0, modifier is +300 (NEXT_DAY_24H), score = 500.
     3. Advance time by 2 hours (T1 = T0 + 2h):
-       - Ticket A check-in is now in 5h -> urgency modifier must become +800 (SAME_DAY_6H), score = 1000.
+       - Ticket A check-in is now in 5h -> urgency modifier dynamically evaluates to +800 (SAME_DAY_6H), score = 1000.
        - Ticket B check-in is now in 18h -> urgency modifier remains +300 (NEXT_DAY_24H), score = 500.
-    4. Call refresh_stale_queue_scores(db_session, now=T1).
-    5. Verify Ticket A's stored queue_score is updated to 1000.0 and Ticket A ranks strictly above Ticket B.
+    4. Verify SQL order by dynamic score expression at T1 strictly ranks Ticket A above Ticket B.
     """
-    from backend.services.routing_engine import compute_ticket_urgency_fields, refresh_stale_queue_scores
+    from backend.services.routing_engine import calculate_queue_score_tier2, get_sql_queue_score_expr
 
     t0 = datetime(2026, 11, 20, 10, 0, 0, tzinfo=timezone.utc)
     t1 = t0 + timedelta(hours=2)  # 2 hours later
@@ -405,12 +428,13 @@ def test_stale_queue_score_refresh_over_time(client: TestClient, db_session: Ses
         description="Ticket created 7h before check-in",
         intent="Emergency Check-in Assist",
         priority="Medium",  # base 200
+        priority_weight=200.0,
         status="New",
         check_in_date=t0 + timedelta(hours=7),
+        effective_deadline_at=t0 + timedelta(hours=7),
         created_at=t0,
         updated_at=t0
     )
-    compute_ticket_urgency_fields(t_a, agency_tier="standard", now=t0)
 
     # Create Ticket B (check-in in 20 hours from T0)
     t_b = Ticket(
@@ -421,45 +445,43 @@ def test_stale_queue_score_refresh_over_time(client: TestClient, db_session: Ses
         description="Ticket created 20h before check-in",
         intent="Emergency Check-in Assist",
         priority="Medium",  # base 200
+        priority_weight=200.0,
         status="New",
         check_in_date=t0 + timedelta(hours=20),
+        effective_deadline_at=t0 + timedelta(hours=20),
         created_at=t0,
         updated_at=t0
     )
-    compute_ticket_urgency_fields(t_b, agency_tier="standard", now=t0)
 
     db_session.add_all([t_a, t_b])
     db_session.commit()
 
-    # Initial state at T0: both tickets were in the 6h-24h window (+300 modifier)
-    assert t_a.queue_score == 500.0  # 200 + 300
-    assert t_b.queue_score == 500.0  # 200 + 300
+    # Initial state at T0: both tickets are in the 6h-24h window (+300 modifier)
+    score_t0_a = calculate_queue_score_tier2(t_a.priority, t_a.check_in_date, agency_tier="standard", now=t0)
+    score_t0_b = calculate_queue_score_tier2(t_b.priority, t_b.check_in_date, agency_tier="standard", now=t0)
+    assert score_t0_a == 500.0  # 200 + 300
+    assert score_t0_b == 500.0  # 200 + 300
 
-    # Before refresh at T1: without refresh, stored scores are stale
-    assert t_a.queue_score == 500.0
-
-    # Execute refresh at T1 (time advanced by 2 hours)
-    refreshed_count = refresh_stale_queue_scores(db_session, now=t1)
-    assert refreshed_count >= 1
-
-    # Reload from DB
-    db_session.refresh(t_a)
-    db_session.refresh(t_b)
-
-    # After refresh at T1:
+    # At T1 (time advanced by 2 hours):
     # Ticket A is now 5h to check-in (<= 6h) -> modifier +800 -> score = 1000.0
     # Ticket B is now 18h to check-in (<= 24h) -> modifier +300 -> score = 500.0
-    assert t_a.queue_score == 1000.0
-    assert t_b.queue_score == 500.0
-    assert t_a.queue_score > t_b.queue_score
+    score_t1_a = calculate_queue_score_tier2(t_a.priority, t_a.check_in_date, agency_tier="standard", now=t1)
+    score_t1_b = calculate_queue_score_tier2(t_b.priority, t_b.check_in_date, agency_tier="standard", now=t1)
+    assert score_t1_a == 1000.0
+    assert score_t1_b == 500.0
+    assert score_t1_a > score_t1_b
 
-    # Verify query ordering at T1 strictly ranks Ticket A above Ticket B
+    # Verify query ordering in SQL at T1 strictly ranks Ticket A above Ticket B
+    score_expr_t1 = get_sql_queue_score_expr(now=t1, dialect_name="sqlite")
     ranked = (
         db_session.query(Ticket)
+        .outerjoin(Agency, Ticket.agency_id == Agency.id)
         .filter(Ticket.id.in_(["TCK-STALE-7H", "TCK-STALE-20H"]))
-        .order_by(Ticket.queue_score.desc(), Ticket.effective_deadline_at.asc(), Ticket.id.asc())
+        .order_by(score_expr_t1.desc(), Ticket.effective_deadline_at.asc(), Ticket.id.asc())
         .all()
     )
+
+    assert len(ranked) == 2
     assert ranked[0].id == "TCK-STALE-7H"
     assert ranked[1].id == "TCK-STALE-20H"
 
@@ -663,5 +685,89 @@ def test_changing_priority_via_api_updates_sql_queue_ordering(client: TestClient
         assert ids2 == ["TCK-ORD-LOW", "TCK-ORD-HIGH"]
     finally:
         db_session.query(Ticket).filter(Ticket.id.in_(["TCK-ORD-LOW", "TCK-ORD-HIGH"])).delete(synchronize_session=False)
+        db_session.commit()
+
+
+def test_queue_score_grid_python_equals_sql(db_session: Session):
+    """
+    Grid test: priority x hours in {-1, 0, 1.9, 2, 2.1, 5.9, 6, 6.1, 23.9, 24, 24.1, 100}
+    x tier platinum/gold/standard x NULL effective_deadline_at.
+    Python score must equal SQL score exactly.
+    """
+    from backend.services.routing_engine import (
+        calculate_queue_score_tier2,
+        get_sql_queue_score_expr
+    )
+    from backend.config.routing_config import PRIORITY_SCORES
+
+    now = datetime(2026, 11, 20, 12, 0, 0, tzinfo=timezone.utc)
+    priorities = ["Urgent", "High", "Medium", "Low"]
+    hours_list = [-1.0, 0.0, 1.9, 2.0, 2.1, 5.9, 6.0, 6.1, 23.9, 24.0, 24.1, 100.0]
+    tiers = ["platinum", "gold", "standard"]
+    null_deadline_flags = [False, True]  # False: effective_deadline_at set; True: effective_deadline_at NULL (fallback to check_in_date)
+
+    sql_expr = get_sql_queue_score_expr(now=now, dialect_name="sqlite")
+
+    for t in tiers:
+        db_session.merge(Agency(id=f"AGY-GRID-{t}", name=f"Grid {t}", country_code="AE", tier=t))
+    db_session.commit()
+
+    created_ids = []
+    try:
+        for prio in priorities:
+            for hr in hours_list:
+                for tier in tiers:
+                    for is_null_deadline in null_deadline_flags:
+                        check_in = now + timedelta(hours=hr)
+                        eff_deadline = None if is_null_deadline else check_in
+
+                        t_id = f"TCK-G-{uuid.uuid4().hex[:8]}"
+                        created_ids.append(t_id)
+                        ticket = Ticket(
+                            id=t_id,
+                            tboh_id="TBOH-GRID",
+                            agency_id=f"AGY-GRID-{tier}",
+                            title="Grid Ticket",
+                            description="Grid test",
+                            priority=prio,
+                            priority_weight=PRIORITY_SCORES[prio],
+                            status="New",
+                            check_in_date=check_in,
+                            effective_deadline_at=eff_deadline,
+                            created_at=now,
+                            updated_at=now,
+                            version=1
+                        )
+                        db_session.add(ticket)
+        db_session.commit()
+
+        # Query all SQL scores in a single batch query
+        results = (
+            db_session.query(Ticket.id, Ticket.priority, Agency.tier, Ticket.check_in_date, Ticket.effective_deadline_at, sql_expr)
+            .select_from(Ticket)
+            .join(Agency, Ticket.agency_id == Agency.id)
+            .filter(Ticket.id.in_(created_ids))
+            .all()
+        )
+
+        assert len(results) == len(created_ids) == len(priorities) * len(hours_list) * len(tiers) * len(null_deadline_flags)
+
+        for r_id, r_prio, r_tier, r_cid, r_eff_deadline, r_sql_score in results:
+            resolved_deadline = r_eff_deadline or r_cid
+            d_aware = resolved_deadline if resolved_deadline.tzinfo else resolved_deadline.replace(tzinfo=timezone.utc)
+            expected_py = calculate_queue_score_tier2(
+                priority=r_prio,
+                check_in_date=d_aware,
+                agency_tier=r_tier,
+                now=now,
+                priority_weight=PRIORITY_SCORES[r_prio]
+            )
+
+            assert round(float(r_sql_score), 2) == round(float(expected_py), 2), (
+                f"Score divergence for Ticket {r_id} (prio={r_prio}, tier={r_tier}, eff_deadline={r_eff_deadline}, cid={r_cid}): "
+                f"SQL={r_sql_score} vs Python={expected_py}"
+            )
+    finally:
+        db_session.query(Ticket).filter(Ticket.id.in_(created_ids)).delete(synchronize_session=False)
         db_session.commit()
 
