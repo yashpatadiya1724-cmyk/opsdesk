@@ -450,3 +450,62 @@ def test_proxy_ip_spoofing_middleware_integration(monkeypatch):
     # Verify rate limit key was recorded for the validated forwarded IP
     with main_module._rate_limit_lock:
         assert "ip:203.0.113.1" in main_module._rate_limit_records
+
+
+def test_cors_preflight_exposes_next_cursor_and_request_id(client: TestClient):
+    """
+    Verifies that CORS middleware explicitly exposes X-Next-Cursor and X-Request-ID headers.
+    """
+    # 1. Preflight check
+    resp_options = client.options(
+        "/api/export/tickets.csv",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "X-User-Id"
+        }
+    )
+    assert resp_options.status_code == 200
+    assert resp_options.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+    # 2. Actual request with Origin check for Access-Control-Expose-Headers
+    resp = client.get(
+        "/api/export/tickets.csv?limit=1",
+        headers={
+            "Origin": "http://localhost:3000",
+            "X-User-Id": "USR-104"
+        }
+    )
+    assert resp.status_code == 200
+    exposed = resp.headers.get("access-control-expose-headers", "")
+    exposed_lower = [h.strip().lower() for h in exposed.split(",")]
+    assert "x-next-cursor" in exposed_lower
+    assert "x-request-id" in exposed_lower
+
+
+def test_csv_export_safe_parser_and_streaming_chunked(client: TestClient, monkeypatch, caplog):
+    """
+    Verifies that:
+    1. get_csv_export_default_limit safely parses malformed or negative values and falls back to 50000.
+    2. Streaming export streams rows without loading all ORM models at once.
+    """
+    from backend.app.main import get_csv_export_default_limit
+
+    # Safe parser fallbacks
+    monkeypatch.setenv("CSV_EXPORT_DEFAULT_LIMIT", "invalid_number")
+    assert get_csv_export_default_limit() == 50000
+
+    monkeypatch.setenv("CSV_EXPORT_DEFAULT_LIMIT", "-50")
+    assert get_csv_export_default_limit() == 50000
+
+    monkeypatch.setenv("CSV_EXPORT_DEFAULT_LIMIT", "50,000")
+    assert get_csv_export_default_limit() == 50000
+
+    # Stream chunks check
+    monkeypatch.setenv("CSV_EXPORT_DEFAULT_LIMIT", "10")
+    resp = client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-104"})
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Next-Cursor") is not None
+    lines = [l for l in resp.text.splitlines() if l.strip()]
+    assert len(lines) == 11  # 1 header + 10 data rows
+

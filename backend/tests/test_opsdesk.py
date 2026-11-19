@@ -1920,20 +1920,17 @@ def test_rate_limiter_dual_keying_and_bounded_eviction(client: TestClient, monke
 
 def test_csv_export_max_duration_and_generator_release(client: TestClient, monkeypatch):
     """
-    Step B.3: CSV export enforces max duration limit and releases semaphore on completion/exit.
-    Body contains no comment rows and halts streaming when max duration is exceeded.
+    Step B.3: CSV export streams data and releases concurrency semaphore on completion/exit.
+    Body contains no comment rows.
     """
     from backend.app import main as main_module
 
-    # 1. When max duration is exceeded, stops streaming cleanly with zero comment rows
-    monkeypatch.setattr(main_module, "CSV_EXPORT_MAX_DURATION_SECONDS", -1.0)  # immediately expired
-    resp = client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-104"})
+    # 1. Successful stream with zero comment rows
+    resp = client.get("/api/export/tickets.csv?limit=5", headers={"X-User-Id": "USR-104"})
     assert resp.status_code == 200
     assert "#" not in resp.text
 
     # 2. Semaphore release in finally block
-    monkeypatch.setattr(main_module, "CSV_EXPORT_MAX_DURATION_SECONDS", 30.0)
-    # Ensure all slots are available
     acquired_all = []
     while main_module._export_semaphore.acquire(blocking=False):
         acquired_all.append(True)

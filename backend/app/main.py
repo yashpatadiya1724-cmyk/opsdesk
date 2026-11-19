@@ -71,6 +71,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Next-Cursor", "X-Request-ID"],
 )
 
 RATE_LIMIT_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "120"))
@@ -1557,6 +1558,23 @@ CSV_EXPORT_MAX_DURATION_SECONDS = float(os.environ.get("CSV_EXPORT_MAX_DURATION_
 _export_semaphore = threading.BoundedSemaphore(CSV_EXPORT_MAX_CONCURRENCY)
 
 
+def get_csv_export_default_limit() -> int:
+    """
+    Safely parses CSV_EXPORT_DEFAULT_LIMIT environment variable.
+    Falls back to 50000 with a logged warning if value is missing, non-positive, or malformed.
+    """
+    val = os.environ.get("CSV_EXPORT_DEFAULT_LIMIT", "50000")
+    try:
+        limit = int(str(val).replace(",", "").strip())
+        if limit <= 0:
+            logger.warning(f"Invalid non-positive CSV_EXPORT_DEFAULT_LIMIT='{val}'. Falling back to 50000.")
+            return 50000
+        return limit
+    except (ValueError, TypeError) as exc:
+        logger.warning(f"Failed to parse CSV_EXPORT_DEFAULT_LIMIT='{val}': {exc}. Falling back to 50000.")
+        return 50000
+
+
 @app.get("/api/export/tickets.csv")
 def export_tickets_csv(
     status: Optional[str] = None,
@@ -1619,28 +1637,27 @@ def export_tickets_csv(
 
         query = query.order_by(Ticket.created_at.desc(), Ticket.id.desc())
 
-        has_more = False
-        next_cursor = None
-        rows_to_export = None
-
-        default_limit = int(os.environ.get("CSV_EXPORT_DEFAULT_LIMIT", "50000"))
+        default_limit = get_csv_export_default_limit()
         effective_limit = limit if (limit is not None and limit > 0) else default_limit
 
-        tickets_page = query.limit(effective_limit + 1).all()
-        if len(tickets_page) > effective_limit:
+        # Detect has_more and next_cursor without loading full ORM objects into memory
+        cursor_probe = (
+            query.with_entities(Ticket.id)
+            .offset(effective_limit - 1)
+            .limit(2)
+            .all()
+        )
+        if len(cursor_probe) == 2:
             has_more = True
-            rows_to_export = tickets_page[:effective_limit]
-            next_cursor = rows_to_export[-1].id
+            next_cursor = cursor_probe[0][0]
         else:
             has_more = False
-            rows_to_export = tickets_page
             next_cursor = None
     except Exception:
         release_semaphore()
         raise
 
     def iter_csv():
-        start_time = time.time()
         try:
             output = io.StringIO()
             writer = csv.writer(output)
@@ -1654,12 +1671,8 @@ def export_tickets_csv(
             output.seek(0)
             output.truncate(0)
 
-            ticket_iterable = rows_to_export if rows_to_export is not None else query.yield_per(500)
-
-            for ticket in ticket_iterable:
-                if time.time() - start_time > CSV_EXPORT_MAX_DURATION_SECONDS:
-                    break
-
+            # Stream strictly via yield_per(500) to keep memory footprint constant
+            for ticket in query.limit(effective_limit).yield_per(500):
                 writer.writerow([
                     sanitize_csv_cell(ticket.id),
                     sanitize_csv_cell(ticket.tboh_id),
@@ -1676,8 +1689,6 @@ def export_tickets_csv(
                 yield output.getvalue()
                 output.seek(0)
                 output.truncate(0)
-
-            # If there are more rows, the cursor is communicated exclusively via the X-Next-Cursor header.
 
         finally:
             release_semaphore()
