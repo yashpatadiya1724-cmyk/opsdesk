@@ -34,7 +34,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          python -m pytest backend/tests -v
+          python -m pytest backend/tests -v -m "slow or not slow"
 
   backend-test-postgres:
     name: Backend Test Suite (PostgreSQL)
@@ -74,7 +74,7 @@ jobs:
           PYTHONPATH: .
           DATABASE_URL: postgresql+psycopg://opsdesk:opsdesk_password@localhost:5432/opsdesk
         run: |
-          python -m pytest backend/tests -v
+          python -m pytest backend/tests -v -m "slow or not slow"
 
       - name: Seed Database and Run PostgreSQL Triage EXPLAIN
         env:

@@ -131,11 +131,18 @@ Open Browser: `http://localhost:3000`
 
 ## 🧪 Test & Verification Commands
 
-All testing suites run against isolated test databases without modifying the development database:
+All testing suites run against isolated test databases without modifying the development database.
+
+> **Performance Note (Windows Defender):** On Windows, real-time filesystem scanning by Windows Defender / Antivirus can significantly slow down SQLite database operations and Python test execution. For optimal test suite speed, add the repository folder (`C:\Users\yashp\projects\opsdesk`) and virtual environment (`.venv`) to Windows Defender folder exclusions.
+>
+> By default, `pytest` runs in fast mode excluding tests marked `slow` (`pytest -m "not slow"` configured in `pytest.ini`). To execute the complete test suite including heavy concurrency and large streaming tests, run `pytest -m "slow or not slow"`.
 
 ```powershell
-# 1. Backend Unit & Integration Tests (156 passed, 1 skipped)
+# 1. Backend Fast Test Suite (Default, excluding slow tests)
 pytest backend/tests -q
+
+# 1b. Backend Full Test Suite (Including slow concurrency and export tests)
+pytest backend/tests -q -m "slow or not slow"
 
 # 2. Frontend ESLint Check (0 warnings, 0 errors)
 cd frontend ; npm run lint

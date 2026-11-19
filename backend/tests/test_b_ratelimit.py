@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from backend.app import main as main_module
 
 
+@pytest.mark.slow
 def test_rate_limit_ip_rotation_contradiction_resolution(client: TestClient, monkeypatch):
     """
     Lane B1: Verifies that when sending 150 requests from a single client IP

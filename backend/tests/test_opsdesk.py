@@ -1495,6 +1495,7 @@ def test_export_tickets_csv_role_matrix(client: TestClient):
     assert client.get("/api/export/tickets.csv").status_code == 401
 
 
+@pytest.mark.slow
 def test_export_tickets_csv_streaming_and_row_count(client: TestClient, db_session: Session):
     """
     Verifies uncapped CSV streaming export:
