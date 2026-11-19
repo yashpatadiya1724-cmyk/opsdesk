@@ -11,15 +11,18 @@ from backend.app.main import validate_production_auth_settings
 
 
 def test_password_hashing_and_verification():
-    """Verifies standard-library PBKDF2 password hashing and verification."""
+    """Verifies bcrypt password hashing and verification (with backward-compatibility)."""
     password = "demo123"
     hashed = hash_password(password)
-    assert hashed.startswith("pbkdf2_sha256$100000$")
+    assert hashed.startswith("$2b$")
     assert verify_password("demo123", hashed) is True
     assert verify_password("wrongpassword", hashed) is False
     assert verify_password("", hashed) is False
     assert verify_password(password, "") is False
     assert verify_password(password, "invalid$format") is False
+    # Backward compatibility with legacy PBKDF2 hash
+    legacy_hash = "pbkdf2_sha256$100000$00112233445566778899aabbccddeeff$80b618791fc58233b3276b0056d17689cdc51b726aff0f874c534698f4cd9dbc"
+    assert verify_password("demo123", legacy_hash) is True
 
 
 # 1. Successful login with correct email and demo123 returns valid token and 200
@@ -205,12 +208,42 @@ def test_startup_failure_in_production_environment(monkeypatch):
         validate_production_auth_settings()
     assert "Production environment requires AUTH_MODE=jwt unless ALLOW_DEMO_AUTH=true" in str(exc_info2.value)
 
-    # 3. AUTH_MODE=jwt in production -> allowed (does NOT raise)
+    # 3. AUTH_MODE=jwt in production with valid secret -> allowed (does NOT raise)
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("AUTH_MODE", "jwt")
+    monkeypatch.setenv("JWT_SECRET", "this_is_a_sufficiently_long_production_jwt_secret_32_chars")
     validate_production_auth_settings()
 
     # 4. ALLOW_DEMO_AUTH=true in production -> allowed (does NOT raise)
     monkeypatch.setenv("AUTH_MODE", "demo")
     monkeypatch.setenv("ALLOW_DEMO_AUTH", "true")
+    validate_production_auth_settings()
+
+
+def test_jwt_mode_startup_refusal_empty_or_short_secret(monkeypatch):
+    """
+    Refuses startup in AUTH_MODE=jwt if JWT_SECRET is empty or shorter than 32 characters.
+    """
+    monkeypatch.setenv("AUTH_MODE", "jwt")
+
+    # 1. Empty secret -> raises RuntimeError
+    monkeypatch.setenv("JWT_SECRET", "")
+    with pytest.raises(RuntimeError) as exc_info1:
+        validate_production_auth_settings()
+    assert "at least 32 characters long" in str(exc_info1.value)
+
+    # 2. Secret shorter than 32 characters -> raises RuntimeError
+    monkeypatch.setenv("JWT_SECRET", "too-short-secret-key-1234")
+    with pytest.raises(RuntimeError) as exc_info2:
+        validate_production_auth_settings()
+    assert "at least 32 characters long" in str(exc_info2.value)
+
+    # 3. Secret with whitespace padding that trims to < 32 chars -> raises RuntimeError
+    monkeypatch.setenv("JWT_SECRET", "   short   ")
+    with pytest.raises(RuntimeError) as exc_info3:
+        validate_production_auth_settings()
+    assert "at least 32 characters long" in str(exc_info3.value)
+
+    # 4. Valid secret (>= 32 chars) -> succeeds without raising
+    monkeypatch.setenv("JWT_SECRET", "this_is_a_valid_secret_key_with_at_least_32_chars!")
     validate_production_auth_settings()

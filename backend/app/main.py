@@ -32,7 +32,7 @@ from backend.config.routing_config import (
 )
 from backend.services.sla_engine import evaluate_travel_sla, effective_deadline_hours
 from backend.services.routing_engine import (
-    CandidateAgent, select_agent_tier1, calculate_queue_score_tier2, compute_ticket_urgency_fields
+    CandidateAgent, select_agent_tier1, calculate_queue_score_tier2, compute_ticket_urgency_fields, refresh_stale_queue_scores
 )
 from backend.services.intent_classifier import suggest_ticket_intent
 
@@ -86,12 +86,21 @@ if _rate_limit_records is None:
 
 def validate_production_auth_settings():
     """
-    Refuses startup when running in production environment with demo authentication,
-    unless explicitly overridden via ALLOW_DEMO_AUTH=true.
+    Refuses startup when:
+    1. Running in AUTH_MODE=jwt and JWT_SECRET is empty or shorter than 32 characters.
+    2. Running in production environment with demo authentication, unless explicitly overridden via ALLOW_DEMO_AUTH=true.
     """
     env = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).lower()
     auth_mode = os.environ.get("AUTH_MODE", "demo").lower()
     allow_demo = os.environ.get("ALLOW_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
+    jwt_secret = os.environ.get("JWT_SECRET", "")
+
+    if auth_mode == "jwt":
+        if not jwt_secret or len(jwt_secret.strip()) < 32:
+            msg = f"Startup refused: In AUTH_MODE=jwt, JWT_SECRET must be set and at least 32 characters long (got {len(jwt_secret.strip()) if jwt_secret else 0} chars)."
+            logger.error(msg)
+            raise RuntimeError(msg)
+
     if env == "production" and auth_mode == "demo" and not allow_demo:
         msg = "Production environment requires AUTH_MODE=jwt unless ALLOW_DEMO_AUTH=true (Refusing to start in APP_ENV=production with unauthenticated demo headers)."
         logger.error(msg)
@@ -351,10 +360,13 @@ def list_tickets(
             Ticket.id.asc()
         )
 
+    now = datetime.now(timezone.utc)
+    if view in ["triage", "my_queue"]:
+        refresh_stale_queue_scores(db, now=now)
+
     total_count = query.count()
     tickets = query.options(defer(Ticket.description)).offset(offset).limit(limit).all()
 
-    now = datetime.now(timezone.utc)
     results = []
     for t in tickets:
         sla = evaluate_travel_sla(
@@ -1612,8 +1624,6 @@ def export_tickets_csv(
                 if time.time() - start_time > CSV_EXPORT_MAX_DURATION_SECONDS:
                     timed_out = True
                     writer.writerow(["# [ABORTED: Export exceeded maximum duration limit]"])
-                    if last_ticket_id:
-                        writer.writerow([f"# [NEXT_CURSOR: {last_ticket_id}]"])
                     yield output.getvalue()
                     output.seek(0)
                     output.truncate(0)
@@ -1637,11 +1647,7 @@ def export_tickets_csv(
                 output.seek(0)
                 output.truncate(0)
 
-            if not timed_out and has_more and next_cursor:
-                writer.writerow([f"# [NEXT_CURSOR: {next_cursor}]"])
-                yield output.getvalue()
-                output.seek(0)
-                output.truncate(0)
+            # If there are more rows, the cursor is communicated exclusively via the X-Next-Cursor header.
 
         finally:
             release_semaphore()

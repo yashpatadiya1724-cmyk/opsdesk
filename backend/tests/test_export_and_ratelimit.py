@@ -114,7 +114,8 @@ def test_export_tickets_cursor_pagination(client: TestClient, db_session: Sessio
     page1_ids = [r[0] for r in data1]
     assert len(page1_ids) == 5
     assert page1_ids[-1] == cursor1
-    assert f"# [NEXT_CURSOR: {cursor1}]" in resp1.text
+    # Verify cursor is strictly in the header, never as a comment row in the CSV body
+    assert "# [NEXT_CURSOR:" not in resp1.text
 
     # Fetch page 2 using cursor1
     resp2 = client.get(f"/api/export/tickets.csv?limit=5&cursor={cursor1}", headers={"X-User-Id": "USR-104"})
@@ -129,7 +130,8 @@ def test_export_tickets_cursor_pagination(client: TestClient, db_session: Sessio
     page2_ids = [r[0] for r in data2]
     assert len(page2_ids) == 5
     assert page2_ids[-1] == cursor2
-    assert f"# [NEXT_CURSOR: {cursor2}]" in resp2.text
+    # Verify cursor is strictly in the header, never as a comment row in the CSV body
+    assert "# [NEXT_CURSOR:" not in resp2.text
 
     # Verification: Disjoint (no duplicates) and contiguous (no gaps)
     assert set(page1_ids).isdisjoint(set(page2_ids)), "Pages 1 and 2 must not contain duplicate tickets"

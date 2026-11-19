@@ -378,3 +378,87 @@ def test_database_migration_and_backfill():
                 os.remove(temp_db)
             except Exception:
                 pass
+
+
+def test_stale_queue_score_refresh_over_time(client: TestClient, db_session: Session):
+    """
+    Verifies that time-based urgency modifiers refresh properly when time advances:
+    1. Create Ticket A with check-in in 7h -> at T0, modifier is +300 (NEXT_DAY_24H), score = 500.
+    2. Create Ticket B with check-in in 20h -> at T0, modifier is +300 (NEXT_DAY_24H), score = 500.
+    3. Advance time by 2 hours (T1 = T0 + 2h):
+       - Ticket A check-in is now in 5h -> urgency modifier must become +800 (SAME_DAY_6H), score = 1000.
+       - Ticket B check-in is now in 18h -> urgency modifier remains +300 (NEXT_DAY_24H), score = 500.
+    4. Call refresh_stale_queue_scores(db_session, now=T1).
+    5. Verify Ticket A's stored queue_score is updated to 1000.0 and Ticket A ranks strictly above Ticket B.
+    """
+    from backend.services.routing_engine import compute_ticket_urgency_fields, refresh_stale_queue_scores
+
+    t0 = datetime(2026, 11, 20, 10, 0, 0, tzinfo=timezone.utc)
+    t1 = t0 + timedelta(hours=2)  # 2 hours later
+
+    # Create Ticket A (check-in in 7 hours from T0)
+    t_a = Ticket(
+        id="TCK-STALE-7H",
+        tboh_id="TBOH-STALE-7H",
+        agency_id="AGY-003",  # standard tier (1.0x)
+        title="Check-in 7h Case",
+        description="Ticket created 7h before check-in",
+        intent="Emergency Check-in Assist",
+        priority="Medium",  # base 200
+        status="New",
+        check_in_date=t0 + timedelta(hours=7),
+        created_at=t0,
+        updated_at=t0
+    )
+    compute_ticket_urgency_fields(t_a, agency_tier="standard", now=t0)
+
+    # Create Ticket B (check-in in 20 hours from T0)
+    t_b = Ticket(
+        id="TCK-STALE-20H",
+        tboh_id="TBOH-STALE-20H",
+        agency_id="AGY-003",  # standard tier (1.0x)
+        title="Check-in 20h Case",
+        description="Ticket created 20h before check-in",
+        intent="Emergency Check-in Assist",
+        priority="Medium",  # base 200
+        status="New",
+        check_in_date=t0 + timedelta(hours=20),
+        created_at=t0,
+        updated_at=t0
+    )
+    compute_ticket_urgency_fields(t_b, agency_tier="standard", now=t0)
+
+    db_session.add_all([t_a, t_b])
+    db_session.commit()
+
+    # Initial state at T0: both tickets were in the 6h-24h window (+300 modifier)
+    assert t_a.queue_score == 500.0  # 200 + 300
+    assert t_b.queue_score == 500.0  # 200 + 300
+
+    # Before refresh at T1: without refresh, stored scores are stale
+    assert t_a.queue_score == 500.0
+
+    # Execute refresh at T1 (time advanced by 2 hours)
+    refreshed_count = refresh_stale_queue_scores(db_session, now=t1)
+    assert refreshed_count >= 1
+
+    # Reload from DB
+    db_session.refresh(t_a)
+    db_session.refresh(t_b)
+
+    # After refresh at T1:
+    # Ticket A is now 5h to check-in (<= 6h) -> modifier +800 -> score = 1000.0
+    # Ticket B is now 18h to check-in (<= 24h) -> modifier +300 -> score = 500.0
+    assert t_a.queue_score == 1000.0
+    assert t_b.queue_score == 500.0
+    assert t_a.queue_score > t_b.queue_score
+
+    # Verify query ordering at T1 strictly ranks Ticket A above Ticket B
+    ranked = (
+        db_session.query(Ticket)
+        .filter(Ticket.id.in_(["TCK-STALE-7H", "TCK-STALE-20H"]))
+        .order_by(Ticket.queue_score.desc(), Ticket.effective_deadline_at.asc(), Ticket.id.asc())
+        .all()
+    )
+    assert ranked[0].id == "TCK-STALE-7H"
+    assert ranked[1].id == "TCK-STALE-20H"

@@ -159,3 +159,30 @@ def compute_ticket_urgency_fields(
     ticket.queue_score = queue_score
     return ticket
 
+
+def refresh_stale_queue_scores(db: Any, now: Optional[datetime] = None) -> int:
+    """
+    Refreshes queue_score on active tickets whose scores have shifted
+    due to time advancing across urgency proximity windows (24h, 6h, 2h).
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    from backend.app.models import Ticket, Agency
+    agency_map = {a[0]: a[1] for a in db.query(Agency.id, Agency.tier).all()}
+    active_tickets = db.query(Ticket).filter(
+        Ticket.status.in_(["New", "Open", "Pending", "Escalated"])
+    ).all()
+
+    updated = 0
+    for t in active_tickets:
+        agency_tier = agency_map.get(t.agency_id)
+        old_score = t.queue_score
+        compute_ticket_urgency_fields(t, agency_tier=agency_tier, now=now)
+        if t.queue_score != old_score:
+            updated += 1
+
+    if updated > 0:
+        db.commit()
+    return updated
+
