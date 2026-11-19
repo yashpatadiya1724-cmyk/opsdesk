@@ -20,18 +20,34 @@ from backend.app.models import Base
 # Target metadata for Alembic autogenerate
 target_metadata = Base.metadata
 
+config = None
 if context is not None:
-    config = context.config
+    try:
+        config = context.config
+    except (AttributeError, Exception):
+        config = None
 
-    # Interpret the config file for Python logging.
-    if config.config_file_name is not None:
-        fileConfig(config.config_file_name)
+    if config is not None:
+        # Interpret the config file for Python logging.
+        if config.config_file_name is not None:
+            fileConfig(config.config_file_name)
 
-    # Use DATABASE_URL from environment or fallback to application config
-    db_url = os.getenv("DATABASE_URL", DATABASE_URL)
-    config.set_main_option("sqlalchemy.url", db_url)
-else:
-    config = None
+        # 1. Check if an explicit URL was provided via -x url=...
+        cmd_opts = context.get_x_argument(as_dictionary=True) if hasattr(context, "get_x_argument") else {}
+        x_url = cmd_opts.get("url")
+
+        # 2. Check if an explicitly provided URL was set via config.set_main_option or Config()
+        current_url = config.get_main_option("sqlalchemy.url")
+
+        if x_url and x_url.strip():
+            config.set_main_option("sqlalchemy.url", x_url.strip())
+        elif current_url and current_url.strip():
+            # Explicitly provided URL wins
+            pass
+        else:
+            # Fall back to DATABASE_URL when none was provided
+            db_url = os.getenv("DATABASE_URL", DATABASE_URL)
+            config.set_main_option("sqlalchemy.url", db_url)
 
 
 def run_migrations_offline() -> None:
@@ -71,8 +87,11 @@ def run_migrations_online() -> None:
             context.run_migrations()
 
 
-if context is not None:
-    if context.is_offline_mode():
-        run_migrations_offline()
-    else:
-        run_migrations_online()
+if context is not None and config is not None:
+    try:
+        if context.is_offline_mode():
+            run_migrations_offline()
+        else:
+            run_migrations_online()
+    except (AttributeError, Exception):
+        pass

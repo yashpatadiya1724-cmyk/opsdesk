@@ -112,15 +112,17 @@ def test_alembic_ini_exists_and_configured():
 
 
 def test_alembic_env_py_exists_and_loadable():
-    """Verify backend/alembic/env.py exists and references Base.metadata."""
+    """Verify backend/alembic/env.py exists and references Base.metadata without importing outside alembic context."""
     root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     env_path = os.path.join(root_dir, "backend", "alembic", "env.py")
     assert os.path.isfile(env_path), f"env.py not found at {env_path}"
 
-    env_module = importlib.import_module("backend.alembic.env")
-    assert hasattr(env_module, "target_metadata")
-    assert env_module.target_metadata == Base.metadata
+    with open(env_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    assert "target_metadata = Base.metadata" in content
+    assert "from backend.app.models import Base" in content
 
+    # Verify model Base contains expected tables without executing env.py top-level code
     expected_tables = {
         "agencies",
         "users",
@@ -135,7 +137,7 @@ def test_alembic_env_py_exists_and_loadable():
         "audit_logs",
         "idempotency_records",
     }
-    actual_tables = set(env_module.target_metadata.tables.keys())
+    actual_tables = set(Base.metadata.tables.keys())
     assert expected_tables.issubset(actual_tables), f"Missing tables: {expected_tables - actual_tables}"
 
 
@@ -213,7 +215,7 @@ def test_alembic_revision_0002_structure_and_mock_execution():
 
 
 def test_alembic_cli_upgrade_downgrade_sqlite():
-    """Run alembic upgrade head and downgrade base if alembic is installed."""
+    """Run alembic upgrade head and downgrade base against isolated temp DB."""
     if importlib.util.find_spec("alembic") is None:
         pytest.skip("Alembic package is not installed; skipping CLI upgrade/downgrade execution.")
 
@@ -226,12 +228,20 @@ def test_alembic_cli_upgrade_downgrade_sqlite():
     try:
         root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         ini_path = os.path.join(root_dir, "alembic.ini")
+        dev_db_path = os.path.join(root_dir, "opsdesk.db")
+        mtime_before = os.path.getmtime(dev_db_path) if os.path.exists(dev_db_path) else None
+
         alembic_cfg = Config(ini_path)
-        alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{temp_db_path}")
+        normalized_path = temp_db_path.replace("\\", "/")
+        temp_db_url = f"sqlite:///{normalized_path}"
+        alembic_cfg.set_main_option("sqlalchemy.url", temp_db_url)
 
         command.upgrade(alembic_cfg, "head")
 
-        eng = create_db_engine(f"sqlite:///{temp_db_path}")
+        if mtime_before is not None and os.path.exists(dev_db_path):
+            assert os.path.getmtime(dev_db_path) == mtime_before, "Alembic CLI test modified opsdesk.db mtime!"
+
+        eng = create_db_engine(temp_db_url)
         with eng.connect() as conn:
             tables = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()
             table_names = [t[0] for t in tables]
@@ -242,7 +252,10 @@ def test_alembic_cli_upgrade_downgrade_sqlite():
 
         command.downgrade(alembic_cfg, "base")
 
-        eng2 = create_db_engine(f"sqlite:///{temp_db_path}")
+        if mtime_before is not None and os.path.exists(dev_db_path):
+            assert os.path.getmtime(dev_db_path) == mtime_before, "Alembic CLI test modified opsdesk.db mtime!"
+
+        eng2 = create_db_engine(temp_db_url)
         with eng2.connect() as conn:
             tables2 = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()
             table_names2 = [t[0] for t in tables2]
