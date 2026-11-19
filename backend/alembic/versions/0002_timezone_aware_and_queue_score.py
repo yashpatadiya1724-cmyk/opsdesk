@@ -33,7 +33,7 @@ def upgrade() -> None:
             sa.Column('effective_deadline_at', sa.DateTime(timezone=True), nullable=True)
         )
         batch_op.add_column(
-            sa.Column('hotel_timezone', sa.String(length=50), server_default='UTC', nullable=True)
+            sa.Column('hotel_timezone', sa.String(length=64), server_default='UTC', nullable=False)
         )
         batch_op.add_column(
             sa.Column('priority_weight', sa.Float(), server_default='200.0', nullable=False)
