@@ -79,7 +79,6 @@ class Ticket(Base):
     lcd_date = Column(DateTime, nullable=True)
     effective_deadline_at = Column(DateTime, nullable=True, index=True)
     priority_weight = Column(Float, nullable=False, default=200.0, server_default="200.0")
-    queue_score = Column(Float, nullable=True, index=True)
     hotel_timezone = Column(String(64), nullable=False, default="UTC", server_default="UTC")
     assigned_to = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     routing_reason = Column(Text, nullable=True)

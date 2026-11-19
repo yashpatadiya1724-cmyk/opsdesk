@@ -177,8 +177,8 @@ def test_alembic_baseline_revision_mock_execution():
         ]:
             assert table in created_tables
 
-        assert "ix_tickets_queue_score" in created_indexes
-        assert "ix_tickets_effective_deadline_at" in created_indexes
+        assert "ix_tickets_tboh_id" in created_indexes
+        assert "ix_tickets_check_in_date" in created_indexes
 
         rev_module.downgrade()
         assert len(dropped_tables) == 12
@@ -208,6 +208,41 @@ def test_alembic_revision_0002_structure_and_mock_execution():
 
     with patch.object(rev_module, "op", mock_op):
         rev_module.upgrade()
+        assert mock_op.batch_alter_table.called
+        assert mock_op.execute.called
+
+        rev_module.downgrade()
+        assert mock_op.batch_alter_table.called
+
+
+def test_alembic_revision_0003_structure_and_mock_execution():
+    """Verify 0003_remove_stored_queue_score.py revision exports valid upgrade and downgrade."""
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    rev_path = os.path.join(root_dir, "backend", "alembic", "versions", "0003_remove_stored_queue_score.py")
+    assert os.path.isfile(rev_path), f"revision 0003 not found at {rev_path}"
+
+    rev_module = importlib.import_module("backend.alembic.versions.0003_remove_stored_queue_score")
+    assert rev_module.revision == "0003_remove_stored_queue_score"
+    assert rev_module.down_revision == "0002_timezone_aware_and_queue_score"
+    assert callable(rev_module.upgrade)
+    assert callable(rev_module.downgrade)
+
+    mock_op = MagicMock()
+    mock_batch = MagicMock()
+    mock_op.batch_alter_table.return_value.__enter__.return_value = mock_batch
+
+    with patch.object(rev_module, "op", mock_op), patch("sqlalchemy.inspect") as mock_inspect:
+        mock_insp_obj = MagicMock()
+        mock_insp_obj.get_columns.return_value = [{"name": "queue_score"}]
+        mock_insp_obj.get_indexes.return_value = [{"name": "ix_tickets_queue_score"}]
+        mock_inspect.return_value = mock_insp_obj
+
+        rev_module.upgrade()
+        assert mock_op.batch_alter_table.called
+        assert mock_batch.drop_column.called
+
+        rev_module.downgrade()
+        assert mock_batch.add_column.called
         assert mock_batch.add_column.called
 
         rev_module.downgrade()
@@ -262,6 +297,136 @@ def test_alembic_cli_upgrade_downgrade_sqlite():
             assert "tickets" not in table_names2
             assert "agencies" not in table_names2
         eng2.dispose()
+    finally:
+        if os.path.exists(temp_db_path):
+            try:
+                os.remove(temp_db_path)
+            except Exception:
+                pass
+
+
+def test_legacy_sqlite_db_upgrade_backfills_priority_weights():
+    """Build a legacy-shaped SQLite DB, upgrade to head, and assert weights match priorities (not all 200)."""
+    if importlib.util.find_spec("alembic") is None:
+        pytest.skip("Alembic package is not installed; skipping migration test.")
+
+    from alembic.config import Config
+    from alembic import command
+
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tf:
+        temp_db_path = tf.name
+
+    try:
+        normalized_path = temp_db_path.replace("\\", "/")
+        temp_db_url = f"sqlite:///{normalized_path}"
+
+        # 1. Build legacy schema directly using DDL matching merge-base 7d39b66
+        eng = create_db_engine(temp_db_url)
+        with eng.connect() as conn:
+            conn.execute(text("""
+                CREATE TABLE agencies (
+                    id VARCHAR(50) NOT NULL PRIMARY KEY,
+                    name VARCHAR(200) NOT NULL,
+                    country_code VARCHAR(10) NOT NULL,
+                    tier VARCHAR(32) DEFAULT 'standard' NOT NULL
+                )
+            """))
+            conn.execute(text("""
+                CREATE TABLE users (
+                    id VARCHAR(50) NOT NULL PRIMARY KEY,
+                    name VARCHAR(200) NOT NULL,
+                    email VARCHAR(200) NOT NULL UNIQUE,
+                    role VARCHAR(50) NOT NULL,
+                    region VARCHAR(50) NOT NULL,
+                    is_available BOOLEAN DEFAULT 1,
+                    agency_id VARCHAR(50) REFERENCES agencies(id) ON DELETE SET NULL
+                )
+            """))
+            conn.execute(text("""
+                CREATE TABLE tickets (
+                    id VARCHAR(50) NOT NULL PRIMARY KEY,
+                    tboh_id VARCHAR(100) NOT NULL,
+                    agency_id VARCHAR(50) NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+                    title VARCHAR(300) NOT NULL,
+                    description TEXT NOT NULL,
+                    intent VARCHAR(100) DEFAULT 'Unclassified' NOT NULL,
+                    priority VARCHAR(50) DEFAULT 'Medium' NOT NULL,
+                    status VARCHAR(50) DEFAULT 'New' NOT NULL,
+                    check_in_date DATETIME NOT NULL,
+                    lcd_date DATETIME,
+                    assigned_to VARCHAR(50) REFERENCES users(id) ON DELETE SET NULL,
+                    routing_reason TEXT,
+                    suggested_bug_link VARCHAR(200),
+                    version INTEGER DEFAULT 1 NOT NULL,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """))
+
+            # Insert legacy records
+            conn.execute(text("INSERT INTO agencies (id, name, country_code, tier) VALUES ('AGY-LEGACY', 'Legacy Agency', 'AE', 'gold')"))
+            conn.execute(text("INSERT INTO users (id, name, email, role, region, agency_id) VALUES ('USR-LEGACY', 'Legacy User', 'legacy@agency.com', 'Agent', 'MEA', 'AGY-LEGACY')"))
+            conn.execute(text("""
+                INSERT INTO tickets (id, tboh_id, agency_id, title, description, priority, status, check_in_date)
+                VALUES 
+                    ('TCK-U', 'TBOH-1', 'AGY-LEGACY', 'Urgent Ticket', 'Desc U', 'Urgent', 'New', '2026-11-20 12:00:00'),
+                    ('TCK-H', 'TBOH-2', 'AGY-LEGACY', 'High Ticket', 'Desc H', 'High', 'New', '2026-11-21 12:00:00'),
+                    ('TCK-M', 'TBOH-3', 'AGY-LEGACY', 'Medium Ticket', 'Desc M', 'Medium', 'New', '2026-11-22 12:00:00'),
+                    ('TCK-L', 'TBOH-4', 'AGY-LEGACY', 'Low Ticket', 'Desc L', 'Low', 'New', '2026-11-23 12:00:00')
+            """))
+            conn.commit()
+        eng.dispose()
+
+        # 2. Stamp 0001_baseline_schema and upgrade to head
+        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        ini_path = os.path.join(root_dir, "alembic.ini")
+        alembic_cfg = Config(ini_path)
+        alembic_cfg.set_main_option("sqlalchemy.url", temp_db_url)
+
+        command.stamp(alembic_cfg, "0001_baseline_schema")
+        command.upgrade(alembic_cfg, "head")
+
+        # 3. Assert weights match priorities (not all 200)
+        eng_upgraded = create_db_engine(temp_db_url)
+        with eng_upgraded.connect() as conn:
+            rows = conn.execute(text("SELECT id, priority, priority_weight, effective_deadline_at, hotel_timezone FROM tickets ORDER BY id")).fetchall()
+            weights_by_priority = {r[1]: r[2] for r in rows}
+
+            assert weights_by_priority["Urgent"] == 1000.0, f"Expected 1000.0, got {weights_by_priority['Urgent']}"
+            assert weights_by_priority["High"] == 500.0, f"Expected 500.0, got {weights_by_priority['High']}"
+            assert weights_by_priority["Medium"] == 200.0, f"Expected 200.0, got {weights_by_priority['Medium']}"
+            assert weights_by_priority["Low"] == 50.0, f"Expected 50.0, got {weights_by_priority['Low']}"
+
+            # Assert not all 200
+            unique_weights = set(weights_by_priority.values())
+            assert len(unique_weights) == 4, f"Expected 4 distinct priority weights, got {unique_weights}"
+
+            # Assert effective_deadline_at and hotel_timezone backfilled
+            for r in rows:
+                assert r[3] is not None, f"effective_deadline_at was not backfilled for ticket {r[0]}"
+                assert r[4] == "UTC", f"hotel_timezone was not backfilled to UTC for ticket {r[0]}"
+
+            # Assert users table has hashed_password column
+            u_cols = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+            u_col_names = [c[1] for c in u_cols]
+            assert "hashed_password" in u_col_names, "users table missing hashed_password after upgrade"
+        eng_upgraded.dispose()
+
+        # 4. Assert symmetric downgrade
+        command.downgrade(alembic_cfg, "0001_baseline_schema")
+        eng_downgraded = create_db_engine(temp_db_url)
+        with eng_downgraded.connect() as conn:
+            t_cols = conn.execute(text("PRAGMA table_info(tickets)")).fetchall()
+            t_col_names = [c[1] for c in t_cols]
+            assert "priority_weight" not in t_col_names
+            assert "effective_deadline_at" not in t_col_names
+            assert "hotel_timezone" not in t_col_names
+
+            u_cols2 = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+            u_col_names2 = [c[1] for c in u_cols2]
+            assert "hashed_password" not in u_col_names2
+        eng_downgraded.dispose()
+
     finally:
         if os.path.exists(temp_db_path):
             try:

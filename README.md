@@ -68,7 +68,20 @@ alembic downgrade -1
 # Generate new migration revision after modifying models
 alembic revision --autogenerate -m "describe_change"
 ```
-*Note: For lightweight local development with SQLite, `ensure_schema_migrations()` executes automatically on backend startup as a zero-configuration fallback.*
+
+#### Upgrading Legacy (Pre-Hardening) Databases
+Existing pre-hardening databases (merge-base `7d39b66`) can be upgraded cleanly using the migration script:
+```powershell
+python scripts/upgrade_legacy_db.py --db-url sqlite:///path/to/legacy.db
+```
+Or manually using Alembic CLI:
+```powershell
+alembic stamp 0001_baseline_schema
+alembic upgrade head
+```
+This backfills `priority_weight` from `priority` (Urgent: 1000, High: 500, Medium: 200, Low: 50), backfills `effective_deadline_at` from `check_in_date`, defaults `hotel_timezone` to UTC, and adds `hashed_password` to `users`.
+
+*Note for `AUTH_MODE=jwt` on Upgraded Databases:* Users in pre-hardening databases lack password hashes. Before logging in via JWT, administrators must set passwords for existing accounts using `python -m backend.app.manage set-password --email <email>`.
 
 ### 2. Run Backend API
 ```powershell

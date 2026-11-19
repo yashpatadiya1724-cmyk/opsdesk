@@ -818,7 +818,6 @@ def assign_ticket(
             Ticket.status: new_status,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
             Ticket.priority_weight: ticket.priority_weight,
-            Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -884,7 +883,6 @@ def unassign_ticket(
             Ticket.status: new_status,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
             Ticket.priority_weight: ticket.priority_weight,
-            Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -972,7 +970,6 @@ def update_ticket_status(
             Ticket.priority: ticket.priority,
             Ticket.priority_weight: ticket.priority_weight,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
-            Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -1075,7 +1072,6 @@ def escalate_ticket(
             Ticket.assigned_to: DEFAULT_ESCALATION_MANAGER_ID,
             Ticket.routing_reason: routing_reason,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
-            Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -1170,7 +1166,6 @@ def transfer_ticket(
             Ticket.routing_reason: routing_reason,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
             Ticket.priority_weight: ticket.priority_weight,
-            Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },

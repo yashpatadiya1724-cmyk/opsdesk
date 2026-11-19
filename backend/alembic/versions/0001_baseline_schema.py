@@ -41,7 +41,6 @@ def upgrade() -> None:
         sa.Column('region', sa.String(length=50), nullable=False),
         sa.Column('is_available', sa.Boolean(), server_default=sa.text('1'), nullable=True),
         sa.Column('agency_id', sa.String(length=50), nullable=True),
-        sa.Column('hashed_password', sa.String(length=255), nullable=True),
         sa.ForeignKeyConstraint(['agency_id'], ['agencies.id'], ondelete='SET NULL'),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('email')
@@ -60,9 +59,6 @@ def upgrade() -> None:
         sa.Column('status', sa.String(length=50), server_default='New', nullable=False),
         sa.Column('check_in_date', sa.DateTime(), nullable=False),
         sa.Column('lcd_date', sa.DateTime(), nullable=True),
-        sa.Column('effective_deadline_at', sa.DateTime(), nullable=True),
-        sa.Column('queue_score', sa.Float(), nullable=True),
-        sa.Column('hotel_timezone', sa.String(length=64), server_default='UTC', nullable=False),
         sa.Column('assigned_to', sa.String(length=50), nullable=True),
         sa.Column('routing_reason', sa.Text(), nullable=True),
         sa.Column('suggested_bug_link', sa.String(length=200), nullable=True),
@@ -78,8 +74,6 @@ def upgrade() -> None:
     op.create_index('ix_tickets_intent', 'tickets', ['intent'], unique=False)
     op.create_index('ix_tickets_status', 'tickets', ['status'], unique=False)
     op.create_index('ix_tickets_check_in_date', 'tickets', ['check_in_date'], unique=False)
-    op.create_index('ix_tickets_effective_deadline_at', 'tickets', ['effective_deadline_at'], unique=False)
-    op.create_index('ix_tickets_queue_score', 'tickets', ['queue_score'], unique=False)
     op.create_index('ix_tickets_assigned_to', 'tickets', ['assigned_to'], unique=False)
     op.create_index('ix_tickets_created_at', 'tickets', ['created_at'], unique=False)
     op.create_index('ix_tickets_status_assigned', 'tickets', ['status', 'assigned_to'], unique=False)
