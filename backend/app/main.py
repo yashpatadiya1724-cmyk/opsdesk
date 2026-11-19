@@ -1660,16 +1660,11 @@ def export_tickets_csv(
         default_limit = get_csv_export_default_limit()
         effective_limit = limit if (limit is not None and limit > 0) else default_limit
 
-        # Detect has_more and next_cursor without loading full ORM objects into memory
-        cursor_probe = (
-            query.with_entities(Ticket.id)
-            .offset(effective_limit - 1)
-            .limit(2)
-            .all()
-        )
-        if len(cursor_probe) == 2:
+        # Keyset next-cursor probe: fetch limit+1 rows via keyset without OFFSET
+        cursor_probe = query.with_entities(Ticket.id).limit(effective_limit + 1).all()
+        if len(cursor_probe) > effective_limit:
             has_more = True
-            next_cursor = cursor_probe[0][0]
+            next_cursor = cursor_probe[effective_limit - 1][0]
         else:
             has_more = False
             next_cursor = None

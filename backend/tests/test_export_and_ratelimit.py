@@ -2,11 +2,12 @@ import io
 import csv
 import uuid
 import time
+from datetime import datetime, timezone, timedelta
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from backend.app.models import Ticket, User
+from backend.app.models import Ticket, User, Agency
 from backend.app.rate_limiter import (
     RateLimiter,
     InMemoryRateLimiter,
@@ -222,6 +223,78 @@ def test_export_tickets_last_page_has_no_next_cursor(client: TestClient, db_sess
     assert resp.status_code == 200
     assert "X-Next-Cursor" not in resp.headers
     assert "# [NEXT_CURSOR:" not in resp.text
+
+
+def test_export_tickets_keyset_probe_five_rows_limit_two(client: TestClient, db_session: Session):
+    """
+    Keyset probe test: 5 rows with limit 2 returns pages of 2, 2, 1 with no duplicates,
+    and X-Next-Cursor header absent on the last page.
+    """
+    now = datetime(2026, 11, 20, 12, 0, 0, tzinfo=timezone.utc)
+    agency_id = "AGY-KS-5"
+    db_session.merge(Agency(id=agency_id, name="Keyset Test Agency", country_code="AE", tier="standard"))
+    db_session.commit()
+
+    created_ids = []
+    try:
+        for i in range(5):
+            t_id = f"TCK-KS5-{i}"
+            created_ids.append(t_id)
+            db_session.merge(Ticket(
+                id=t_id,
+                tboh_id=f"TBOH-KS5-{i}",
+                agency_id=agency_id,
+                title=f"Keyset Probe Ticket {i}",
+                description="Keyset probe test ticket",
+                priority="Medium",
+                priority_weight=200.0,
+                status="New",
+                check_in_date=now + timedelta(days=2),
+                effective_deadline_at=now + timedelta(days=2),
+                created_at=now + timedelta(minutes=i),
+                updated_at=now + timedelta(minutes=i),
+                version=1
+            ))
+        db_session.commit()
+
+        # Page 1 (limit 2): Expect 2 rows, X-Next-Cursor present
+        res1 = client.get(f"/api/export/tickets.csv?agency_id={agency_id}&limit=2", headers={"X-User-Id": "USR-104"})
+        assert res1.status_code == 200
+        assert "X-Next-Cursor" in res1.headers
+        cursor1 = res1.headers["X-Next-Cursor"]
+        lines1 = [line.strip() for line in res1.text.strip().splitlines() if line.strip()]
+        data1 = lines1[1:]  # skip header
+        assert len(data1) == 2
+        page1_ids = [row.split(",")[0].replace('"', '') for row in data1]
+
+        # Page 2 (limit 2, cursor1): Expect 2 rows, X-Next-Cursor present
+        res2 = client.get(f"/api/export/tickets.csv?agency_id={agency_id}&limit=2&cursor={cursor1}", headers={"X-User-Id": "USR-104"})
+        assert res2.status_code == 200
+        assert "X-Next-Cursor" in res2.headers
+        cursor2 = res2.headers["X-Next-Cursor"]
+        lines2 = [line.strip() for line in res2.text.strip().splitlines() if line.strip()]
+        data2 = lines2[1:]
+        assert len(data2) == 2
+        page2_ids = [row.split(",")[0].replace('"', '') for row in data2]
+
+        # Page 3 (limit 2, cursor2): Expect 1 row, X-Next-Cursor ABSENT
+        res3 = client.get(f"/api/export/tickets.csv?agency_id={agency_id}&limit=2&cursor={cursor2}", headers={"X-User-Id": "USR-104"})
+        assert res3.status_code == 200
+        assert "X-Next-Cursor" not in res3.headers
+        lines3 = [line.strip() for line in res3.text.strip().splitlines() if line.strip()]
+        data3 = lines3[1:]
+        assert len(data3) == 1
+        page3_ids = [row.split(",")[0].replace('"', '') for row in data3]
+
+        # Verifications
+        all_retrieved = page1_ids + page2_ids + page3_ids
+        assert len(all_retrieved) == 5, f"Expected 5 total rows, got {len(all_retrieved)}"
+        assert len(set(all_retrieved)) == 5, "Expected zero duplicates across paginated keyset pages"
+        assert set(all_retrieved) == set(created_ids), "All 5 created tickets must be retrieved"
+    finally:
+        db_session.query(Ticket).filter(Ticket.id.in_(created_ids)).delete(synchronize_session=False)
+        db_session.query(Agency).filter(Agency.id == agency_id).delete(synchronize_session=False)
+        db_session.commit()
 
 
 # ============================================================================
