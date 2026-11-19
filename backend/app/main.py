@@ -38,7 +38,7 @@ from backend.services.sla_engine import evaluate_travel_sla, effective_deadline_
 from backend.services.routing_engine import (
     CandidateAgent, select_agent_tier1, calculate_queue_score_tier2,
     compute_ticket_urgency_fields, refresh_stale_queue_scores,
-    get_sql_queue_score_expr
+    get_sql_queue_score_expr, compute_ticket_queue_score
 )
 from backend.services.intent_classifier import suggest_ticket_intent
 
@@ -399,18 +399,13 @@ def list_tickets(
             intent=t.intent,
             now=now
         )
-        if current_user.role != "Requester":
-            agency_tier = agency_map.get(t.agency_id)
-            dynamic_score = calculate_queue_score_tier2(
-                priority=t.priority,
-                check_in_date=t.check_in_date,
-                agency_tier=agency_tier,
-                lcd_date=t.lcd_date,
-                intent=t.intent,
-                now=now
-            )
-        else:
-            dynamic_score = None
+        agency_tier = agency_map.get(t.agency_id) if current_user.role != "Requester" else None
+        dynamic_score = compute_ticket_queue_score(
+            ticket=t,
+            agency_tier=agency_tier,
+            now=now,
+            user_role=current_user.role
+        )
 
         results.append({
             "id": t.id,
@@ -732,17 +727,12 @@ def get_ticket_details(
         if agency:
             agency_tier = agency.tier
 
-    if current_user.role != "Requester":
-        queue_score = calculate_queue_score_tier2(
-            priority=ticket.priority,
-            check_in_date=ticket.check_in_date,
-            agency_tier=agency_tier,
-            lcd_date=ticket.lcd_date,
-            intent=ticket.intent,
-            now=now
-        )
-    else:
-        queue_score = None
+    queue_score = compute_ticket_queue_score(
+        ticket=ticket,
+        agency_tier=agency_tier,
+        now=now,
+        user_role=current_user.role
+    )
 
     return {
         "id": ticket.id,
@@ -816,6 +806,7 @@ def assign_ticket(
             Ticket.assigned_to: payload.agent_id,
             Ticket.status: new_status,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.priority_weight: ticket.priority_weight,
             Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
@@ -881,6 +872,7 @@ def unassign_ticket(
             Ticket.assigned_to: None,
             Ticket.status: new_status,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.priority_weight: ticket.priority_weight,
             Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
@@ -943,16 +935,20 @@ def update_ticket_status(
         )
 
     allowed = ALLOWED_STATUS_TRANSITIONS.get(ticket.status, [])
-    if payload.status not in allowed:
+    if payload.status != ticket.status and payload.status not in allowed:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Invalid status transition from '{ticket.status}' to '{payload.status}'. Allowed: {allowed}"
         )
 
     old_status = ticket.status
+    old_priority = ticket.priority
     current_version = ticket.version
     now = datetime.now(timezone.utc)
     ticket.status = payload.status
+    if payload.priority is not None:
+        ticket.priority = payload.priority
+        ticket.priority_weight = PRIORITY_SCORES.get(payload.priority, 200.0)
     agency_tier = ticket.agency.tier if ticket.agency else None
     compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
 
@@ -962,6 +958,8 @@ def update_ticket_status(
     ).update(
         {
             Ticket.status: payload.status,
+            Ticket.priority: ticket.priority,
+            Ticket.priority_weight: ticket.priority_weight,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
             Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
@@ -982,14 +980,25 @@ def update_ticket_status(
         ticket_id=ticket.id,
         agency_id=ticket.agency_id,
         visibility="public",
-        payload={"ticket_id": ticket.id, "old_status": old_status, "new_status": payload.status}
+        payload={
+            "ticket_id": ticket.id,
+            "old_status": old_status,
+            "new_status": payload.status,
+            "old_priority": old_priority,
+            "new_priority": ticket.priority
+        }
     )
     record_audit_log(
         db=db,
         ticket_id=ticket.id,
         actor_id=current_user.id,
         action="ticket.status_changed",
-        details={"old_status": old_status, "new_status": payload.status}
+        details={
+            "old_status": old_status,
+            "new_status": payload.status,
+            "old_priority": old_priority,
+            "new_priority": ticket.priority
+        }
     )
     db.commit()
 
@@ -1037,6 +1046,8 @@ def escalate_ticket(
 
     now = datetime.now(timezone.utc)
     ticket.status = "Escalated"
+    ticket.priority = payload.priority or "Urgent"
+    ticket.priority_weight = PRIORITY_SCORES.get(ticket.priority, PRIORITY_SCORES["Urgent"])
     ticket.assigned_to = DEFAULT_ESCALATION_MANAGER_ID
     ticket.routing_reason = routing_reason
     agency_tier = ticket.agency.tier if ticket.agency else None
@@ -1048,6 +1059,8 @@ def escalate_ticket(
     ).update(
         {
             Ticket.status: "Escalated",
+            Ticket.priority: ticket.priority,
+            Ticket.priority_weight: ticket.priority_weight,
             Ticket.assigned_to: DEFAULT_ESCALATION_MANAGER_ID,
             Ticket.routing_reason: routing_reason,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
@@ -1145,6 +1158,7 @@ def transfer_ticket(
             Ticket.assigned_to: payload.target_agent_id,
             Ticket.routing_reason: routing_reason,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.priority_weight: ticket.priority_weight,
             Ticket.queue_score: ticket.queue_score,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now

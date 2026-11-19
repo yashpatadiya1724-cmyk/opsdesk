@@ -161,6 +161,31 @@ def compute_ticket_urgency_fields(
     return ticket
 
 
+def compute_ticket_queue_score(
+    ticket: Any,
+    agency_tier: Optional[str] = None,
+    now: Optional[datetime] = None,
+    user_role: Optional[str] = None
+) -> Optional[float]:
+    """
+    Unified function for computing dynamic queue score for a ticket.
+    Used identically in list_tickets and get_ticket_details.
+    Requesters receive None.
+    """
+    if user_role == "Requester":
+        return None
+    if now is None:
+        now = datetime.now(timezone.utc)
+    return calculate_queue_score_tier2(
+        priority=ticket.priority,
+        check_in_date=ticket.check_in_date,
+        agency_tier=agency_tier,
+        lcd_date=ticket.lcd_date,
+        intent=ticket.intent,
+        now=now
+    )
+
+
 def get_sql_queue_score_expr(now: datetime, dialect_name: str = "sqlite"):
     """
     Constructs a SQL expression computing the dynamic queue score at read-time inside ORDER BY
@@ -187,18 +212,19 @@ def get_sql_queue_score_expr(now: datetime, dialect_name: str = "sqlite"):
     else:
         priority_weight_expr = priority_fallback
 
-    # 2. Hours Remaining from effective_deadline_at to now
+    # 2. Hours Remaining from effective_deadline_at (falling back to check_in_date if NULL) to now
     now_utc = to_utc_aware(now) or datetime.now(timezone.utc)
+    deadline_col = func.coalesce(Ticket.effective_deadline_at, Ticket.check_in_date)
     if dialect_name == "postgresql":
-        hours_diff_expr = func.extract("epoch", Ticket.effective_deadline_at - now_utc) / 3600.0
+        hours_diff_expr = func.extract("epoch", deadline_col - now_utc) / 3600.0
     else:
         # SQLite
         now_iso = now_utc.strftime("%Y-%m-%d %H:%M:%S")
-        hours_diff_expr = (func.julianday(Ticket.effective_deadline_at) - func.julianday(now_iso)) * 24.0
+        hours_diff_expr = (func.julianday(deadline_col) - func.julianday(now_iso)) * 24.0
 
     # 3. Time Urgency Modifier
     time_modifier_expr = case(
-        (Ticket.effective_deadline_at.is_(None), literal(0.0)),
+        (deadline_col.is_(None), literal(0.0)),
         (hours_diff_expr <= 2.0, literal(CHECKIN_URGENCY_MODIFIERS["IMMINENT_2H"])),
         (hours_diff_expr <= 6.0, literal(CHECKIN_URGENCY_MODIFIERS["SAME_DAY_6H"])),
         (hours_diff_expr <= 24.0, literal(CHECKIN_URGENCY_MODIFIERS["NEXT_DAY_24H"])),

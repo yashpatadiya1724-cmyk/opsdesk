@@ -96,10 +96,12 @@ class TicketAssignSchema(BaseModel):
 
 class TicketStatusUpdateSchema(BaseModel):
     status: VALID_TICKET_STATUSES
+    priority: Optional[Literal["Low", "Medium", "High", "Urgent"]] = None
     version: Optional[int] = Field(None, description="Expected ticket version for optimistic concurrency control")
 
 class TicketEscalateSchema(BaseModel):
     reason: str = Field(..., min_length=1, max_length=1000)
+    priority: Optional[Literal["Low", "Medium", "High", "Urgent"]] = None
     version: Optional[int] = Field(None, description="Expected ticket version for optimistic concurrency control")
 
 class TicketTransferSchema(BaseModel):

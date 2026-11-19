@@ -584,3 +584,84 @@ def test_dynamic_queue_score_zero_writes_on_get(client: TestClient, db_session: 
         db_session.query(Ticket).filter(Ticket.id.in_(["TCK-DYN-A", "TCK-DYN-B"])).delete(synchronize_session=False)
         db_session.commit()
 
+
+def test_changing_priority_via_api_updates_sql_queue_ordering(client: TestClient, db_session: Session):
+    """
+    Proves that updating ticket priority via the API updates priority_weight in SQL,
+    which immediately updates the SQL triage queue ordering (using get_sql_queue_score_expr).
+    """
+    now = datetime.now(timezone.utc)
+    future_time = now + timedelta(days=5)
+
+    # Clean any leftover test records
+    db_session.query(Ticket).filter(Ticket.id.in_(["TCK-ORD-LOW", "TCK-ORD-HIGH"])).delete(synchronize_session=False)
+    db_session.commit()
+
+    # Create Ticket LOW: priority Low (weight 50)
+    ticket_low = Ticket(
+        id="TCK-ORD-LOW",
+        agency_id="AGY-001",
+        tboh_id="TBOH-ORD-1",
+        title="Order Test Ticket Low",
+        description="Low priority ticket",
+        priority="Low",
+        priority_weight=50.0,
+        status="Open",
+        intent="General Inquiry",
+        check_in_date=future_time,
+        effective_deadline_at=future_time,
+        created_at=now,
+        updated_at=now,
+        version=1
+    )
+    # Create Ticket HIGH: priority High (weight 500)
+    ticket_high = Ticket(
+        id="TCK-ORD-HIGH",
+        agency_id="AGY-001",
+        tboh_id="TBOH-ORD-2",
+        title="Order Test Ticket High",
+        description="High priority ticket",
+        priority="High",
+        priority_weight=500.0,
+        status="Open",
+        intent="General Inquiry",
+        check_in_date=future_time,
+        effective_deadline_at=future_time,
+        created_at=now,
+        updated_at=now,
+        version=1
+    )
+    db_session.add(ticket_low)
+    db_session.add(ticket_high)
+    db_session.commit()
+
+    try:
+        # Initial triage query check: HIGH should rank above LOW
+        res1 = client.get("/api/tickets?view=triage&search=TBOH-ORD", headers={"X-User-Id": "USR-101"})
+        assert res1.status_code == 200
+        ids1 = [t["id"] for t in res1.json()["tickets"]]
+        assert ids1 == ["TCK-ORD-HIGH", "TCK-ORD-LOW"]
+
+        # Update TCK-ORD-LOW via API to Urgent priority (weight 1000)
+        update_res = client.post(
+            "/api/tickets/TCK-ORD-LOW/status",
+            json={"status": "Open", "priority": "Urgent", "version": 1},
+            headers={"X-User-Id": "USR-101"}
+        )
+        assert update_res.status_code == 200
+
+        # Verify DB priority_weight is updated to 1000.0
+        db_session.expire_all()
+        refreshed_low = db_session.query(Ticket).filter(Ticket.id == "TCK-ORD-LOW").first()
+        assert refreshed_low.priority == "Urgent"
+        assert refreshed_low.priority_weight == 1000.0
+
+        # Query triage queue again: TCK-ORD-LOW must now rank ahead of TCK-ORD-HIGH in SQL ordering
+        res2 = client.get("/api/tickets?view=triage&search=TBOH-ORD", headers={"X-User-Id": "USR-101"})
+        assert res2.status_code == 200
+        ids2 = [t["id"] for t in res2.json()["tickets"]]
+        assert ids2 == ["TCK-ORD-LOW", "TCK-ORD-HIGH"]
+    finally:
+        db_session.query(Ticket).filter(Ticket.id.in_(["TCK-ORD-LOW", "TCK-ORD-HIGH"])).delete(synchronize_session=False)
+        db_session.commit()
+
