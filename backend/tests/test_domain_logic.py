@@ -53,7 +53,7 @@ def test_emergency_bypass_triggers_at_3_9h(client: TestClient, db_session: Sessi
         "tboh_id": "TBOH-EMERG-3900",
         "priority": "Low",  # Initially low; bypass MUST force it to Urgent
         "check_in_date": checkin_3_9h.isoformat(),
-        "intent": "Bedding / Room Preference",
+        "intent": "Emergency Check-in Assist",
         "agency_id": "AGY-001"
     }
 
@@ -139,7 +139,7 @@ def test_emergency_bypass_does_not_trigger_at_4_1h(client: TestClient):
         "tboh_id": "TBOH-NORM-4100",
         "priority": "Medium",
         "check_in_date": checkin_4_1h.isoformat(),
-        "intent": "Bedding / Room Preference",
+        "intent": "Emergency Check-in Assist",
         "agency_id": "AGY-001"
     }
 
@@ -161,19 +161,18 @@ def test_emergency_bypass_does_not_trigger_at_4_1h(client: TestClient):
 
 def test_emergency_bypass_past_check_in_date(client: TestClient, db_session: Session):
     """
-    Documents current behavior when a check-in time is submitted in the past:
-    1. deadline_hours is negative (e.g. -2.0h).
-    2. Since -2.0 <= EMERGENCY_BYPASS_HOURS (4.0), Tier-1 Emergency Bypass triggers.
-    3. Final priority is forced to 'Urgent'.
-    4. Final status is forced to 'Escalated'.
-    5. Ticket is routed to DEFAULT_ESCALATION_MANAGER_ID ('USR-103').
-    6. AuditLog records action 'ticket.emergency_bypass'.
+    Documents rule: 0 <= effective_deadline_hours <= EMERGENCY_BYPASS_HOURS.
+    Past check-ins (effective_deadline_hours < 0) are NOT emergency bypasses:
+    - Retain requester priority ("Low")
+    - Do NOT force status to 'Escalated'
+    - Route via normal Tier-1 routing instead of bypass to escalation manager
+    - Do NOT emit ticket.emergency_bypass audit log
     """
     now = datetime.now(timezone.utc).replace(microsecond=0)
     past_checkin = now - timedelta(hours=2)  # check-in was 2 hours ago
 
     payload = {
-        "title": "Past Check-in Date Emergency Case",
+        "title": "Past Check-in Date Normal Case",
         "description": "Traveler arrived yesterday, reporting booking not honored",
         "tboh_id": "TBOH-PAST-CHECKIN",
         "priority": "Low",
@@ -188,26 +187,81 @@ def test_emergency_bypass_past_check_in_date(client: TestClient, db_session: Ses
         assert resp.status_code == 201
         data = resp.json()
 
-        assert data["priority"] == "Urgent"
-        assert data["status"] == "Escalated"
-        assert "Tier-1 Emergency Bypass" in data["routing_reason"]
+        # Must keep requester priority and not be escalated
+        assert data["priority"] == "Low"
+        assert data["status"] != "Escalated"
+        assert "Tier-1 Emergency Bypass" not in (data.get("routing_reason") or "")
 
         ticket_id = data["id"]
         detail_res = client.get(f"/api/tickets/{ticket_id}", headers={"X-User-Id": "USR-101"})
         assert detail_res.status_code == 200
         detail = detail_res.json()
-        assert detail["priority"] == "Urgent"
-        assert detail["status"] == "Escalated"
-        assert detail["assigned_to"] == DEFAULT_ESCALATION_MANAGER_ID
+        assert detail["priority"] == "Low"
+        assert detail["status"] != "Escalated"
 
         audit = db_session.query(AuditLog).filter(
             AuditLog.ticket_id == ticket_id,
             AuditLog.action == "ticket.emergency_bypass"
         ).first()
-        assert audit is not None
-        assert "Tier-1 Emergency Bypass" in detail["routing_reason"]
+        assert audit is None
     finally:
         if ticket_id:
+            db_session.query(AuditLog).filter(AuditLog.ticket_id == ticket_id).delete()
+            db_session.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).delete()
+            db_session.query(EventOutbox).filter(EventOutbox.ticket_id == ticket_id).delete()
+            db_session.query(TicketLink).filter(TicketLink.ticket_id == ticket_id).delete()
+            db_session.query(Ticket).filter(Ticket.id == ticket_id).delete()
+            db_session.commit()
+
+
+def test_non_urgent_intent_within_4h_does_not_bypass(client: TestClient, db_session: Session):
+    """
+    Verifies that non-whitelisted intents (e.g. 'Voucher Resend') do NOT trigger
+    Tier-1 emergency bypass even when check-in is within the 4-hour window.
+    """
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    imminent_checkin = now + timedelta(hours=2)
+
+    payload = {
+        "title": "Voucher resend needed soon",
+        "description": "Please resend voucher for check-in",
+        "tboh_id": "TBOH-NON-BYPASS-INTENT",
+        "priority": "Low",
+        "check_in_date": imminent_checkin.isoformat(),
+        "intent": "Voucher Resend",
+        "agency_id": "AGY-001"
+    }
+
+    ticket_id = None
+    try:
+        resp = client.post("/api/tickets", json=payload, headers={"X-User-Id": "USR-101"})
+        assert resp.status_code == 201
+        data = resp.json()
+
+        assert data["priority"] == "Low"
+        assert data["status"] != "Escalated"
+        assert "Tier-1 Emergency Bypass" not in (data.get("routing_reason") or "")
+
+        ticket_id = data["id"]
+        detail_res = client.get(f"/api/tickets/{ticket_id}", headers={"X-User-Id": "USR-101"})
+        assert detail_res.status_code == 200
+        detail = detail_res.json()
+        assert detail["priority"] == "Low"
+        assert detail["status"] != "Escalated"
+
+        audit = db_session.query(AuditLog).filter(
+            AuditLog.ticket_id == ticket_id,
+            AuditLog.action == "ticket.emergency_bypass"
+        ).first()
+        assert audit is None
+    finally:
+        if ticket_id:
+            db_session.query(AuditLog).filter(AuditLog.ticket_id == ticket_id).delete()
+            db_session.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).delete()
+            db_session.query(EventOutbox).filter(EventOutbox.ticket_id == ticket_id).delete()
+            db_session.query(TicketLink).filter(TicketLink.ticket_id == ticket_id).delete()
+            db_session.query(Ticket).filter(Ticket.id == ticket_id).delete()
+            db_session.commit()
             db_session.query(AuditLog).filter(AuditLog.ticket_id == ticket_id).delete()
             db_session.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).delete()
             db_session.query(EventOutbox).filter(EventOutbox.ticket_id == ticket_id).delete()
@@ -288,7 +342,7 @@ def test_tier_score_multiplier_in_api(client: TestClient):
         "tboh_id": "TBOH-TIER-PLAT-01",
         "priority": "Medium",
         "check_in_date": check_in_future.isoformat(),
-        "intent": "Bedding / Room Preference",
+        "intent": "Emergency Check-in Assist",
         "agency_id": "AGY-001"
     }, headers={"X-User-Id": "USR-101"})
     assert resp_plat.status_code == 201
@@ -301,7 +355,7 @@ def test_tier_score_multiplier_in_api(client: TestClient):
         "tboh_id": "TBOH-TIER-GOLD-01",
         "priority": "Medium",
         "check_in_date": check_in_future.isoformat(),
-        "intent": "Bedding / Room Preference",
+        "intent": "Emergency Check-in Assist",
         "agency_id": "AGY-002"
     }, headers={"X-User-Id": "USR-101"})
     assert resp_gold.status_code == 201
@@ -314,7 +368,7 @@ def test_tier_score_multiplier_in_api(client: TestClient):
         "tboh_id": "TBOH-TIER-STD-01",
         "priority": "Medium",
         "check_in_date": check_in_future.isoformat(),
-        "intent": "Bedding / Room Preference",
+        "intent": "Emergency Check-in Assist",
         "agency_id": "AGY-003"
     }, headers={"X-User-Id": "USR-101"})
     assert resp_std.status_code == 201

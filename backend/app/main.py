@@ -32,6 +32,7 @@ from backend.config.routing_config import (
     DEFAULT_ESCALATION_MANAGER_ID,
     REGION_MAPPING,
     EMERGENCY_BYPASS_HOURS,
+    EMERGENCY_BYPASS_INTENTS,
     PRIORITY_SCORES
 )
 from backend.services.sla_engine import evaluate_travel_sla, effective_deadline_hours
@@ -521,7 +522,9 @@ def create_ticket(
     priority = payload.priority
     ticket_status = "Open" if assigned_agent_id else "New"
     is_emergency_bypass = (
-        deadline_hours is not None and deadline_hours <= EMERGENCY_BYPASS_HOURS
+        deadline_hours is not None
+        and 0.0 <= deadline_hours <= EMERGENCY_BYPASS_HOURS
+        and resolved_intent in EMERGENCY_BYPASS_INTENTS
     )
 
     if is_emergency_bypass:

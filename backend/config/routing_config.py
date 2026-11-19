@@ -35,3 +35,11 @@ AGENCY_TIER_MULTIPLIERS = {
 
 EMERGENCY_BYPASS_HOURS = 4
 
+EMERGENCY_BYPASS_INTENTS = {
+    "Emergency Check-in Assist",
+    "Date Amendment",
+    "Cancellation Inconvenience",
+    "Refund Request",
+    "Unclassified"
+}
+
