@@ -31,6 +31,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (savedToken) {
       setTokenState(savedToken);
     }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "opsdesk_token") {
+        setTokenState(e.newValue);
+        if (!e.newValue && typeof window !== "undefined") {
+          const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || "jwt";
+          if (authMode === "jwt" && window.location && window.location.pathname !== "/login") {
+            window.location.href = "/login";
+          }
+        }
+      }
+      if (e.key === "opsdesk_user_id" && e.newValue) {
+        const found = DEMO_USERS.find((u) => u.id === e.newValue);
+        if (found) setCurrentUser(found);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const handleSetUser = (user: DemoUser) => {
