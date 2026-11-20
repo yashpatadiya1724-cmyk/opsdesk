@@ -1,0 +1,3 @@
+﻿[qa/browser-fixes 3032602] fix(frontend): map sender ID to demo users in TicketConversation message stream
+ 2 files changed, 40 insertions(+), 3 deletions(-)
+ create mode 100644 docs/qa/logs/fix4_conversation_diff.txt
