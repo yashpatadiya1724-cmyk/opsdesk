@@ -4,17 +4,17 @@ import React from "react";
 import { cn } from "@/lib/utils";
 
 export interface AvatarProps {
-  name: string;
+  name?: string | null;
   size?: "sm" | "md" | "lg";
   className?: string;
-  id?: string;
+  id?: string | null;
 }
 
 // Deterministic palette generation for avatars
 const PALETTE = [
   { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200" },
-  { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
-  { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+  { bg: "bg-stone-100", text: "text-stone-700", border: "border-stone-200" },
+  { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
   { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
   { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" },
   { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
@@ -22,7 +22,8 @@ const PALETTE = [
   { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200" },
 ];
 
-function getDeterministicColor(str: string) {
+function getDeterministicColor(str?: string | null) {
+  if (!str || typeof str !== "string") return PALETTE[0];
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -31,16 +32,17 @@ function getDeterministicColor(str: string) {
   return PALETTE[index];
 }
 
-function getInitials(name: string): string {
-  if (!name) return "?";
+function getInitials(name?: string | null): string {
+  if (!name || typeof name !== "string" || !name.trim()) return "?";
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (parts[0][0] + (parts[parts.length - 1][0] || "")).toUpperCase();
 }
 
 export function Avatar({ name, size = "md", className, id }: AvatarProps) {
-  const color = getDeterministicColor(id || name);
-  const initials = getInitials(name);
+  const safeName = name || id || "";
+  const color = getDeterministicColor(id || safeName);
+  const initials = getInitials(safeName);
 
   const sizeStyles = {
     sm: "w-6 h-6 text-[10px]",
@@ -50,8 +52,8 @@ export function Avatar({ name, size = "md", className, id }: AvatarProps) {
 
   return (
     <div
-      title={name}
-      aria-label={name}
+      title={name || undefined}
+      aria-label={name || "User Avatar"}
       className={cn(
         "inline-flex items-center justify-center rounded-full font-medium border select-none shrink-0 transition-subtle",
         sizeStyles[size],
