@@ -307,11 +307,11 @@ export function QueueTable({
                     role="link"
                     aria-label={`Case ${t.id} - ${t.title}`}
                     className={cn(
-                      "h-[56px] transition-all duration-120 cursor-pointer border-l-4 hover:border-l-[6px] group relative focus:outline-none",
-                      slaBorderColor,
+                      "h-[56px] transition-all duration-120 cursor-pointer border-l-4 group relative focus:outline-none focus:ring-2 focus:ring-[#115E59]",
                       isSelected
-                        ? "bg-brand-50/80 dark:bg-brand-950/30"
-                        : "hover:bg-orange-500/[0.04] dark:hover:bg-orange-500/[0.07]",
+                        ? "bg-[#FBEFE6] border-l-[#D9733A]"
+                        : "hover:bg-[#FBEFE6] hover:border-l-[#D9733A]",
+                      !isSelected && slaBorderColor,
                       isClosedOrResolved && "opacity-60 text-content-tertiary"
                     )}
                   >
@@ -547,7 +547,7 @@ export function QueueTable({
                             <button
                               type="button"
                               onClick={(e) => handleAssignToMe(t.id, e)}
-                              className="w-7 h-7 rounded-md flex items-center justify-center text-content-tertiary hover:text-brand-orange hover:bg-orange-500/10 transition-colors cursor-pointer"
+                              className="w-7 h-7 rounded-md flex items-center justify-center text-content-tertiary hover:text-brand hover:bg-brand-soft/50 transition-colors cursor-pointer"
                               title="Assign to me"
                               aria-label="Assign to me"
                             >
@@ -575,7 +575,7 @@ export function QueueTable({
                           <button
                             type="button"
                             onClick={(e) => handleOpenTicket(t.id, e)}
-                            className="w-7 h-7 rounded-md flex items-center justify-center text-content-tertiary hover:text-brand-orange hover:bg-orange-500/10 transition-colors cursor-pointer"
+                            className="w-7 h-7 rounded-md flex items-center justify-center text-content-tertiary hover:text-brand hover:bg-brand-soft/50 transition-colors cursor-pointer"
                             title="Open full page"
                             aria-label="Open full page"
                           >

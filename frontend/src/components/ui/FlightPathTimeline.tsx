@@ -138,7 +138,7 @@ export function FlightPathTimeline({
             "text-[9px] font-medium uppercase tracking-wider shrink-0 px-1 py-0.2 rounded font-mono-numbers",
             effectiveControlling === "LCD"
               ? "text-amber-700 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60"
-              : "text-brand-orange-text bg-brand-50 dark:bg-orange-950/40 dark:text-brand-orange border border-orange-200/60 dark:border-orange-800/60"
+              : "text-brand bg-brand-soft border border-line"
           )}
           title={
             effectiveControlling === "LCD"
@@ -277,7 +277,7 @@ export function FlightPathTimeline({
         <div className="flex flex-col items-end text-right">
           <div className="flex items-center gap-1">
             {effectiveControlling === "CHECK_IN" && !isCheckInPast && (
-              <span className="text-[10px] font-semibold uppercase tracking-wider bg-brand-50 text-brand-orange-text dark:bg-orange-950/40 dark:text-brand-orange border border-orange-200 dark:border-orange-800 px-1.5 py-0.5 rounded-full">
+              <span className="text-[10px] font-semibold uppercase tracking-wider bg-brand-soft text-brand border border-line px-1.5 py-0.5 rounded-full">
                 Controlling
               </span>
             )}

@@ -60,7 +60,7 @@ export function TicketActivityTimeline({ ticket }: TicketActivityTimelineProps) 
           ? `Recorded internal staff note: "${snippet}"`
           : `Dispatched public reply to agency: "${snippet}"`,
         detail: msg.content,
-        dotColor: isInternal ? "bg-amber-500" : "bg-teal-600",
+        dotColor: isInternal ? "bg-[#5B4A86]" : "bg-[#115E59]",
       });
     });
 

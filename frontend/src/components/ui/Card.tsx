@@ -47,7 +47,7 @@ export function CardHeader({
     <div className={cn("flex items-start justify-between gap-4 mb-4", className)} {...props}>
       <div>
         {title && <h3 className="text-section font-semibold text-content-primary tracking-tight">{title}</h3>}
-        {subtitle && <p className="text-caption text-content-secondary mt-0.5">{subtitle}</p>}
+        {subtitle && <div className="text-caption text-content-secondary mt-0.5">{subtitle}</div>}
         {children}
       </div>
       {action && <div className="shrink-0">{action}</div>}

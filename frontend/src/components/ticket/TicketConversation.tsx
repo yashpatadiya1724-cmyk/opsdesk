@@ -214,7 +214,13 @@ export function TicketConversation({
               {visibleMessages.length > 0 ? (
                 visibleMessages.map((msg) => {
                   const isInternal = msg.message_type === "InternalNote";
-                  const roleInfo = getSenderRole(msg.sender_user_id, msg.sender_name);
+                  const senderId = msg.sender_id || msg.sender_user_id || "";
+                  const senderUser = DEMO_USERS.find(
+                    (u) => u.id === senderId || (msg.sender_name && u.name === msg.sender_name)
+                  );
+                  const senderName =
+                    msg.sender_name || senderUser?.name || senderId || (isInternal ? "Staff Member" : "Agency Agent");
+                  const roleInfo = getSenderRole(senderId, senderName);
                   const isCopied = copiedMessageId === msg.id;
 
                   return (
@@ -223,23 +229,23 @@ export function TicketConversation({
                       className={cn(
                         "group relative rounded-card p-4 transition-all duration-200",
                         isInternal
-                          ? "bg-yellow-50/80 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/60 border-dashed"
-                          : "bg-surface border border-border shadow-xs"
+                          ? "bg-[#F1EDF7] border border-[#D6CCE6]"
+                          : "bg-surface border border-border"
                       )}
                     >
                       {/* Bubble Header */}
                       <div className="flex items-center justify-between gap-3 mb-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Avatar name={msg.sender_name} size="sm" />
+                          <Avatar name={senderName} id={senderId} size="sm" />
                           <span className="text-table font-semibold text-content-primary">
-                            {msg.sender_name}
+                            {senderName}
                           </span>
                           <Chip size="sm" variant={roleInfo.variant}>
                             {roleInfo.label}
                           </Chip>
                           {isInternal ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-700">
-                              <Lock className="w-3 h-3 text-amber-700 dark:text-amber-400" />
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#5B4A86] bg-[#F1EDF7] px-2 py-0.5 rounded border border-[#D6CCE6]">
+                              <Lock className="w-3 h-3 text-[#5B4A86]" />
                               Internal Note
                             </span>
                           ) : (
@@ -293,7 +299,7 @@ export function TicketConversation({
                       <div
                         className={cn(
                           "text-body whitespace-pre-wrap leading-relaxed pl-8",
-                          isInternal ? "text-amber-950 dark:text-amber-200 font-normal" : "text-content-primary"
+                          isInternal ? "text-[#1C1B19] font-normal" : "text-content-primary"
                         )}
                       >
                         {msg.content}
@@ -319,7 +325,7 @@ export function TicketConversation({
               className={cn(
                 "rounded-card p-4 border transition-all duration-200 space-y-3",
                 activeTab === "internal"
-                  ? "bg-yellow-50/80 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700"
+                  ? "bg-[#F1EDF7] border-[#D6CCE6]"
                   : "bg-surface border-border"
               )}
             >
@@ -327,8 +333,8 @@ export function TicketConversation({
                 <div className="flex items-center gap-1.5 font-semibold">
                   {activeTab === "internal" ? (
                     <>
-                      <Lock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
-                      <span className="text-amber-900 dark:text-amber-200">Only visible to staff</span>
+                      <Lock className="w-3.5 h-3.5 text-[#5B4A86]" />
+                      <span className="text-[#5B4A86]">Only visible to staff</span>
                     </>
                   ) : (
                     <>
@@ -357,7 +363,7 @@ export function TicketConversation({
                 className={cn(
                   "w-full px-3.5 py-2.5 rounded-input border text-table text-content-primary placeholder:text-content-tertiary resize-none focus:outline-none focus:ring-2 transition-subtle leading-relaxed",
                   activeTab === "internal"
-                    ? "bg-surface/90 border-amber-300 dark:border-amber-700 focus:ring-amber-500"
+                    ? "bg-[#FDFCFA] border-[#D6CCE6] focus:ring-[#5B4A86]"
                     : "bg-surface border-border focus:ring-brand-500"
                 )}
               />

@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { ChevronsUp, ChevronUp, Minus, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface PriorityMarkProps {
@@ -11,56 +10,40 @@ export interface PriorityMarkProps {
 }
 
 /**
- * PriorityMark: Renders ticket priority with an icon + label in muted slate tones.
- * HARD RULE: NO red or orange priority chips. Red is reserved exclusively for SLA Breached.
- * Icons:
- * - Urgent: double-chevron up (ChevronsUp)
- * - High: chevron up (ChevronUp)
- * - Medium: dash (Minus)
- * - Low: chevron down (ChevronDown)
+ * PriorityMark: Renders ticket priority with neutral outline chip + dot + visible word.
+ * - Border: 1px solid #E4DED5, background #FDFCFA, text #1C1B19
+ * - Dot: Urgent #B42318, High #D9733A, Medium #6B7C93, Low #A8A196
+ * - Word always visible in sentence case
  */
 export function PriorityMark({ priority, className, showLabel = true }: PriorityMarkProps) {
   const normalized = priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase();
 
-  const getPriorityConfig = () => {
+  const getDotColor = () => {
     switch (normalized) {
       case "Urgent":
-        return {
-          icon: <ChevronsUp className="w-3.5 h-3.5 shrink-0" />,
-          styles: "bg-slate-200/80 text-slate-800 dark:bg-slate-800 dark:text-slate-100 font-semibold",
-        };
+        return "bg-[#B42318]";
       case "High":
-        return {
-          icon: <ChevronUp className="w-3.5 h-3.5 shrink-0" />,
-          styles: "bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-300 font-medium",
-        };
+        return "bg-[#D9733A]";
       case "Medium":
-        return {
-          icon: <Minus className="w-3.5 h-3.5 shrink-0" />,
-          styles: "bg-slate-100/70 text-slate-600 dark:bg-slate-800/60 dark:text-slate-400 font-medium",
-        };
+        return "bg-[#6B7C93]";
       case "Low":
       default:
-        return {
-          icon: <ChevronDown className="w-3.5 h-3.5 shrink-0" />,
-          styles: "bg-slate-100/50 text-slate-500 dark:bg-slate-800/40 dark:text-slate-500 font-normal",
-        };
+        return "bg-[#A8A196]";
     }
   };
 
-  const { icon, styles } = getPriorityConfig();
+  const dotClass = getDotColor();
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 h-[22px] px-2 rounded-full text-[12px] leading-none shrink-0 select-none",
-        styles,
+        "inline-flex items-center gap-1.5 h-[22px] px-2 rounded-[6px] text-[12px] font-medium leading-none shrink-0 select-none border border-[#E4DED5] bg-[#FDFCFA] text-[#1C1B19]",
         className
       )}
       title={`Priority: ${normalized}`}
       aria-label={`Priority: ${normalized}`}
     >
-      {icon}
+      <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotClass)} />
       {showLabel && <span>{normalized}</span>}
     </span>
   );

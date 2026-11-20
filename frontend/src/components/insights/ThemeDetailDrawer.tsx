@@ -96,11 +96,11 @@ export function ThemeDetailDrawer({
 
         {/* SOP Recommendations */}
         <div className="p-4 bg-brand-50/60 dark:bg-brand-50/20 border border-brand-200/80 dark:border-brand-500/30 rounded-card space-y-2">
-          <div className="flex items-center gap-2 text-caption font-semibold text-brand-900 dark:text-orange-200">
-            <CheckCircle2 className="w-4 h-4 text-brand-orange dark:text-brand-orange-text shrink-0" />
+          <div className="flex items-center gap-2 text-caption font-semibold text-brand">
+            <CheckCircle2 className="w-4 h-4 text-brand shrink-0" />
             <span>SOP recommendations</span>
           </div>
-          <p className="text-body text-brand-950/90 dark:text-orange-300 leading-relaxed">
+          <p className="text-body text-ink leading-relaxed">
             {meta.recommendedAction}
           </p>
         </div>
