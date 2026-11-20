@@ -214,7 +214,7 @@ export function TicketConversation({
               {visibleMessages.length > 0 ? (
                 visibleMessages.map((msg) => {
                   const isInternal = msg.message_type === "InternalNote";
-                  const senderId = (msg as any).sender_id || msg.sender_user_id || "";
+                  const senderId = msg.sender_id || msg.sender_user_id || "";
                   const matchedUser = DEMO_USERS.find(
                     (u) => u.id === senderId || (msg.sender_name && u.name === msg.sender_name)
                   );

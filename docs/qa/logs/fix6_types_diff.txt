@@ -1,0 +1,29 @@
+﻿diff --git a/frontend/src/components/ticket/TicketConversation.tsx b/frontend/src/components/ticket/TicketConversation.tsx
+index 44e7001..016e763 100644
+--- a/frontend/src/components/ticket/TicketConversation.tsx
++++ b/frontend/src/components/ticket/TicketConversation.tsx
+@@ -214,7 +214,7 @@ export function TicketConversation({
+               {visibleMessages.length > 0 ? (
+                 visibleMessages.map((msg) => {
+                   const isInternal = msg.message_type === "InternalNote";
+-                  const senderId = (msg as any).sender_id || msg.sender_user_id || "";
++                  const senderId = msg.sender_id || msg.sender_user_id || "";
+                   const matchedUser = DEMO_USERS.find(
+                     (u) => u.id === senderId || (msg.sender_name && u.name === msg.sender_name)
+                   );
+diff --git a/frontend/src/lib/types.ts b/frontend/src/lib/types.ts
+index 83e295a..1c3598a 100644
+--- a/frontend/src/lib/types.ts
++++ b/frontend/src/lib/types.ts
+@@ -46,8 +46,9 @@ export interface TicketMessage {
+   id: string;
+   message_type: "PublicReply" | "InternalNote";
+   content: string;
+-  sender_user_id: string;
+-  sender_name: string;
++  sender_id?: string;
++  sender_user_id?: string;
++  sender_name?: string;
+   created_at: string;
+ }
+ 
