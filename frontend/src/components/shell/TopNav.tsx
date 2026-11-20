@@ -80,12 +80,16 @@ const ROLE_PERMISSIONS: Record<string, { label: string; permissions: string[] }>
 export function TopNav() {
   const router = useRouter();
   const { currentUser, setCurrentUser } = useUser();
-  const [isBannerDismissed, setIsBannerDismissed] = useState<boolean>(() => {
+  const [isBannerDismissed, setIsBannerDismissed] = useState<boolean>(false);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
-      return sessionStorage.getItem("opsdesk_demo_banner_dismissed") === "true";
+      const dismissed = sessionStorage.getItem("opsdesk_demo_banner_dismissed") === "true";
+      if (dismissed) {
+        setIsBannerDismissed(true);
+      }
     }
-    return false;
-  });
+  }, []);
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const [isHoverCardOpen, setIsHoverCardOpen] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -115,7 +119,8 @@ export function TopNav() {
   const checkApiHealth = useCallback(async () => {
     setIsRetrying(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/docs", {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      const res = await fetch(`${apiBase}/docs`, {
         method: "HEAD",
         mode: "no-cors",
       }).catch(() => null);
