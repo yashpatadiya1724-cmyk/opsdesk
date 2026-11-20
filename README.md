@@ -49,7 +49,17 @@ This matrix strictly maps against the requirements specified in the project spec
 - **Node.js 18+** (tested on Node v24)
 - **SQLite3** (included with standard Python)
 
-### 1. Database Setup & Seeding
+### 1. Installation & Dependencies
+Install dependencies from `requirements.txt` or the fully pinned `requirements.lock` generated via `pip freeze`:
+```powershell
+# Core dependencies
+pip install -r requirements.txt
+
+# Or from pinned lockfile
+pip install -r requirements.lock
+```
+
+### 2. Database Setup & Seeding
 ```powershell
 # Reset and calibrate dev database with 5,000 tickets
 python -m backend.seed.seed_data --reset
@@ -83,7 +93,7 @@ This backfills `priority_weight` from `priority` (Urgent: 1000, High: 500, Mediu
 
 *Note for `AUTH_MODE=jwt` on Upgraded Databases:* Users in pre-hardening databases lack password hashes. Before logging in via JWT, administrators must set passwords for existing accounts using `python -m backend.app.manage set-password --email <email>`.
 
-### 2. Run Backend API
+### 3. Run Backend API
 ```powershell
 uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
@@ -119,7 +129,7 @@ OpsDesk supports two operational authentication modes configured via environment
 | `GET` | `/api/insights/themes` | Aggregate top recurring operational issue themes | EscalationManager / Lead |
 | `GET` | `/api/export/tickets.csv` | Stream operations tickets with cursor pagination (`cursor`, `limit`, `X-Next-Cursor` header; concurrency limited to 2) | Lead Only |
 
-### 3. Run Next.js 15 Frontend
+### 4. Run Next.js 15 Frontend
 ```powershell
 cd frontend
 npm install
@@ -192,6 +202,7 @@ opsdesk/
 ├── docker-compose.yml        # Multi-service composition (UNVERIFIED not built)
 ├── SECURITY.md               # Security policy & vulnerability reporting
 ├── requirements.txt          # Python dependencies
+├── requirements.lock         # Pinned Python dependencies (pip freeze)
 └── README.md                 # System overview and quickstart
 ```
 
