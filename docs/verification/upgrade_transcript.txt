@@ -1,0 +1,275 @@
+=== UPGRADE VERIFICATION SCRIPT START ===
+Timestamp: 2026-11-20T05:45:51.687221+00:00
+Merge-base commit: 7d39b66
+Temporary directory: C:\Users\yashp\AppData\Local\Temp\opsdesk_upgrade_verify_trkz9_lo
+
+--- STEP 1: Creating legacy database from merge-base 7d39b66 ---
+Added detached git worktree at C:\Users\yashp\AppData\Local\Temp\opsdesk_upgrade_verify_trkz9_lo\wt_legacy (commit 7d39b66)
+Seeded legacy database via worktree (exit 0):
+  Creating agencies...
+  Creating users...
+  Seeding Journey fixtures (TCK-1001, TCK-1002, TCK-1004, TCK-1005, TCK-1006, TCK-1007, TCK-1008)...
+  Generating remaining 4993 synthetic tickets...
+  Database successfully seeded with 5000 tickets.
+Removed temporary git worktree
+
+--- STEP 2: Running scripts/upgrade_legacy_db.py ---
+Upgrade script output (exit 0):
+  [*] Upgrading legacy database at: sqlite:///C:/Users/yashp/AppData/Local/Temp/opsdesk_upgrade_verify_trkz9_lo/legacy_test.db
+  [*] Stamping baseline 0001_baseline_schema on legacy database...
+  [*] Running alembic upgrade head...
+  [+] Upgraded successfully:
+      - Users: 7
+      - Tickets: 5000
+      - Urgent priority_weight: 1000.0
+      - High priority_weight: 500.0
+      - Tickets with NULL effective_deadline_at: 0
+
+--- STEP 3: PRAGMA table_info for tickets, users, agencies ---
+PRAGMA table_info(tickets):
+  (0, 'id', 'VARCHAR(50)', 1, None, 1)
+  (1, 'tboh_id', 'VARCHAR(100)', 1, None, 0)
+  (2, 'agency_id', 'VARCHAR(50)', 1, None, 0)
+  (3, 'title', 'VARCHAR(300)', 1, None, 0)
+  (4, 'description', 'TEXT', 1, None, 0)
+  (5, 'intent', 'VARCHAR(100)', 1, None, 0)
+  (6, 'priority', 'VARCHAR(50)', 1, None, 0)
+  (7, 'status', 'VARCHAR(50)', 1, None, 0)
+  (8, 'check_in_date', 'DATETIME', 1, None, 0)
+  (9, 'lcd_date', 'DATETIME', 0, None, 0)
+  (10, 'assigned_to', 'VARCHAR(50)', 0, None, 0)
+  (11, 'routing_reason', 'TEXT', 0, None, 0)
+  (12, 'suggested_bug_link', 'VARCHAR(200)', 0, None, 0)
+  (13, 'version', 'INTEGER', 1, None, 0)
+  (14, 'created_at', 'DATETIME', 0, None, 0)
+  (15, 'updated_at', 'DATETIME', 0, None, 0)
+  (16, 'effective_deadline_at', 'DATETIME', 0, None, 0)
+  (17, 'hotel_timezone', 'VARCHAR(64)', 1, "'UTC'", 0)
+  (18, 'priority_weight', 'FLOAT', 1, "'200.0'", 0)
+PRAGMA table_info(users):
+  (0, 'id', 'VARCHAR(50)', 1, None, 1)
+  (1, 'name', 'VARCHAR(200)', 1, None, 0)
+  (2, 'email', 'VARCHAR(200)', 1, None, 0)
+  (3, 'role', 'VARCHAR(50)', 1, None, 0)
+  (4, 'region', 'VARCHAR(50)', 1, None, 0)
+  (5, 'is_available', 'BOOLEAN', 0, None, 0)
+  (6, 'agency_id', 'VARCHAR(50)', 0, None, 0)
+  (7, 'hashed_password', 'VARCHAR(255)', 0, None, 0)
+PRAGMA table_info(agencies):
+  (0, 'id', 'VARCHAR(50)', 1, None, 1)
+  (1, 'name', 'VARCHAR(200)', 1, None, 0)
+  (2, 'country_code', 'VARCHAR(10)', 1, None, 0)
+  (3, 'tier', 'VARCHAR(50)', 0, None, 0)
+
+--- STEP 4: TestClient GET /api/tickets?view=triage&limit=3 and GET /api/tickets/{id} ---
+GET /api/tickets?view=triage&limit=3 status: 200
+GET /api/tickets?view=triage&limit=3 response:
+{
+  "total": 460,
+  "tickets": [
+    {
+      "id": "TCK-1007",
+      "tboh_id": "TBOH-95100",
+      "agency_id": "AGY-001",
+      "title": "Urgent unassigned: front desk check-in emergency",
+      "intent": "Emergency Check-in Assist",
+      "priority": "Urgent",
+      "status": "New",
+      "hotel_timezone": "UTC",
+      "check_in_date": "2026-11-20T08:00:53.089115+00:00",
+      "lcd_date": null,
+      "assigned_to": null,
+      "routing_reason": "Unassigned pending triage routing",
+      "sla": {
+        "status": "AT_RISK",
+        "color": "Amber",
+        "badge": "At-Risk (2.2h to deadline)",
+        "hours_remaining": 2.25
+      },
+      "queue_score": 1800.0,
+      "created_at": "2026-11-20T05:40:53.089115+00:00"
+    },
+    {
+      "id": "TCK-6973",
+      "tboh_id": "TBOH-98986",
+      "agency_id": "AGY-003",
+      "title": "Date Amendment: Ready have money system yourself positive bed.",
+      "intent": "Date Amendment",
+      "priority": "Urgent",
+      "status": "New",
+      "hotel_timezone": "UTC",
+      "check_in_date": "2026-11-22T09:45:53.089115+00:00",
+      "lcd_date": null,
+      "assigned_to": null,
+      "routing_reason": "Unassigned in Triage",
+      "sla": {
+        "status": "NORMAL",
+        "color": "Green",
+        "badge": "Normal (52.0h remaining)",
+        "hours_remaining": 52.0
+      },
+      "queue_score": 1000.0,
+      "created_at": "2026-11-19T14:45:53.089115+00:00"
+    },
+    {
+      "id": "TCK-5805",
+      "tboh_id": "TBOH-67480",
+      "agency_id": "AGY-003",
+      "title": "Refund Request: Interesting herself space right indeed kitchen always.",
+      "intent": "Refund Request",
+      "priority": "Urgent",
+      "status": "New",
+      "hotel_timezone": "UTC",
+      "check_in_date": "2026-11-22T10:45:53.089115+00:00",
+      "lcd_date": "2026-11-21T10:45:53.089115+00:00",
+      "assigned_to": null,
+      "routing_reason": "Unassigned in Triage",
+      "sla": {
+        "status": "NORMAL",
+        "color": "Green",
+        "badge": "Normal (29.0h remaining)",
+        "hours_remaining": 29.0
+      },
+      "queue_score": 1000.0,
+      "created_at": "2026-11-19T13:45:53.089115+00:00"
+    }
+  ]
+}
+
+First ticket ID for detail lookup: TCK-1007
+GET /api/tickets/TCK-1007 status: 200
+GET /api/tickets/TCK-1007 response:
+{
+  "id": "TCK-1007",
+  "tboh_id": "TBOH-95100",
+  "agency_id": "AGY-001",
+  "title": "Urgent unassigned: front desk check-in emergency",
+  "description": "Guest at resort front desk, reservation not found on hotel system. Unassigned in triage pool.",
+  "intent": "Emergency Check-in Assist",
+  "priority": "Urgent",
+  "status": "New",
+  "hotel_timezone": "UTC",
+  "check_in_date": "2026-11-20T08:00:53.089115+00:00",
+  "lcd_date": null,
+  "assigned_to": null,
+  "routing_reason": "Unassigned pending triage routing",
+  "sla": {
+    "status": "AT_RISK",
+    "color": "Amber",
+    "badge": "At-Risk (2.2h to deadline)",
+    "hours_remaining": 2.25
+  },
+  "queue_score": 1800.0,
+  "suggested_bug_link": null,
+  "linked_ticket_ids": [],
+  "messages": [],
+  "side_conversations": [],
+  "version": 1,
+  "created_at": "2026-11-20T05:40:53.089115+00:00",
+  "updated_at": "2026-11-20T05:45:53.092898+00:00"
+}
+
+--- STEP 5: Running python -m backend.app.manage set-password ---
+set-password command output (exit 0):
+  Successfully updated password for user 'Aisha Khan' (aisha.ops@tbo.test).
+
+--- STEP 6: Login with AUTH_MODE=jwt and generated 40-char JWT_SECRET ---
+Generated 40-char JWT_SECRET: 1kfsXgV8geeUZYZlTzfqeh8GbG33Yixll-ZwaiJA (len=40)
+POST /api/auth/login status: 200
+POST /api/auth/login response:
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJVU1ItMTAxIiwiZW1haWwiOiJhaXNoYS5vcHNAdGJvLnRlc3QiLCJyb2xlIjoiQWdlbnQiLCJuYW1lIjoiQWlzaGEgS2hhbiIsImV4cCI6MTc5NTE4MjM2MCwiaWF0IjoxNzk1MTUzNTYwfQ.V8y56vlVRAqNLqIN72yitRL5KuEWb_yWcA3O2R-afeY",
+  "token_type": "bearer",
+  "expires_in": 28800
+}
+
+Received JWT access_token: eyJhbGciOiJIUzI1NiIs...A3O2R-afeY
+
+--- STEP 7: Decoded JWT Token Payload ---
+Decoded raw payload: {
+  "sub": "USR-101",
+  "email": "aisha.ops@tbo.test",
+  "role": "Agent",
+  "name": "Aisha Khan",
+  "exp": 1795182360,
+  "iat": 1795153560
+}
+iat (Issued At): 1795153560 (2026-11-20T05:46:00+00:00)
+exp (Expires At): 1795182360 (2026-11-20T13:46:00+00:00)
+
+--- STEP 8: GET /api/tickets with Bearer token ---
+GET /api/tickets with Bearer token status: 200
+GET /api/tickets with Bearer token response:
+{
+  "total": 460,
+  "tickets": [
+    {
+      "id": "TCK-1007",
+      "tboh_id": "TBOH-95100",
+      "agency_id": "AGY-001",
+      "title": "Urgent unassigned: front desk check-in emergency",
+      "intent": "Emergency Check-in Assist",
+      "priority": "Urgent",
+      "status": "New",
+      "hotel_timezone": "UTC",
+      "check_in_date": "2026-11-20T08:00:53.089115+00:00",
+      "lcd_date": null,
+      "assigned_to": null,
+      "routing_reason": "Unassigned pending triage routing",
+      "sla": {
+        "status": "AT_RISK",
+        "color": "Amber",
+        "badge": "At-Risk (2.2h to deadline)",
+        "hours_remaining": 2.25
+      },
+      "queue_score": 1800.0,
+      "created_at": "2026-11-20T05:40:53.089115+00:00"
+    },
+    {
+      "id": "TCK-6973",
+      "tboh_id": "TBOH-98986",
+      "agency_id": "AGY-003",
+      "title": "Date Amendment: Ready have money system yourself positive bed.",
+      "intent": "Date Amendment",
+      "priority": "Urgent",
+      "status": "New",
+      "hotel_timezone": "UTC",
+      "check_in_date": "2026-11-22T09:45:53.089115+00:00",
+      "lcd_date": null,
+      "assigned_to": null,
+      "routing_reason": "Unassigned in Triage",
+      "sla": {
+        "status": "NORMAL",
+        "color": "Green",
+        "badge": "Normal (52.0h remaining)",
+        "hours_remaining": 52.0
+      },
+      "queue_score": 1000.0,
+      "created_at": "2026-11-19T14:45:53.089115+00:00"
+    },
+    {
+      "id": "TCK-5805",
+      "tboh_id": "TBOH-67480",
+      "agency_id": "AGY-003",
+      "title": "Refund Request: Interesting herself space right indeed kitchen always.",
+      "intent": "Refund Request",
+      "priority": "Urgent",
+      "status": "New",
+      "hotel_timezone": "UTC",
+      "check_in_date": "2026-11-22T10:45:53.089115+00:00",
+      "lcd_date": "2026-11-21T10:45:53.089115+00:00",
+      "assigned_to": null,
+      "routing_reason": "Unassigned in Triage",
+      "sla": {
+        "status": "NORMAL",
+        "color": "Green",
+        "badge": "Normal (29.0h remaining)",
+        "hours_remaining": 29.0
+      },
+      "queue_score": 1000.0,
+      "created_at": "2026-11-19T13:45:53.089115+00:00"
+    }
+  ]
+}
+
+=== UPGRADE VERIFICATION SCRIPT COMPLETED SUCCESSFULLY ===

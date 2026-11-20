@@ -93,6 +93,8 @@ This backfills `priority_weight` from `priority` (Urgent: 1000, High: 500, Mediu
 
 *Note for `AUTH_MODE=jwt` on Upgraded Databases:* Users in pre-hardening databases lack password hashes. Before logging in via JWT, administrators must set passwords for existing accounts using `python -m backend.app.manage set-password --email <email>`.
 
+*Automated Verification:* The complete unattended legacy database upgrade from merge-base `7d39b66`, schema PRAGMA inspection, TestClient API calls, password management, and JWT token authentication are verified via `python scripts/verify_upgrade.py` (transcript recorded at [`docs/verification/upgrade_transcript.txt`](docs/verification/upgrade_transcript.txt)).
+
 ### 3. Run Backend API
 ```powershell
 uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
