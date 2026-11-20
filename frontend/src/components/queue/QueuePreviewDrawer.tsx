@@ -15,7 +15,7 @@ import {
   ChevronRight,
   ShieldAlert,
 } from "lucide-react";
-import { TicketDetail } from "@/lib/types";
+import { TicketDetail, DEMO_USERS } from "@/lib/types";
 import { fetchTicketDetail, assignTicket, escalateTicket } from "@/lib/api";
 import {
   Drawer,
@@ -390,7 +390,11 @@ export function QueuePreviewDrawer({
                   >
                     <div className="flex items-center justify-between text-[11px] text-content-tertiary">
                       <span className="font-semibold text-content-secondary">
-                        {msg.sender_name}
+                        {msg.sender_name ||
+                          DEMO_USERS.find((u) => u.id === (msg.sender_id || msg.sender_user_id))?.name ||
+                          msg.sender_id ||
+                          msg.sender_user_id ||
+                          "Agent"}
                       </span>
                       <span className="font-mono-numbers">
                         {parseUtc(msg.created_at)?.toLocaleTimeString([], {

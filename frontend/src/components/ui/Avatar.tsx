@@ -4,7 +4,7 @@ import React from "react";
 import { cn } from "@/lib/utils";
 
 export interface AvatarProps {
-  name: string;
+  name?: string;
   size?: "sm" | "md" | "lg";
   className?: string;
   id?: string;
@@ -22,7 +22,8 @@ const PALETTE = [
   { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200" },
 ];
 
-function getDeterministicColor(str: string) {
+function getDeterministicColor(str?: string) {
+  if (!str) return PALETTE[0];
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -31,16 +32,17 @@ function getDeterministicColor(str: string) {
   return PALETTE[index];
 }
 
-function getInitials(name: string): string {
-  if (!name) return "?";
+function getInitials(name?: string): string {
+  if (!name || !name.trim()) return "?";
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export function Avatar({ name, size = "md", className, id }: AvatarProps) {
-  const color = getDeterministicColor(id || name);
-  const initials = getInitials(name);
+  const safeName = name || id || "";
+  const color = getDeterministicColor(id || safeName);
+  const initials = getInitials(safeName);
 
   const sizeStyles = {
     sm: "w-6 h-6 text-[10px]",
