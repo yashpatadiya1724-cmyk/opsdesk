@@ -495,3 +495,99 @@ def test_alembic_postgresql_offline_sql_renders_at_time_zone_utc():
         )
         assert expected_down_stmt in down_sql, f"Missing expected downgrade SQL for {table}.{col}: {expected_down_stmt}"
 
+
+def test_alembic_postgresql_timezone_conversion_in_session_timezone():
+    """
+    CI test: runs ONLY when DATABASE_URL is PostgreSQL (skipped otherwise).
+    Builds a legacy-shaped schema with known naive timestamps, sets the session time zone
+    to Asia/Kolkata, runs alembic upgrade 0002, and asserts every datetime equals the original
+    UTC instant; then downgrade and assert the original naive values come back.
+    """
+    db_url = os.environ.get("DATABASE_URL", "")
+    if not (db_url.startswith("postgresql://") or db_url.startswith("postgresql+psycopg://")):
+        pytest.skip("Test requires PostgreSQL DATABASE_URL")
+
+    from datetime import datetime, timezone
+    from alembic.config import Config
+    from alembic import command
+    from sqlalchemy import create_engine, text
+
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    ini_path = os.path.join(repo_root, "alembic.ini")
+
+    schema_name = "test_pg_tz_migration"
+    raw_engine = create_engine(db_url, isolation_level="AUTOCOMMIT")
+    with raw_engine.connect() as conn:
+        conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
+        conn.execute(text(f"CREATE SCHEMA {schema_name}"))
+
+    schema_db_url = f"{db_url}?options=-csearch_path%3D{schema_name}"
+    alembic_cfg = Config(ini_path)
+    alembic_cfg.set_main_option("sqlalchemy.url", schema_db_url)
+
+    try:
+        # 1. Build legacy-shaped schema (0001_baseline_schema)
+        command.upgrade(alembic_cfg, "0001_baseline_schema")
+
+        # 2. Insert known naive timestamps into legacy schema
+        schema_engine = create_engine(schema_db_url)
+        known_naive_dt = datetime(2026, 11, 20, 14, 30, 0)
+        with schema_engine.connect() as conn:
+            conn.execute(text("SET TIME ZONE 'Asia/Kolkata'"))
+            conn.execute(
+                text(
+                    "INSERT INTO agencies (id, name, country_code, tier) "
+                    "VALUES ('AGY-TZ-1', 'TZ Test Agency', 'AE', 'standard')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO users (id, name, email, role, region, is_available, agency_id) "
+                    "VALUES ('USR-TZ-1', 'TZ User', 'tz@tbo.test', 'Agent', 'MEA', true, 'AGY-TZ-1')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO tickets (id, tboh_id, agency_id, title, description, intent, priority, "
+                    "status, check_in_date, lcd_date, created_at, updated_at, version) "
+                    "VALUES ('TCK-TZ-1', 'TBOH-TZ-1', 'AGY-TZ-1', 'TZ Ticket', 'desc', 'Booking', 'Urgent', "
+                    "'New', :dt, :dt, :dt, :dt, 1)"
+                ),
+                {"dt": known_naive_dt}
+            )
+            conn.commit()
+
+        # 3. Set session timezone to Asia/Kolkata and run alembic upgrade 0002
+        command.upgrade(alembic_cfg, "0002_timezone_aware_and_queue_score")
+
+        # 4. Assert every datetime equals the original UTC instant
+        with schema_engine.connect() as conn:
+            conn.execute(text("SET TIME ZONE 'Asia/Kolkata'"))
+            row = conn.execute(
+                text("SELECT check_in_date, lcd_date, effective_deadline_at, created_at, updated_at FROM tickets WHERE id = 'TCK-TZ-1'")
+            ).fetchone()
+
+            expected_utc = datetime(2026, 11, 20, 14, 30, 0, tzinfo=timezone.utc)
+            for col_val in row:
+                assert col_val is not None
+                col_utc = col_val.astimezone(timezone.utc) if col_val.tzinfo else col_val.replace(tzinfo=timezone.utc)
+                assert col_utc == expected_utc, f"Expected {expected_utc}, got {col_utc}"
+
+        # 5. Downgrade to 0001_baseline_schema and assert original naive values come back
+        command.downgrade(alembic_cfg, "0001_baseline_schema")
+
+        with schema_engine.connect() as conn:
+            conn.execute(text("SET TIME ZONE 'Asia/Kolkata'"))
+            row_down = conn.execute(
+                text("SELECT check_in_date, lcd_date, created_at, updated_at FROM tickets WHERE id = 'TCK-TZ-1'")
+            ).fetchone()
+            for col_val in row_down:
+                assert col_val is not None
+                assert col_val == known_naive_dt or (col_val.replace(tzinfo=None) == known_naive_dt), f"Expected {known_naive_dt}, got {col_val}"
+
+    finally:
+        with raw_engine.connect() as conn:
+            conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
+        raw_engine.dispose()
+
+

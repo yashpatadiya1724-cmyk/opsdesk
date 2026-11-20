@@ -21,6 +21,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    if bind and bind.dialect.name == "postgresql":
+        op.execute(sa.text("SET LOCAL TIME ZONE 'UTC'"))
+
     # 1. Add hashed_password to users
     with op.batch_alter_table('users') as batch_op:
         batch_op.add_column(
@@ -30,7 +34,7 @@ def upgrade() -> None:
     # 2. Add hardening columns to tickets
     with op.batch_alter_table('tickets') as batch_op:
         batch_op.add_column(
-            sa.Column('effective_deadline_at', sa.DateTime(timezone=True), nullable=True)
+            sa.Column('effective_deadline_at', sa.DateTime(timezone=False), nullable=True)
         )
         batch_op.add_column(
             sa.Column('hotel_timezone', sa.String(length=64), server_default='UTC', nullable=False)
@@ -89,8 +93,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # 1. For PostgreSQL, revert datetime columns to TIMESTAMP WITHOUT TIME ZONE using postgresql_using
     bind = op.get_bind()
+    if bind and bind.dialect.name == "postgresql":
+        op.execute(sa.text("SET LOCAL TIME ZONE 'UTC'"))
+
+    # 1. For PostgreSQL, revert datetime columns to TIMESTAMP WITHOUT TIME ZONE using postgresql_using
     if bind and bind.dialect.name == "postgresql":
         datetime_columns = [
             ('tickets', ['check_in_date', 'lcd_date', 'effective_deadline_at', 'created_at', 'updated_at']),
