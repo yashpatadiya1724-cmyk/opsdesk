@@ -21,7 +21,7 @@ def upgrade_legacy_db(db_url: str) -> None:
     print(f"[*] Upgrading legacy database at: {db_url}")
     ini_path = os.path.join(REPO_ROOT, "alembic.ini")
     alembic_cfg = Config(ini_path)
-    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+    alembic_cfg.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
     engine = create_engine(db_url)
     with engine.connect() as conn:

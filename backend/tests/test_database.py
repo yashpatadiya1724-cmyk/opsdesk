@@ -511,24 +511,22 @@ def test_alembic_postgresql_timezone_conversion_in_session_timezone():
     from alembic.config import Config
     from alembic import command
     from sqlalchemy import create_engine, text
+    from sqlalchemy.engine.url import make_url
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     ini_path = os.path.join(repo_root, "alembic.ini")
 
+    db_name = make_url(db_url).database
     schema_name = "test_pg_tz_migration"
     raw_engine = create_engine(db_url, isolation_level="AUTOCOMMIT")
     with raw_engine.connect() as conn:
-        try:
-            # Set database default timezone to Asia/Kolkata if permitted
-            conn.execute(text("ALTER DATABASE opsdesk SET timezone TO 'Asia/Kolkata'"))
-        except Exception:
-            pass
+        conn.execute(text(f'ALTER DATABASE "{db_name}" SET timezone TO \'Asia/Kolkata\''))
         conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
         conn.execute(text(f"CREATE SCHEMA {schema_name}"))
 
     schema_db_url = f"{db_url}?options=-csearch_path%3D{schema_name}"
     alembic_cfg = Config(ini_path)
-    alembic_cfg.set_main_option("sqlalchemy.url", schema_db_url)
+    alembic_cfg.set_main_option("sqlalchemy.url", schema_db_url.replace("%", "%%"))
 
     try:
         # 1. Build legacy-shaped schema (0001_baseline_schema)
@@ -604,7 +602,43 @@ def test_alembic_postgresql_timezone_conversion_in_session_timezone():
 
     finally:
         with raw_engine.connect() as conn:
-            conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
+            try:
+                conn.execute(text(f'ALTER DATABASE "{db_name}" RESET timezone'))
+            finally:
+                conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
+        raw_engine.dispose()
+
+
+def test_postgresql_connection_forced_to_utc_despite_database_timezone():
+    """
+    PostgreSQL-only test: Verifies that database connections are forced to UTC
+    even when 'ALTER DATABASE <db> SET timezone TO Asia/Kolkata' is applied.
+    Ensures that tickets created with ISO Z timestamps (e.g. 2026-11-20T10:00:00Z)
+    are stored and returned at UTC without session timezone shifting.
+    """
+    db_url = os.environ.get("DATABASE_URL", "")
+    if not (db_url.startswith("postgresql://") or db_url.startswith("postgresql+psycopg://")):
+        pytest.skip("Test requires PostgreSQL DATABASE_URL")
+
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.engine.url import make_url
+    from backend.app.database import create_db_engine
+
+    db_name = make_url(db_url).database
+    raw_engine = create_engine(db_url, isolation_level="AUTOCOMMIT")
+
+    with raw_engine.connect() as conn:
+        conn.execute(text(f'ALTER DATABASE "{db_name}" SET timezone TO \'Asia/Kolkata\''))
+
+    try:
+        app_engine = create_db_engine(db_url)
+        with app_engine.connect() as conn:
+            tz = conn.execute(text("SHOW timezone")).scalar()
+            assert tz.upper() == "UTC", f"Expected PostgreSQL session timezone UTC, got {tz}"
+        app_engine.dispose()
+    finally:
+        with raw_engine.connect() as conn:
+            conn.execute(text(f'ALTER DATABASE "{db_name}" RESET timezone'))
         raw_engine.dispose()
 
 

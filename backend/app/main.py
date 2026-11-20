@@ -1687,7 +1687,10 @@ def export_tickets_csv(
             output.truncate(0)
 
             # Stream strictly via yield_per(500) to keep memory footprint constant
+            stream_delay = float(os.environ.get("CSV_EXPORT_STREAM_DELAY", "0"))
             for ticket in query.limit(effective_limit).yield_per(500):
+                if stream_delay > 0:
+                    time.sleep(stream_delay)
                 writer.writerow([
                     sanitize_csv_cell(ticket.id),
                     sanitize_csv_cell(ticket.tboh_id),

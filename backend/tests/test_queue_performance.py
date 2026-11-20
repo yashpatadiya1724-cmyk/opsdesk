@@ -386,7 +386,9 @@ def test_database_migration_and_backfill():
 
         # Verify columns exist and data was backfilled
         with engine.connect() as conn:
-            cols = [r[1] for r in conn.execute(text("PRAGMA table_info(tickets)")).fetchall()]
+            import sqlalchemy as sa
+            insp = sa.inspect(conn)
+            cols = [col["name"] for col in insp.get_columns("tickets")]
             assert "effective_deadline_at" in cols
             assert "priority_weight" in cols
 
@@ -472,7 +474,8 @@ def test_stale_queue_score_refresh_over_time(client: TestClient, db_session: Ses
     assert score_t1_a > score_t1_b
 
     # Verify query ordering in SQL at T1 strictly ranks Ticket A above Ticket B
-    score_expr_t1 = get_sql_queue_score_expr(now=t1, dialect_name="sqlite")
+    dialect = db_session.get_bind().dialect.name
+    score_expr_t1 = get_sql_queue_score_expr(now=t1, dialect_name=dialect)
     ranked = (
         db_session.query(Ticket)
         .outerjoin(Agency, Ticket.agency_id == Agency.id)

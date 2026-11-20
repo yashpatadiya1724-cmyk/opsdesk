@@ -28,10 +28,20 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.close()
 
 
+def set_postgresql_utc(dbapi_connection, connection_record):
+    """
+    Forces every PostgreSQL connection session timezone to UTC.
+    Protects application datetime handling from server or database-level timezone defaults.
+    """
+    cursor = dbapi_connection.cursor()
+    cursor.execute("SET TIME ZONE 'UTC'")
+    cursor.close()
+
+
 def get_engine_options(url: str, **kwargs) -> dict:
     """
     Resolves SQLAlchemy engine options based on database URL scheme:
-    - PostgreSQL: pool_size=10, max_overflow=20, pool_pre_ping=True, pool_timeout=30.
+    - PostgreSQL: pool_size=10, max_overflow=20, pool_pre_ping=True, pool_timeout=30, options='-c timezone=UTC'.
     - SQLite: connect_args={"check_same_thread": False}, StaticPool if :memory:.
     """
     options = dict(kwargs)
@@ -40,11 +50,12 @@ def get_engine_options(url: str, **kwargs) -> dict:
         options.setdefault("max_overflow", DB_MAX_OVERFLOW)
         options.setdefault("pool_pre_ping", True)
         options.setdefault("pool_timeout", DB_POOL_TIMEOUT)
-        # Ensure SQLite-specific flags are not passed to PostgreSQL
-        if "connect_args" in options and isinstance(options["connect_args"], dict):
-            options["connect_args"] = {
-                k: v for k, v in options["connect_args"].items() if k != "check_same_thread"
-            }
+        connect_args = dict(options.get("connect_args", {}))
+        connect_args.pop("check_same_thread", None)
+        existing_options = connect_args.get("options", "")
+        if "timezone" not in existing_options:
+            connect_args["options"] = (existing_options + " -c timezone=UTC").strip()
+        options["connect_args"] = connect_args
     elif url.startswith("sqlite"):
         connect_args = dict(options.get("connect_args", {}))
         connect_args.setdefault("check_same_thread", False)
@@ -62,6 +73,8 @@ def create_db_engine(url: str = DATABASE_URL, **kwargs):
     eng = create_engine(url, **engine_kwargs)
     if url.startswith("sqlite"):
         event.listen(eng, "connect", set_sqlite_pragma)
+    elif url.startswith("postgresql"):
+        event.listen(eng, "connect", set_postgresql_utc)
     return eng
 
 

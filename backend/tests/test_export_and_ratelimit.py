@@ -301,13 +301,17 @@ def test_export_tickets_keyset_probe_five_rows_limit_two(client: TestClient, db_
 # 2. SEMAPHORE RELEASE ON CLIENT DISCONNECT / CANCELLATION TESTS
 # ============================================================================
 
-def test_export_semaphore_release_on_generator_exit(db_session: Session):
+def _run_real_server_semaphore_test(disconnect_count: int = 1):
     """
-    Real-server integration test for semaphore release on client disconnect:
-    Starts a real uvicorn server on an ephemeral port with an isolated temporary SQLite database,
-    opens /api/export/tickets.csv with httpx streaming, reads one chunk, disconnects/closes mid-stream,
-    waits <= 2s, then issues 2 concurrent export requests (CSV_EXPORT_MAX_CONCURRENCY=2)
-    to prove that both slots are completely free and not leaked.
+    Deterministic real-server integration test for semaphore release on client disconnect:
+    1. Starts a real uvicorn server on an ephemeral port with an isolated temporary SQLite DB seeded with 3000 tickets.
+    2. Performs `disconnect_count` mid-stream disconnects (opening streaming request, reading 1 chunk, closing).
+    3. Deterministically validates semaphore slots (CSV_EXPORT_MAX_CONCURRENCY=2):
+       - Opens TWO streaming requests at once, reads the first chunk of each, and keeps both connections open.
+       - Asserts both active streams return 200.
+       - A THIRD concurrent request must return 503 (service busy, proving both concurrency slots are occupied).
+       - Closes both active streams and waits <= 2s for connection teardown.
+       - Asserts a fresh export request returns 200 (proving all slots released cleanly).
     """
     import socket
     import subprocess
@@ -317,7 +321,6 @@ def test_export_semaphore_release_on_generator_exit(db_session: Session):
     import sys
     import os
     import time
-    from concurrent.futures import ThreadPoolExecutor
 
     # 1. Ephemeral port
     sock = socket.socket()
@@ -327,8 +330,8 @@ def test_export_semaphore_release_on_generator_exit(db_session: Session):
 
     # 2. Isolated temporary database
     temp_dir = tempfile.mkdtemp()
-    temp_db_path = os.path.join(temp_dir, "test_sem.db")
-    temp_db_url = f"sqlite:///{temp_db_path.replace(os.sep, '/')}"
+    temp_db_path = os.path.join(temp_dir, "test_sem.db").replace("\\", "/")
+    temp_db_url = f"sqlite:///{temp_db_path}"
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -345,21 +348,26 @@ def test_export_semaphore_release_on_generator_exit(db_session: Session):
     s.merge(Agency(id="AGY-SEM", name="Semaphore Agency", country_code="AE", tier="standard"))
     s.merge(User(id="USR-LEAD-SEM", name="Lead User", email="lead.sem@tbo.test", role="Lead", region="MEA", is_available=True, agency_id="AGY-SEM"))
     now = datetime(2026, 11, 20, 12, 0, 0, tzinfo=timezone.utc)
-    for i in range(10):
-        s.merge(Ticket(
-            id=f"TCK-SEM-{i}", tboh_id=f"TBOH-SEM-{i}", agency_id="AGY-SEM",
-            title=f"Semaphore Test {i}", description="test", priority="Medium",
+    bulk_tickets = [
+        Ticket(
+            id=f"TCK-SEM-{i:05d}", tboh_id=f"TBOH-SEM-{i:05d}", agency_id="AGY-SEM",
+            title=f"Semaphore Test Ticket {i}",
+            description="Detailed ticket description for real-server concurrency testing", priority="Medium",
             status="New", check_in_date=now + timedelta(days=2), effective_deadline_at=now + timedelta(days=2),
-            created_at=now, updated_at=now, version=1
-        ))
+            created_at=now - timedelta(seconds=i), updated_at=now, version=1
+        )
+        for i in range(15)
+    ]
+    s.bulk_save_objects(bulk_tickets)
     s.commit()
     s.close()
     eng.dispose()
 
-    # 3. Start uvicorn server
+    # 3. Start uvicorn server with controlled generator stream delay to guarantee active overlap
     env = os.environ.copy()
     env["DATABASE_URL"] = temp_db_url
     env["CSV_EXPORT_MAX_CONCURRENCY"] = "2"
+    env["CSV_EXPORT_STREAM_DELAY"] = "0.5"
     env["PYTHONPATH"] = repo_root
 
     proc = subprocess.Popen(
@@ -382,26 +390,53 @@ def test_export_semaphore_release_on_generator_exit(db_session: Session):
                 time.sleep(0.1)
         assert ready, "Server failed to become healthy within 3 seconds"
 
-        # 4. Connect with streaming, read 1 chunk, disconnect mid-stream
-        with httpx.Client(timeout=10.0) as client:
-            with client.stream("GET", url, headers={"X-User-Id": "USR-LEAD-SEM"}) as resp:
-                assert resp.status_code == 200
-                for chunk in resp.iter_bytes():
-                    assert len(chunk) > 0
-                    break
+        headers = {"X-User-Id": "USR-LEAD-SEM"}
 
-        # Wait <= 2s for server connection teardown
+        # 4. Perform mid-stream disconnect(s)
+        for _ in range(disconnect_count):
+            with httpx.Client(timeout=10.0) as client:
+                with client.stream("GET", url, headers=headers) as resp:
+                    assert resp.status_code == 200
+                    for chunk in resp.iter_bytes():
+                        assert len(chunk) > 0
+                        break
+            time.sleep(0.5)
+
+        # 5. Deterministic concurrency validation:
+        # Open TWO streaming requests at once, read the first chunk of each, and keep both open
+        c1 = httpx.Client(timeout=10.0)
+        c2 = httpx.Client(timeout=10.0)
+
+        s1 = c1.stream("GET", url, headers=headers)
+        r1 = s1.__enter__()
+        assert r1.status_code == 200
+        chunk1 = next(r1.iter_bytes())
+        assert len(chunk1) > 0
+
+        s2 = c2.stream("GET", url, headers=headers)
+        r2 = s2.__enter__()
+        assert r2.status_code == 200
+        chunk2 = next(r2.iter_bytes())
+        assert len(chunk2) > 0
+
+        # With both concurrency slots occupied, a third request must return 503
+        with httpx.Client(timeout=10.0) as c3:
+            r3 = c3.get(url, headers=headers)
+            assert r3.status_code == 503, f"Expected 503 for 3rd concurrent request, got {r3.status_code}"
+
+        # Close both active streams
+        s1.__exit__(None, None, None)
+        c1.close()
+        s2.__exit__(None, None, None)
+        c2.close()
+
+        # Wait <= 2s for connection teardown
         time.sleep(0.5)
 
-        # 5. Issue 2 concurrent export requests; both must return 200 (proving neither slot leaked)
-        def fetch_export(idx):
-            with httpx.Client(timeout=10.0) as c:
-                return c.get(f"{url}?limit=5", headers={"X-User-Id": "USR-LEAD-SEM"}).status_code
-
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            statuses = list(pool.map(fetch_export, [1, 2]))
-
-        assert statuses == [200, 200], f"Expected both slots free [200, 200], got {statuses}"
+        # Fresh request must return 200
+        with httpx.Client(timeout=10.0) as c_fresh:
+            r_fresh = c_fresh.get(f"{url}?limit=5", headers=headers)
+            assert r_fresh.status_code == 200, f"Expected 200 after releasing streams, got {r_fresh.status_code}"
 
     finally:
         proc.terminate()
@@ -410,6 +445,22 @@ def test_export_semaphore_release_on_generator_exit(db_session: Session):
         except Exception:
             proc.kill()
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_export_semaphore_release_on_generator_exit():
+    """
+    Real-server integration test for semaphore release on single client disconnect:
+    Disconnects once mid-stream, then deterministically validates concurrency limiter (CSV_EXPORT_MAX_CONCURRENCY=2).
+    """
+    _run_real_server_semaphore_test(disconnect_count=1)
+
+
+def test_export_semaphore_release_on_double_generator_exit():
+    """
+    Real-server integration test for semaphore release on double client disconnect:
+    Disconnects twice mid-stream, then deterministically validates concurrency limiter (CSV_EXPORT_MAX_CONCURRENCY=2).
+    """
+    _run_real_server_semaphore_test(disconnect_count=2)
 
 
 def test_export_semaphore_release_on_background_task_fallback(db_session: Session):

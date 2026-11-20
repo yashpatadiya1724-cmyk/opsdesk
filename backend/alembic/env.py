@@ -40,14 +40,14 @@ if context is not None:
         current_url = config.get_main_option("sqlalchemy.url")
 
         if x_url and x_url.strip():
-            config.set_main_option("sqlalchemy.url", x_url.strip())
+            config.set_main_option("sqlalchemy.url", x_url.strip().replace("%", "%%"))
         elif current_url and current_url.strip():
             # Explicitly provided URL wins
             pass
         else:
             # Fall back to DATABASE_URL when none was provided
             db_url = os.getenv("DATABASE_URL", DATABASE_URL)
-            config.set_main_option("sqlalchemy.url", db_url)
+            config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
 
 def run_migrations_offline() -> None:
