@@ -1,10 +1,10 @@
 === UPGRADE VERIFICATION SCRIPT START ===
-Timestamp: 2026-11-20T05:45:51.687221+00:00
+Timestamp: 2026-11-20T06:06:04.836177+00:00
 Merge-base commit: 7d39b66
-Temporary directory: C:\Users\yashp\AppData\Local\Temp\opsdesk_upgrade_verify_trkz9_lo
+Temporary directory: C:\Users\yashp\AppData\Local\Temp\opsdesk_upgrade_verify_603bfcxw
 
 --- STEP 1: Creating legacy database from merge-base 7d39b66 ---
-Added detached git worktree at C:\Users\yashp\AppData\Local\Temp\opsdesk_upgrade_verify_trkz9_lo\wt_legacy (commit 7d39b66)
+Added detached git worktree at C:\Users\yashp\AppData\Local\Temp\opsdesk_upgrade_verify_603bfcxw\wt_legacy (commit 7d39b66)
 Seeded legacy database via worktree (exit 0):
   Creating agencies...
   Creating users...
@@ -15,7 +15,7 @@ Removed temporary git worktree
 
 --- STEP 2: Running scripts/upgrade_legacy_db.py ---
 Upgrade script output (exit 0):
-  [*] Upgrading legacy database at: sqlite:///C:/Users/yashp/AppData/Local/Temp/opsdesk_upgrade_verify_trkz9_lo/legacy_test.db
+  [*] Upgrading legacy database at: sqlite:///C:/Users/yashp/AppData/Local/Temp/opsdesk_upgrade_verify_603bfcxw/legacy_test.db
   [*] Stamping baseline 0001_baseline_schema on legacy database...
   [*] Running alembic upgrade head...
   [+] Upgraded successfully:
@@ -76,7 +76,7 @@ GET /api/tickets?view=triage&limit=3 response:
       "priority": "Urgent",
       "status": "New",
       "hotel_timezone": "UTC",
-      "check_in_date": "2026-11-20T08:00:53.089115+00:00",
+      "check_in_date": "2026-11-20T08:21:06.142839+00:00",
       "lcd_date": null,
       "assigned_to": null,
       "routing_reason": "Unassigned pending triage routing",
@@ -87,7 +87,7 @@ GET /api/tickets?view=triage&limit=3 response:
         "hours_remaining": 2.25
       },
       "queue_score": 1800.0,
-      "created_at": "2026-11-20T05:40:53.089115+00:00"
+      "created_at": "2026-11-20T06:01:06.142839+00:00"
     },
     {
       "id": "TCK-6973",
@@ -98,7 +98,7 @@ GET /api/tickets?view=triage&limit=3 response:
       "priority": "Urgent",
       "status": "New",
       "hotel_timezone": "UTC",
-      "check_in_date": "2026-11-22T09:45:53.089115+00:00",
+      "check_in_date": "2026-11-22T10:06:06.142839+00:00",
       "lcd_date": null,
       "assigned_to": null,
       "routing_reason": "Unassigned in Triage",
@@ -109,7 +109,7 @@ GET /api/tickets?view=triage&limit=3 response:
         "hours_remaining": 52.0
       },
       "queue_score": 1000.0,
-      "created_at": "2026-11-19T14:45:53.089115+00:00"
+      "created_at": "2026-11-19T15:06:06.142839+00:00"
     },
     {
       "id": "TCK-5805",
@@ -120,8 +120,8 @@ GET /api/tickets?view=triage&limit=3 response:
       "priority": "Urgent",
       "status": "New",
       "hotel_timezone": "UTC",
-      "check_in_date": "2026-11-22T10:45:53.089115+00:00",
-      "lcd_date": "2026-11-21T10:45:53.089115+00:00",
+      "check_in_date": "2026-11-22T11:06:06.142839+00:00",
+      "lcd_date": "2026-11-21T11:06:06.142839+00:00",
       "assigned_to": null,
       "routing_reason": "Unassigned in Triage",
       "sla": {
@@ -131,7 +131,7 @@ GET /api/tickets?view=triage&limit=3 response:
         "hours_remaining": 29.0
       },
       "queue_score": 1000.0,
-      "created_at": "2026-11-19T13:45:53.089115+00:00"
+      "created_at": "2026-11-19T14:06:06.142839+00:00"
     }
   ]
 }
@@ -149,7 +149,7 @@ GET /api/tickets/TCK-1007 response:
   "priority": "Urgent",
   "status": "New",
   "hotel_timezone": "UTC",
-  "check_in_date": "2026-11-20T08:00:53.089115+00:00",
+  "check_in_date": "2026-11-20T08:21:06.142839+00:00",
   "lcd_date": null,
   "assigned_to": null,
   "routing_reason": "Unassigned pending triage routing",
@@ -165,8 +165,8 @@ GET /api/tickets/TCK-1007 response:
   "messages": [],
   "side_conversations": [],
   "version": 1,
-  "created_at": "2026-11-20T05:40:53.089115+00:00",
-  "updated_at": "2026-11-20T05:45:53.092898+00:00"
+  "created_at": "2026-11-20T06:01:06.142839+00:00",
+  "updated_at": "2026-11-20T06:06:06.158784+00:00"
 }
 
 --- STEP 5: Running python -m backend.app.manage set-password ---
@@ -174,16 +174,16 @@ set-password command output (exit 0):
   Successfully updated password for user 'Aisha Khan' (aisha.ops@tbo.test).
 
 --- STEP 6: Login with AUTH_MODE=jwt and generated 40-char JWT_SECRET ---
-Generated 40-char JWT_SECRET: 1kfsXgV8geeUZYZlTzfqeh8GbG33Yixll-ZwaiJA (len=40)
+Generated 40-char JWT_SECRET: QNMqoU1qIG1T8rGQ36Ps1DkDmI5wwIDYvt46pBo8 (len=40)
 POST /api/auth/login status: 200
 POST /api/auth/login response:
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJVU1ItMTAxIiwiZW1haWwiOiJhaXNoYS5vcHNAdGJvLnRlc3QiLCJyb2xlIjoiQWdlbnQiLCJuYW1lIjoiQWlzaGEgS2hhbiIsImV4cCI6MTc5NTE4MjM2MCwiaWF0IjoxNzk1MTUzNTYwfQ.V8y56vlVRAqNLqIN72yitRL5KuEWb_yWcA3O2R-afeY",
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJVU1ItMTAxIiwiZW1haWwiOiJhaXNoYS5vcHNAdGJvLnRlc3QiLCJyb2xlIjoiQWdlbnQiLCJuYW1lIjoiQWlzaGEgS2hhbiIsImV4cCI6MTc5NTE4MzU3MCwiaWF0IjoxNzk1MTU0NzcwfQ.DVN1Lc5VYYFtiG5UM9HetPq3PoTyxBNazGMYkCOujao",
   "token_type": "bearer",
   "expires_in": 28800
 }
 
-Received JWT access_token: eyJhbGciOiJIUzI1NiIs...A3O2R-afeY
+Received JWT access_token: eyJhbGciOiJIUzI1NiIs...GMYkCOujao
 
 --- STEP 7: Decoded JWT Token Payload ---
 Decoded raw payload: {
@@ -191,11 +191,11 @@ Decoded raw payload: {
   "email": "aisha.ops@tbo.test",
   "role": "Agent",
   "name": "Aisha Khan",
-  "exp": 1795182360,
-  "iat": 1795153560
+  "exp": 1795183570,
+  "iat": 1795154770
 }
-iat (Issued At): 1795153560 (2026-11-20T05:46:00+00:00)
-exp (Expires At): 1795182360 (2026-11-20T13:46:00+00:00)
+iat (Issued At): 1795154770 (2026-11-20T06:06:10+00:00)
+exp (Expires At): 1795183570 (2026-11-20T14:06:10+00:00)
 
 --- STEP 8: GET /api/tickets with Bearer token ---
 GET /api/tickets with Bearer token status: 200
@@ -212,7 +212,7 @@ GET /api/tickets with Bearer token response:
       "priority": "Urgent",
       "status": "New",
       "hotel_timezone": "UTC",
-      "check_in_date": "2026-11-20T08:00:53.089115+00:00",
+      "check_in_date": "2026-11-20T08:21:06.142839+00:00",
       "lcd_date": null,
       "assigned_to": null,
       "routing_reason": "Unassigned pending triage routing",
@@ -223,7 +223,7 @@ GET /api/tickets with Bearer token response:
         "hours_remaining": 2.25
       },
       "queue_score": 1800.0,
-      "created_at": "2026-11-20T05:40:53.089115+00:00"
+      "created_at": "2026-11-20T06:01:06.142839+00:00"
     },
     {
       "id": "TCK-6973",
@@ -234,7 +234,7 @@ GET /api/tickets with Bearer token response:
       "priority": "Urgent",
       "status": "New",
       "hotel_timezone": "UTC",
-      "check_in_date": "2026-11-22T09:45:53.089115+00:00",
+      "check_in_date": "2026-11-22T10:06:06.142839+00:00",
       "lcd_date": null,
       "assigned_to": null,
       "routing_reason": "Unassigned in Triage",
@@ -245,7 +245,7 @@ GET /api/tickets with Bearer token response:
         "hours_remaining": 52.0
       },
       "queue_score": 1000.0,
-      "created_at": "2026-11-19T14:45:53.089115+00:00"
+      "created_at": "2026-11-19T15:06:06.142839+00:00"
     },
     {
       "id": "TCK-5805",
@@ -256,8 +256,8 @@ GET /api/tickets with Bearer token response:
       "priority": "Urgent",
       "status": "New",
       "hotel_timezone": "UTC",
-      "check_in_date": "2026-11-22T10:45:53.089115+00:00",
-      "lcd_date": "2026-11-21T10:45:53.089115+00:00",
+      "check_in_date": "2026-11-22T11:06:06.142839+00:00",
+      "lcd_date": "2026-11-21T11:06:06.142839+00:00",
       "assigned_to": null,
       "routing_reason": "Unassigned in Triage",
       "sla": {
@@ -267,7 +267,7 @@ GET /api/tickets with Bearer token response:
         "hours_remaining": 29.0
       },
       "queue_score": 1000.0,
-      "created_at": "2026-11-19T13:45:53.089115+00:00"
+      "created_at": "2026-11-19T14:06:06.142839+00:00"
     }
   ]
 }

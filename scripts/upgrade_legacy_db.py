@@ -25,10 +25,9 @@ def upgrade_legacy_db(db_url: str) -> None:
 
     engine = create_engine(db_url)
     with engine.connect() as conn:
-        # Check if alembic_version table exists
-        has_alembic = conn.execute(
-            text("SELECT name FROM sqlite_master WHERE type='table' AND name='alembic_version'")
-        ).fetchone()
+        from sqlalchemy import inspect
+        insp = inspect(conn)
+        has_alembic = insp.has_table('alembic_version')
 
         if not has_alembic:
             print("[*] Stamping baseline 0001_baseline_schema on legacy database...")
@@ -36,6 +35,12 @@ def upgrade_legacy_db(db_url: str) -> None:
         else:
             current_rev = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
             print(f"[*] Current revision: {current_rev}")
+            if current_rev == "0002_timezone_aware_and_queue_score":
+                print("[*] Migrating legacy revision id '0002_timezone_aware_and_queue_score' to '0002_tz_aware_priority_weight'...")
+                conn.execute(
+                    text("UPDATE alembic_version SET version_num='0002_tz_aware_priority_weight' WHERE version_num='0002_timezone_aware_and_queue_score'")
+                )
+                conn.commit()
 
     print("[*] Running alembic upgrade head...")
     command.upgrade(alembic_cfg, "head")

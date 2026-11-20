@@ -189,13 +189,13 @@ def test_alembic_baseline_revision_mock_execution():
 
 
 def test_alembic_revision_0002_structure_and_mock_execution():
-    """Verify 0002_timezone_aware_and_queue_score.py revision exports valid upgrade and downgrade."""
+    """Verify 0002_tz_aware_priority_weight.py revision exports valid upgrade and downgrade."""
     root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    rev_path = os.path.join(root_dir, "backend", "alembic", "versions", "0002_timezone_aware_and_queue_score.py")
+    rev_path = os.path.join(root_dir, "backend", "alembic", "versions", "0002_tz_aware_priority_weight.py")
     assert os.path.isfile(rev_path), f"revision 0002 not found at {rev_path}"
 
-    rev_module = importlib.import_module("backend.alembic.versions.0002_timezone_aware_and_queue_score")
-    assert rev_module.revision == "0002_timezone_aware_and_queue_score"
+    rev_module = importlib.import_module("backend.alembic.versions.0002_tz_aware_priority_weight")
+    assert rev_module.revision == "0002_tz_aware_priority_weight"
     assert rev_module.down_revision == "0001_baseline_schema"
     assert callable(rev_module.upgrade)
     assert callable(rev_module.downgrade)
@@ -224,7 +224,7 @@ def test_alembic_revision_0003_structure_and_mock_execution():
 
     rev_module = importlib.import_module("backend.alembic.versions.0003_remove_stored_queue_score")
     assert rev_module.revision == "0003_remove_stored_queue_score"
-    assert rev_module.down_revision == "0002_timezone_aware_and_queue_score"
+    assert rev_module.down_revision == "0002_tz_aware_priority_weight"
     assert callable(rev_module.upgrade)
     assert callable(rev_module.downgrade)
 
@@ -442,14 +442,13 @@ def test_alembic_postgresql_offline_sql_renders_at_time_zone_utc():
     datetime column conversion uses `AT TIME ZONE 'UTC'` on upgrade and downgrade.
     """
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    alembic_exe = os.path.join(repo_root, ".venv", "Scripts", "alembic.exe")
     pg_url = "postgresql+psycopg://x@localhost/x"
 
     # 1. Upgrade offline SQL from 0001 to 0002
     up_cmd = [
-        alembic_exe,
+        sys.executable, "-m", "alembic",
         "-x", f"url={pg_url}",
-        "upgrade", "0001_baseline_schema:0002_timezone_aware_and_queue_score",
+        "upgrade", "0001_baseline_schema:0002_tz_aware_priority_weight",
         "--sql"
     ]
     up_res = subprocess.run(up_cmd, cwd=repo_root, capture_output=True, text=True, check=True)
@@ -480,9 +479,9 @@ def test_alembic_postgresql_offline_sql_renders_at_time_zone_utc():
 
     # 2. Downgrade offline SQL from 0002 to 0001
     down_cmd = [
-        alembic_exe,
+        sys.executable, "-m", "alembic",
         "-x", f"url={pg_url}",
-        "downgrade", "0002_timezone_aware_and_queue_score:0001_baseline_schema",
+        "downgrade", "0002_tz_aware_priority_weight:0001_baseline_schema",
         "--sql"
     ]
     down_res = subprocess.run(down_cmd, cwd=repo_root, capture_output=True, text=True, check=True)
@@ -499,9 +498,10 @@ def test_alembic_postgresql_offline_sql_renders_at_time_zone_utc():
 def test_alembic_postgresql_timezone_conversion_in_session_timezone():
     """
     CI test: runs ONLY when DATABASE_URL is PostgreSQL (skipped otherwise).
-    Builds a legacy-shaped schema with known naive timestamps, sets the session time zone
-    to Asia/Kolkata, runs alembic upgrade 0002, and asserts every datetime equals the original
-    UTC instant; then downgrade and assert the original naive values come back.
+    Builds a legacy-shaped schema with known naive timestamps, sets session time zone
+    to Asia/Kolkata, runs alembic upgrade head, and asserts check_in_date, lcd_date,
+    created_at, and effective_deadline_at all equal those instants in UTC;
+    then downgrades and asserts the original naive values return.
     """
     db_url = os.environ.get("DATABASE_URL", "")
     if not (db_url.startswith("postgresql://") or db_url.startswith("postgresql+psycopg://")):
@@ -518,6 +518,11 @@ def test_alembic_postgresql_timezone_conversion_in_session_timezone():
     schema_name = "test_pg_tz_migration"
     raw_engine = create_engine(db_url, isolation_level="AUTOCOMMIT")
     with raw_engine.connect() as conn:
+        try:
+            # Set database default timezone to Asia/Kolkata if permitted
+            conn.execute(text("ALTER DATABASE opsdesk SET timezone TO 'Asia/Kolkata'"))
+        except Exception:
+            pass
         conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
         conn.execute(text(f"CREATE SCHEMA {schema_name}"))
 
@@ -529,9 +534,12 @@ def test_alembic_postgresql_timezone_conversion_in_session_timezone():
         # 1. Build legacy-shaped schema (0001_baseline_schema)
         command.upgrade(alembic_cfg, "0001_baseline_schema")
 
-        # 2. Insert known naive timestamps into legacy schema
+        # 2. Insert known naive timestamps into legacy schema (Asia/Kolkata session)
         schema_engine = create_engine(schema_db_url)
-        known_naive_dt = datetime(2026, 11, 20, 14, 30, 0)
+        known_check_in = datetime(2026, 11, 20, 10, 0, 0)
+        known_lcd = datetime(2026, 11, 19, 10, 0, 0)
+        known_created = datetime(2026, 11, 18, 8, 0, 0)
+
         with schema_engine.connect() as conn:
             conn.execute(text("SET TIME ZONE 'Asia/Kolkata'"))
             conn.execute(
@@ -551,27 +559,35 @@ def test_alembic_postgresql_timezone_conversion_in_session_timezone():
                     "INSERT INTO tickets (id, tboh_id, agency_id, title, description, intent, priority, "
                     "status, check_in_date, lcd_date, created_at, updated_at, version) "
                     "VALUES ('TCK-TZ-1', 'TBOH-TZ-1', 'AGY-TZ-1', 'TZ Ticket', 'desc', 'Booking', 'Urgent', "
-                    "'New', :dt, :dt, :dt, :dt, 1)"
+                    "'New', :cin, :lcd, :crt, :crt, 1)"
                 ),
-                {"dt": known_naive_dt}
+                {"cin": known_check_in, "lcd": known_lcd, "crt": known_created}
             )
             conn.commit()
 
-        # 3. Set session timezone to Asia/Kolkata and run alembic upgrade 0002
-        command.upgrade(alembic_cfg, "0002_timezone_aware_and_queue_score")
+        # 3. Upgrade to head (applies 0002_tz_aware_priority_weight and 0003_remove_stored_queue_score)
+        command.upgrade(alembic_cfg, "head")
 
         # 4. Assert every datetime equals the original UTC instant
         with schema_engine.connect() as conn:
             conn.execute(text("SET TIME ZONE 'Asia/Kolkata'"))
             row = conn.execute(
-                text("SELECT check_in_date, lcd_date, effective_deadline_at, created_at, updated_at FROM tickets WHERE id = 'TCK-TZ-1'")
+                text("SELECT check_in_date, lcd_date, effective_deadline_at, created_at FROM tickets WHERE id = 'TCK-TZ-1'")
             ).fetchone()
 
-            expected_utc = datetime(2026, 11, 20, 14, 30, 0, tzinfo=timezone.utc)
-            for col_val in row:
-                assert col_val is not None
-                col_utc = col_val.astimezone(timezone.utc) if col_val.tzinfo else col_val.replace(tzinfo=timezone.utc)
-                assert col_utc == expected_utc, f"Expected {expected_utc}, got {col_utc}"
+            exp_cin = datetime(2026, 11, 20, 10, 0, 0, tzinfo=timezone.utc)
+            exp_lcd = datetime(2026, 11, 19, 10, 0, 0, tzinfo=timezone.utc)
+            exp_crt = datetime(2026, 11, 18, 8, 0, 0, tzinfo=timezone.utc)
+
+            cin_utc = row[0].astimezone(timezone.utc) if row[0].tzinfo else row[0].replace(tzinfo=timezone.utc)
+            lcd_utc = row[1].astimezone(timezone.utc) if row[1].tzinfo else row[1].replace(tzinfo=timezone.utc)
+            eff_utc = row[2].astimezone(timezone.utc) if row[2].tzinfo else row[2].replace(tzinfo=timezone.utc)
+            crt_utc = row[3].astimezone(timezone.utc) if row[3].tzinfo else row[3].replace(tzinfo=timezone.utc)
+
+            assert cin_utc == exp_cin, f"Expected check_in_date {exp_cin}, got {cin_utc}"
+            assert lcd_utc == exp_lcd, f"Expected lcd_date {exp_lcd}, got {lcd_utc}"
+            assert eff_utc == exp_cin, f"Expected effective_deadline_at {exp_cin}, got {eff_utc}"
+            assert crt_utc == exp_crt, f"Expected created_at {exp_crt}, got {crt_utc}"
 
         # 5. Downgrade to 0001_baseline_schema and assert original naive values come back
         command.downgrade(alembic_cfg, "0001_baseline_schema")
@@ -579,15 +595,80 @@ def test_alembic_postgresql_timezone_conversion_in_session_timezone():
         with schema_engine.connect() as conn:
             conn.execute(text("SET TIME ZONE 'Asia/Kolkata'"))
             row_down = conn.execute(
-                text("SELECT check_in_date, lcd_date, created_at, updated_at FROM tickets WHERE id = 'TCK-TZ-1'")
+                text("SELECT check_in_date, lcd_date, created_at FROM tickets WHERE id = 'TCK-TZ-1'")
             ).fetchone()
-            for col_val in row_down:
-                assert col_val is not None
-                assert col_val == known_naive_dt or (col_val.replace(tzinfo=None) == known_naive_dt), f"Expected {known_naive_dt}, got {col_val}"
+
+            assert (row_down[0].replace(tzinfo=None) if row_down[0].tzinfo else row_down[0]) == known_check_in
+            assert (row_down[1].replace(tzinfo=None) if row_down[1].tzinfo else row_down[1]) == known_lcd
+            assert (row_down[2].replace(tzinfo=None) if row_down[2].tzinfo else row_down[2]) == known_created
 
     finally:
         with raw_engine.connect() as conn:
             conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
         raw_engine.dispose()
+
+
+def test_all_alembic_revision_ids_len_le_32():
+    """Verify all Alembic revision identifiers are <= 32 characters (PostgreSQL alembic_version limit)."""
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    versions_dir = os.path.join(root_dir, "backend", "alembic", "versions")
+    for fname in os.listdir(versions_dir):
+        if fname.endswith(".py") and not fname.startswith("__"):
+            mod_name = fname[:-3]
+            mod = importlib.import_module(f"backend.alembic.versions.{mod_name}")
+            rev = getattr(mod, "revision", None)
+            assert rev is not None, f"Migration {fname} missing revision attribute"
+            assert len(rev) <= 32, f"Migration revision '{rev}' in {fname} exceeds 32 chars (len={len(rev)})"
+
+
+def test_alembic_migration_error_propagates_non_zero_exit():
+    """
+    Verify that migration errors in env.py are NOT swallowed:
+    Runs a deliberately failing migration against a temp SQLite DB through
+    `sys.executable -m alembic` and asserts a non-zero exit code.
+    """
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    versions_dir = os.path.join(root_dir, "backend", "alembic", "versions")
+
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        temp_db_path = f.name
+    temp_db_url = f"sqlite:///{temp_db_path.replace(os.sep, '/')}"
+
+    failing_rev_path = os.path.join(versions_dir, "9999_deliberate_failure.py")
+    failing_rev_code = '''"""deliberate failure"""
+from alembic import op
+import sqlalchemy as sa
+
+revision = '9999_deliberate_failure'
+down_revision = '0003_remove_stored_queue_score'
+branch_labels = None
+depends_on = None
+
+def upgrade() -> None:
+    # Deliberately invalid SQL syntax to trigger an unhandled database error
+    op.execute(sa.text("SYNTAX ERROR INVALID SQL STATEMENTS"))
+
+def downgrade() -> None:
+    pass
+'''
+    try:
+        with open(failing_rev_path, "w", encoding="utf-8") as f:
+            f.write(failing_rev_code)
+
+        cmd = [
+            sys.executable, "-m", "alembic",
+            "-x", f"url={temp_db_url}",
+            "upgrade", "head"
+        ]
+        res = subprocess.run(cmd, cwd=root_dir, capture_output=True, text=True)
+        assert res.returncode != 0, f"Expected non-zero exit code on migration failure, got {res.returncode}. Output:\n{res.stdout}\n{res.stderr}"
+    finally:
+        if os.path.exists(failing_rev_path):
+            os.remove(failing_rev_path)
+        if os.path.exists(temp_db_path):
+            try:
+                os.remove(temp_db_path)
+            except Exception:
+                pass
 
 

@@ -1,7 +1,7 @@
 """remove stored queue score
 
 Revision ID: 0003_remove_stored_queue_score
-Revises: 0002_timezone_aware_and_queue_score
+Revises: 0002_tz_aware_priority_weight
 Create Date: 2026-11-20
 
 """
@@ -15,7 +15,7 @@ except ImportError:
 
 # revision identifiers, used by Alembic.
 revision: str = '0003_remove_stored_queue_score'
-down_revision: Union[str, None] = '0002_timezone_aware_and_queue_score'
+down_revision: Union[str, None] = '0002_tz_aware_priority_weight'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

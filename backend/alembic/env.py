@@ -87,11 +87,8 @@ def run_migrations_online() -> None:
             context.run_migrations()
 
 
-if context is not None and config is not None:
-    try:
-        if context.is_offline_mode():
-            run_migrations_offline()
-        else:
-            run_migrations_online()
-    except (AttributeError, Exception):
-        pass
+if context is not None:
+    if context.is_offline_mode():
+        run_migrations_offline()
+    else:
+        run_migrations_online()

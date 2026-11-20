@@ -91,6 +91,8 @@ alembic upgrade head
 ```
 This backfills `priority_weight` from `priority` (Urgent: 1000, High: 500, Medium: 200, Low: 50), backfills `effective_deadline_at` from `check_in_date`, defaults `hotel_timezone` to UTC, and adds `hashed_password` to `users`.
 
+*Note on Stamped Dev Databases:* If a database was previously stamped with the deprecated 35-character revision identifier, fix it by executing `UPDATE alembic_version SET version_num='0002_tz_aware_priority_weight' WHERE version_num='0002_timezone_aware_and_queue_score';` (which is also handled automatically when running `scripts/upgrade_legacy_db.py`).
+
 *Note for `AUTH_MODE=jwt` on Upgraded Databases:* Users in pre-hardening databases lack password hashes. Before logging in via JWT, administrators must set passwords for existing accounts using `python -m backend.app.manage set-password --email <email>`.
 
 *Automated Verification:* The complete unattended legacy database upgrade from merge-base `7d39b66`, schema PRAGMA inspection, TestClient API calls, password management, and JWT token authentication are verified via `python scripts/verify_upgrade.py` (transcript recorded at [`docs/verification/upgrade_transcript.txt`](docs/verification/upgrade_transcript.txt)).
@@ -145,7 +147,7 @@ Open Browser: `http://localhost:3000`
 
 All testing suites run against isolated test databases without modifying the development database.
 
-> **Performance Note (Windows Defender):** On Windows, real-time filesystem scanning by Windows Defender / Antivirus can significantly slow down SQLite database operations and Python test execution. For optimal test suite speed, add the repository folder (`C:\Users\yashp\projects\opsdesk`) and virtual environment (`.venv`) to Windows Defender folder exclusions.
+> **Performance Note (Windows Defender):** On Windows, real-time filesystem scanning by Windows Defender / Antivirus can significantly slow down SQLite database operations and Python test execution. For optimal test suite speed, add the repository root folder and virtual environment (`.venv`) to Windows Defender folder exclusions.
 >
 > By default, `pytest` runs in fast mode excluding tests marked `slow` (`pytest -m "not slow"` configured in `pytest.ini`). To execute the complete test suite including heavy concurrency and large streaming tests, run `pytest -m "slow or not slow"`.
 

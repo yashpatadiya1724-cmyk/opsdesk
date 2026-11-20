@@ -39,7 +39,7 @@ def upgrade() -> None:
         sa.Column('email', sa.String(length=200), nullable=False),
         sa.Column('role', sa.String(length=50), nullable=False),
         sa.Column('region', sa.String(length=50), nullable=False),
-        sa.Column('is_available', sa.Boolean(), server_default=sa.text('1'), nullable=True),
+        sa.Column('is_available', sa.Boolean(), server_default=sa.true(), nullable=True),
         sa.Column('agency_id', sa.String(length=50), nullable=True),
         sa.ForeignKeyConstraint(['agency_id'], ['agencies.id'], ondelete='SET NULL'),
         sa.PrimaryKeyConstraint('id'),

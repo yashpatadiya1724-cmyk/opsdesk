@@ -1,6 +1,6 @@
-"""timezone aware and queue score
+"""tz aware priority weight
 
-Revision ID: 0002_timezone_aware_and_queue_score
+Revision ID: 0002_tz_aware_priority_weight
 Revises: 0001_baseline_schema
 Create Date: 2026-11-19
 
@@ -14,7 +14,7 @@ except ImportError:
     op = None
 
 # revision identifiers, used by Alembic.
-revision: str = '0002_timezone_aware_and_queue_score'
+revision: str = '0002_tz_aware_priority_weight'
 down_revision: Union[str, None] = '0001_baseline_schema'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

@@ -69,6 +69,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Verify PostgreSQL Alembic Migrations on Empty Database
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: postgresql+psycopg://opsdesk:opsdesk_password@localhost:5432/opsdesk
+        run: |
+          python -m alembic upgrade head
+          python -m alembic downgrade base
+          python -m alembic upgrade head
+          python -m alembic check
+
       - name: Run Pytest Suite with PostgreSQL
         env:
           PYTHONPATH: .

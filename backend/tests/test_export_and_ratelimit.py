@@ -303,31 +303,113 @@ def test_export_tickets_keyset_probe_five_rows_limit_two(client: TestClient, db_
 
 def test_export_semaphore_release_on_generator_exit(db_session: Session):
     """
-    Simulates client disconnect / cancellation mid-stream by closing the async
-    body generator, and verifies semaphore is fully restored.
+    Real-server integration test for semaphore release on client disconnect:
+    Starts a real uvicorn server on an ephemeral port with an isolated temporary SQLite database,
+    opens /api/export/tickets.csv with httpx streaming, reads one chunk, disconnects/closes mid-stream,
+    waits <= 2s, then issues 2 concurrent export requests (CSV_EXPORT_MAX_CONCURRENCY=2)
+    to prove that both slots are completely free and not leaked.
     """
-    import anyio
-    initial_val = main_module._export_semaphore._value
-    lead_user = db_session.query(User).filter(User.role == "Lead").first()
+    import socket
+    import subprocess
+    import tempfile
+    import shutil
+    import httpx
+    import sys
+    import os
+    import time
+    from concurrent.futures import ThreadPoolExecutor
 
-    # Call endpoint directly to obtain StreamingResponse
-    streaming_resp = main_module.export_tickets_csv(
-        status=None, agency_id=None, from_date=None, to_date=None,
-        cursor=None, limit=10, current_user=lead_user, db=db_session
+    # 1. Ephemeral port
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+
+    # 2. Isolated temporary database
+    temp_dir = tempfile.mkdtemp()
+    temp_db_path = os.path.join(temp_dir, "test_sem.db")
+    temp_db_url = f"sqlite:///{temp_db_path.replace(os.sep, '/')}"
+
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+    from sqlalchemy import create_engine
+    from backend.app.database import ensure_schema_migrations
+    from backend.app.models import Ticket, User, Agency
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy.orm import sessionmaker
+
+    eng = create_engine(temp_db_url)
+    ensure_schema_migrations(eng)
+    SessionMaker = sessionmaker(bind=eng)
+    s = SessionMaker()
+    s.merge(Agency(id="AGY-SEM", name="Semaphore Agency", country_code="AE", tier="standard"))
+    s.merge(User(id="USR-LEAD-SEM", name="Lead User", email="lead.sem@tbo.test", role="Lead", region="MEA", is_available=True, agency_id="AGY-SEM"))
+    now = datetime(2026, 11, 20, 12, 0, 0, tzinfo=timezone.utc)
+    for i in range(10):
+        s.merge(Ticket(
+            id=f"TCK-SEM-{i}", tboh_id=f"TBOH-SEM-{i}", agency_id="AGY-SEM",
+            title=f"Semaphore Test {i}", description="test", priority="Medium",
+            status="New", check_in_date=now + timedelta(days=2), effective_deadline_at=now + timedelta(days=2),
+            created_at=now, updated_at=now, version=1
+        ))
+    s.commit()
+    s.close()
+    eng.dispose()
+
+    # 3. Start uvicorn server
+    env = os.environ.copy()
+    env["DATABASE_URL"] = temp_db_url
+    env["CSV_EXPORT_MAX_CONCURRENCY"] = "2"
+    env["PYTHONPATH"] = repo_root
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "backend.app.main:app", "--port", str(port), "--host", "127.0.0.1", "--log-level", "warning"],
+        env=env,
+        cwd=repo_root
     )
-    # Semaphore was acquired
-    assert main_module._export_semaphore._value == initial_val - 1
 
-    # Simulate client disconnect mid-stream by consuming a chunk and closing
-    async def run_disconnect():
-        chunk = await streaming_resp.body_iterator.asend(None)
-        assert len(chunk) > 0
-        await streaming_resp.body_iterator.aclose()
+    try:
+        url = f"http://127.0.0.1:{port}/api/export/tickets.csv"
+        health_url = f"http://127.0.0.1:{port}/health"
+        ready = False
+        for _ in range(30):
+            try:
+                res = httpx.get(health_url, timeout=1.0)
+                if res.status_code == 200:
+                    ready = True
+                    break
+            except Exception:
+                time.sleep(0.1)
+        assert ready, "Server failed to become healthy within 3 seconds"
 
-    anyio.run(run_disconnect)
+        # 4. Connect with streaming, read 1 chunk, disconnect mid-stream
+        with httpx.Client(timeout=10.0) as client:
+            with client.stream("GET", url, headers={"X-User-Id": "USR-LEAD-SEM"}) as resp:
+                assert resp.status_code == 200
+                for chunk in resp.iter_bytes():
+                    assert len(chunk) > 0
+                    break
 
-    # Semaphore must be restored
-    assert main_module._export_semaphore._value == initial_val
+        # Wait <= 2s for server connection teardown
+        time.sleep(0.5)
+
+        # 5. Issue 2 concurrent export requests; both must return 200 (proving neither slot leaked)
+        def fetch_export(idx):
+            with httpx.Client(timeout=10.0) as c:
+                return c.get(f"{url}?limit=5", headers={"X-User-Id": "USR-LEAD-SEM"}).status_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            statuses = list(pool.map(fetch_export, [1, 2]))
+
+        assert statuses == [200, 200], f"Expected both slots free [200, 200], got {statuses}"
+
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=3)
+        except Exception:
+            proc.kill()
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def test_export_semaphore_release_on_background_task_fallback(db_session: Session):

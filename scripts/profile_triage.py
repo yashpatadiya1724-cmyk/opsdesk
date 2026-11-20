@@ -17,7 +17,9 @@ def profile_triage():
     # Setup temp DB copy of dev database
     temp_dir = tempfile.mkdtemp()
     temp_db_path = f"{temp_dir}/temp_profile.db"
-    shutil.copyfile("C:/Users/yashp/projects/opsdesk/opsdesk.db", temp_db_path)
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    dev_db = os.path.join(repo_root, "opsdesk.db")
+    shutil.copyfile(dev_db, temp_db_path)
 
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
