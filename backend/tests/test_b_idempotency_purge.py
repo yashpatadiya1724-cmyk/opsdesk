@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -20,7 +20,7 @@ def test_idempotency_ttl_lazy_and_startup_purge(client: TestClient, db_session: 
     # Set TTL to 1 hour
     monkeypatch.setattr(main_module, "IDEMPOTENCY_TTL_HOURS", 1)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     old_time = now - timedelta(hours=2)
 
     # 1. Insert an expired idempotency record

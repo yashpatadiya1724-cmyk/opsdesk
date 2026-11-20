@@ -17,7 +17,7 @@ import sqlite3
 import tempfile
 import threading
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor
 
 try:
@@ -96,7 +96,7 @@ class BenchmarkRunner:
             nonlocal locked_errors
             async with sem:
                 async with httpx.AsyncClient(base_url=self.base_url, timeout=30.0) as client:
-                    now = datetime.utcnow()
+                    now = datetime.now(timezone.utc)
                     payload = {
                         "agency_id": "AGY-001",
                         "tboh_id": f"TBOH-LOAD-{idx}",

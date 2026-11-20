@@ -34,7 +34,7 @@ def temp_db():
         description="Testing outbox worker dispatch",
         priority="Medium",
         status="New",
-        check_in_date=datetime.utcnow(),
+        check_in_date=datetime.now(timezone.utc),
         agency_id="ag_demo_1"
     )
     session.add(ticket)

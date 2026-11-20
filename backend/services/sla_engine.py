@@ -1,6 +1,14 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from backend.config.sla_config import SLA_THRESHOLDS, SLA_COLORS
+
+def to_utc_aware(dt: Optional[datetime]) -> Optional[datetime]:
+    """Helper to ensure a datetime is timezone-aware in UTC for safe comparisons and calculations."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 def effective_deadline_hours(
     check_in_date: datetime,
@@ -18,11 +26,21 @@ def effective_deadline_hours(
         Date Amendment, Bedding / Room Preference):
         cancellation deadlines are inapplicable; effective urgency is strictly check_in_hours.
     """
-    hours_to_checkin = (check_in_date - now).total_seconds() / 3600.0
+    now_aware = to_utc_aware(now)
     cancellation_intents = {"Refund Request", "Cancellation Inconvenience", "Unclassified", None}
+
+    if check_in_date is None:
+        if intent in cancellation_intents and lcd_date is not None:
+            lcd_aware = to_utc_aware(lcd_date)
+            return (lcd_aware - now_aware).total_seconds() / 3600.0
+        return float("inf")
+
+    cid_aware = to_utc_aware(check_in_date)
+    hours_to_checkin = (cid_aware - now_aware).total_seconds() / 3600.0
     
     if intent in cancellation_intents and lcd_date is not None:
-        hours_to_lcd = (lcd_date - now).total_seconds() / 3600.0
+        lcd_aware = to_utc_aware(lcd_date)
+        hours_to_lcd = (lcd_aware - now_aware).total_seconds() / 3600.0
         return min(hours_to_checkin, hours_to_lcd)
     return hours_to_checkin
 
@@ -58,7 +76,7 @@ def evaluate_travel_sla(
         }
 
     if now is None:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
     effective_hours = effective_deadline_hours(
         check_in_date=check_in_date,

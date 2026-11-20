@@ -1,6 +1,10 @@
 import os
 import sys
-sys.path.insert(0, "C:/Users/yashp/projects/opsdesk-wt-l")
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
 import time
 import shutil
 import tempfile
@@ -10,9 +14,8 @@ TEMP_DIR = tempfile.mkdtemp()
 DB_BASELINE = os.path.join(TEMP_DIR, "baseline.db")
 DB_BASE = os.path.join(TEMP_DIR, "base.db")
 
-ORIGINAL_DB = "C:/Users/yashp/projects/opsdesk/opsdesk.db"
-PYTHON_EXE = "C:/Users/yashp/projects/opsdesk/.venv/Scripts/python.exe"
-UVICORN_EXE = "C:/Users/yashp/projects/opsdesk/.venv/Scripts/uvicorn.exe"
+ORIGINAL_DB = os.path.join(REPO_ROOT, "opsdesk.db")
+PYTHON_EXE = sys.executable
 
 print(f"Creating temp database copies in {TEMP_DIR}...")
 shutil.copyfile(ORIGINAL_DB, DB_BASELINE)
@@ -24,30 +27,30 @@ from backend.app.database import ensure_schema_migrations
 ensure_schema_migrations(create_engine(f"sqlite:///{DB_BASELINE}"))
 ensure_schema_migrations(create_engine(f"sqlite:///{DB_BASE}"))
 
-# 1. Start Baseline Server (from opsdesk-wt-m3) on port 8121
+# 1. Start Baseline Server (from REPO_ROOT) on port 8121
 env_baseline = os.environ.copy()
 env_baseline["DATABASE_URL"] = f"sqlite:///{DB_BASELINE}"
-env_baseline["PYTHONPATH"] = "C:/Users/yashp/projects/opsdesk-wt-m3"
+env_baseline["PYTHONPATH"] = REPO_ROOT
 
 log_baseline = open(os.path.join(TEMP_DIR, "baseline.log"), "w")
 log_base = open(os.path.join(TEMP_DIR, "base.log"), "w")
 
 proc_baseline = subprocess.Popen(
     [PYTHON_EXE, "-m", "uvicorn", "backend.app.main:app", "--port", "8121", "--host", "127.0.0.1"],
-    cwd="C:/Users/yashp/projects/opsdesk-wt-m3",
+    cwd=REPO_ROOT,
     env=env_baseline,
     stdout=log_baseline,
     stderr=log_baseline
 )
 
-# 2. Start BASE Server (from opsdesk-wt-m4) on port 8122
+# 2. Start BASE Server on port 8122
 env_base = os.environ.copy()
 env_base["DATABASE_URL"] = f"sqlite:///{DB_BASE}"
-env_base["PYTHONPATH"] = "C:/Users/yashp/projects/opsdesk-wt-m4"
+env_base["PYTHONPATH"] = REPO_ROOT
 
 proc_base = subprocess.Popen(
     [PYTHON_EXE, "-m", "uvicorn", "backend.app.main:app", "--port", "8122", "--host", "127.0.0.1"],
-    cwd="C:/Users/yashp/projects/opsdesk-wt-m4",
+    cwd=REPO_ROOT,
     env=env_base,
     stdout=log_base,
     stderr=log_base
@@ -58,7 +61,7 @@ time.sleep(3)
 
 try:
     print("\n" + "#" * 80)
-    print("RUNNING BENCHMARK AGAINST BASELINE (origin/feat/m3-docs, Port 8121)")
+    print("RUNNING BENCHMARK AGAINST BASELINE (Port 8121)")
     print("#" * 80)
     cmd_baseline = [
         PYTHON_EXE, "scripts/loadtest.py",
@@ -66,10 +69,10 @@ try:
         "--repeat", "5",
         "--db-path", DB_BASELINE
     ]
-    subprocess.run(cmd_baseline, cwd="C:/Users/yashp/projects/opsdesk-wt-l", check=True)
+    subprocess.run(cmd_baseline, cwd=REPO_ROOT, check=True)
 
     print("\n" + "#" * 80)
-    print("RUNNING BENCHMARK AGAINST BASE (origin/feat/m4-load-hardening, Port 8122)")
+    print("RUNNING BENCHMARK AGAINST BASE (Port 8122)")
     print("#" * 80)
     cmd_base = [
         PYTHON_EXE, "scripts/loadtest.py",
@@ -77,7 +80,7 @@ try:
         "--repeat", "5",
         "--db-path", DB_BASE
     ]
-    subprocess.run(cmd_base, cwd="C:/Users/yashp/projects/opsdesk-wt-l", check=True)
+    subprocess.run(cmd_base, cwd=REPO_ROOT, check=True)
 
 finally:
     print("\nTerminating test servers...")

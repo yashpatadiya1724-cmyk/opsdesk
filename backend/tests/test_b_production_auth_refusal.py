@@ -10,6 +10,7 @@ def test_production_auth_refusal_when_demo_auth_not_allowed(monkeypatch):
     """
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("ALLOW_DEMO_AUTH", "false")
+    monkeypatch.setenv("BCRYPT_ROUNDS", "12")
 
     with pytest.raises(RuntimeError) as exc_info:
         validate_production_auth_settings()
@@ -25,6 +26,7 @@ def test_production_auth_allowed_with_explicit_override_and_warning(monkeypatch,
     """
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("ALLOW_DEMO_AUTH", "true")
+    monkeypatch.setenv("BCRYPT_ROUNDS", "12")
 
     with caplog.at_level(logging.WARNING):
         validate_production_auth_settings()

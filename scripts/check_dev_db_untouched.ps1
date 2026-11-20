@@ -19,7 +19,7 @@ Write-Host "Initial MTime (UTC): $initialMTime"
 Write-Host "============================================================"
 
 Write-Host "`nRunning Pytest Suite against isolated test database...`n"
-& .\.venv\Scripts\pytest -v
+python -m pytest -v
 $pytestExitCode = $LASTEXITCODE
 
 $postHash = (Get-FileHash -Path $dbPath -Algorithm SHA256).Hash

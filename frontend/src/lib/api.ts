@@ -6,12 +6,31 @@ async function request<T>(path: string, options: RequestInit = {}, userId: strin
   const url = `${API_BASE}${path}`;
   const headers = new Headers(options.headers || {});
   headers.set("X-User-Id", userId);
+
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("opsdesk_token");
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
   if (!headers.has("Content-Type") && options.body && typeof options.body === "string") {
     headers.set("Content-Type", "application/json");
   }
 
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== "undefined") {
+      const token = localStorage.getItem("opsdesk_token");
+      const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || (token ? "jwt" : "demo");
+      if (authMode === "jwt" || token) {
+        localStorage.removeItem("opsdesk_token");
+        if (window.location && window.location.pathname !== "/login") {
+          const redirectPath = `/login?from=${encodeURIComponent(window.location.pathname + (window.location.search || ""))}`;
+          window.location.href = redirectPath;
+        }
+      }
+    }
     let errorDetail = `HTTP ${res.status}`;
     try {
       const errJson = await res.json();
@@ -154,3 +173,26 @@ export async function fetchInsightsThemes(days: number = 7, userId: string = "US
 export function getExportUrl(): string {
   return `${API_BASE}/api/export/tickets.csv`;
 }
+
+export async function loginUser(
+  email: string,
+  password: string
+): Promise<{ access_token: string; token_type: string; expires_in?: number; user?: { id: string; name: string; role: string; email: string } }> {
+  const data = await request<{
+    access_token: string;
+    token_type: string;
+    expires_in?: number;
+    user?: { id: string; name: string; role: string; email: string };
+  }>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  if (typeof window !== "undefined" && data?.access_token) {
+    localStorage.setItem("opsdesk_token", data.access_token);
+    if (data.user?.id) {
+      localStorage.setItem("opsdesk_user_id", data.user.id);
+    }
+  }
+  return data;
+}
+

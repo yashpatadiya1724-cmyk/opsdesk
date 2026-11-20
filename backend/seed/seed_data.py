@@ -1,7 +1,7 @@
 import os
 import sys
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Ensure repo root is on sys.path when script is invoked directly
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -36,7 +36,8 @@ from backend.app.models import (
     SideConversation, SideConversationRecipient, SideConversationMessage,
     TicketTheme, AuditLog
 )
-from backend.services.routing_engine import CandidateAgent, select_agent_tier1
+from backend.app.auth import hash_password, is_production
+from backend.services.routing_engine import CandidateAgent, select_agent_tier1, compute_ticket_urgency_fields
 
 # Rule-based theme mapping based on ticket intent
 THEME_MAPPINGS = {
@@ -52,12 +53,17 @@ THEME_MAPPINGS = {
 def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop_existing: bool = False):
     """
     Seeds the database with deterministic fixtures and 5,000 synthetic records.
+    - Refuses execution with demo passwords when APP_ENV=production.
     - All historical tickets (past check-in) are strictly marked 'Closed' or 'Resolved' (SLA STOPPED).
     - All active tickets (New/Open/Pending/Escalated) strictly have future check-in and LCD dates.
     - Escalated tickets are assigned strictly to Escalation Manager USR-103 (Vikram Malhotra).
     - Standard assigned queue tickets are strictly restricted to Tier-1 desk agents: USR-101 and USR-102.
     - Workload and assignments for Journey fixtures are dynamically computed via select_agent_tier1.
     """
+    if is_production():
+        raise RuntimeError(
+            "Startup refused: Seeding database with default demo passwords is strictly prohibited in production (APP_ENV=production)."
+        )
     target_bind = engine_bind if engine_bind is not None else db.get_bind()
     fake = Faker()
     Faker.seed(42)
@@ -70,30 +76,32 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
 
     print("Creating agencies...")
     agencies = [
-        Agency(id="AGY-001", name="Demo Agency A (fictional)", country_code="AE", tier="Premium"),
-        Agency(id="AGY-002", name="Demo Agency B (fictional)", country_code="IN", tier="Standard"),
-        Agency(id="AGY-003", name="Aethelgard Holidays", country_code="UK", tier="Premium")
+        Agency(id="AGY-001", name="Demo Agency A (fictional)", country_code="AE", tier="platinum"),
+        Agency(id="AGY-002", name="Demo Agency B (fictional)", country_code="IN", tier="gold"),
+        Agency(id="AGY-003", name="Aethelgard Holidays", country_code="UK", tier="standard")
     ]
     db.add_all(agencies)
     db.commit()
+    agency_tier_map = {a.id: a.tier for a in agencies}
 
     print("Creating users...")
+    demo_hashed_password = hash_password("demo123")
     users = [
         # Internal Operations Staff (Tier-1 Desk Agents: USR-101, USR-102)
-        User(id="USR-101", name="Aisha Khan", email="aisha.ops@tbo.test", role="Agent", region="MEA", is_available=True),
-        User(id="USR-102", name="Rahul Verma", email="rahul.ops@tbo.test", role="Agent", region="MEA", is_available=True),
+        User(id="USR-101", name="Aisha Khan", email="aisha.ops@tbo.test", role="Agent", region="MEA", is_available=True, hashed_password=demo_hashed_password),
+        User(id="USR-102", name="Rahul Verma", email="rahul.ops@tbo.test", role="Agent", region="MEA", is_available=True, hashed_password=demo_hashed_password),
         # Internal Supervisory Staff (Escalation & Lead roles)
-        User(id="USR-103", name="Vikram Malhotra", email="vikram.esc@tbo.test", role="EscalationManager", region="APAC", is_available=True),
-        User(id="USR-104", name="Elena Rostova", email="elena.lead@tbo.test", role="Lead", region="EUR", is_available=True),
+        User(id="USR-103", name="Vikram Malhotra", email="vikram.esc@tbo.test", role="EscalationManager", region="APAC", is_available=True, hashed_password=demo_hashed_password),
+        User(id="USR-104", name="Elena Rostova", email="elena.lead@tbo.test", role="Lead", region="EUR", is_available=True, hashed_password=demo_hashed_password),
         # Agency Requesters (RFC 2606 email domains)
-        User(id="USR-201", name="Krypton Desk", email="agent@krypton.example.com", role="Requester", region="MEA", agency_id="AGY-001"),
-        User(id="USR-202", name="Vectora Desk", email="agent@vectora.example.com", role="Requester", region="APAC", agency_id="AGY-002"),
-        User(id="USR-203", name="Aethelgard Desk", email="agent@aethelgard.example.com", role="Requester", region="EUR", agency_id="AGY-003")
+        User(id="USR-201", name="Krypton Desk", email="agent@krypton.example.com", role="Requester", region="MEA", agency_id="AGY-001", hashed_password=demo_hashed_password),
+        User(id="USR-202", name="Vectora Desk", email="agent@vectora.example.com", role="Requester", region="APAC", agency_id="AGY-002", hashed_password=demo_hashed_password),
+        User(id="USR-203", name="Aethelgard Desk", email="agent@aethelgard.example.com", role="Requester", region="EUR", agency_id="AGY-003", hashed_password=demo_hashed_password)
     ]
     db.add_all(users)
     db.commit()
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     print("Seeding Journey fixtures (TCK-1001, TCK-1002, TCK-1004, TCK-1005, TCK-1006, TCK-1007, TCK-1008)...")
     
@@ -128,6 +136,8 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason="Assigned to Aisha Khan [Historical Case]",
         created_at=now - timedelta(days=5)
     )
+    compute_ticket_urgency_fields(tck_1001, agency_tier=agency_tier_map.get(tck_1001.agency_id), now=now)
+    compute_ticket_urgency_fields(tck_1002, agency_tier=agency_tier_map.get(tck_1002.agency_id), now=now)
     db.add_all([tck_1001, tck_1002])
     db.commit()
 
@@ -156,6 +166,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_b} active cases]",
         created_at=now - timedelta(minutes=10)
     )
+    compute_ticket_urgency_fields(tck_1004, agency_tier=agency_tier_map.get(tck_1004.agency_id), now=now)
     db.add(tck_1004)
     db.commit()
 
@@ -177,6 +188,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_c} active cases]",
         created_at=now - timedelta(hours=1)
     )
+    compute_ticket_urgency_fields(tck_1005, agency_tier=agency_tier_map.get(tck_1005.agency_id), now=now)
     db.add(tck_1005)
     db.commit()
 
@@ -198,6 +210,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_d} active cases]",
         created_at=now - timedelta(minutes=15)
     )
+    compute_ticket_urgency_fields(tck_1006, agency_tier=agency_tier_map.get(tck_1006.agency_id), now=now)
     db.add(tck_1006)
     db.commit()
 
@@ -218,6 +231,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason="Unassigned pending triage routing",
         created_at=now - timedelta(minutes=5)
     )
+    compute_ticket_urgency_fields(tck_1007, agency_tier=agency_tier_map.get(tck_1007.agency_id), now=now)
     db.add(tck_1007)
     db.commit()
 
@@ -240,6 +254,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
         routing_reason=f"Assigned to Aisha Khan [Tier-1 Rule: Region=MEA match, Availability=True, Workload={workload_1008} active cases]",
         created_at=now - timedelta(minutes=20)
     )
+    compute_ticket_urgency_fields(tck_1008, agency_tier=agency_tier_map.get(tck_1008.agency_id), now=now)
     db.add(tck_1008)
     db.commit()
 
@@ -419,6 +434,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
             created_at=created,
             updated_at=created
         )
+        compute_ticket_urgency_fields(t, agency_tier=agency_tier_map.get(agency_id), now=now)
         ticket_batch.append(t)
 
         mapped_themes = THEME_MAPPINGS.get(intent, ["General Operations Inquiry"])

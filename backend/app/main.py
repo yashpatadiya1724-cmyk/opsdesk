@@ -3,7 +3,7 @@ import csv
 import io
 import json
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, Depends, HTTPException, Query, Header, Request, Response, status
 from fastapi.responses import StreamingResponse
@@ -20,17 +20,27 @@ from backend.app.schemas import (
     TicketCreateSchema, TicketAssignSchema, TicketStatusUpdateSchema,
     TicketEscalateSchema, TicketTransferSchema, TicketLinkSuggestionSchema, MessageCreateSchema,
     SideThreadCreateSchema, SideThreadMessageCreateSchema,
-    IntentSuggestRequestSchema, IntentSuggestResponseSchema
+    IntentSuggestRequestSchema, IntentSuggestResponseSchema, to_utc_aware,
+    LoginRequest, LoginResponse
 )
-from backend.app.auth import get_current_user
+from backend.app.auth import (
+    get_current_user, verify_password, create_access_token,
+    DEFAULT_JWT_SECRET, DEFAULT_JWT_ALGORITHM, ALLOWED_JWT_ALGORITHMS,
+    is_production, get_bcrypt_rounds
+)
 from backend.app.events import emit_outbox_event, record_audit_log
 from backend.config.routing_config import (
     DEFAULT_ESCALATION_MANAGER_ID,
-    REGION_MAPPING
+    REGION_MAPPING,
+    EMERGENCY_BYPASS_HOURS,
+    EMERGENCY_BYPASS_INTENTS,
+    PRIORITY_SCORES
 )
-from backend.services.sla_engine import evaluate_travel_sla
+from backend.services.sla_engine import evaluate_travel_sla, effective_deadline_hours
 from backend.services.routing_engine import (
-    CandidateAgent, select_agent_tier1, calculate_queue_score_tier2
+    CandidateAgent, select_agent_tier1, calculate_queue_score_tier2,
+    compute_ticket_urgency_fields, refresh_stale_queue_scores,
+    get_sql_queue_score_expr, compute_ticket_queue_score
 )
 from backend.services.intent_classifier import suggest_ticket_intent
 
@@ -40,6 +50,10 @@ import logging
 import threading
 from collections import defaultdict
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.background import BackgroundTask
+from backend.app.rate_limiter import (
+    RateLimiter, InMemoryRateLimiter, RedisRateLimiter, get_rate_limiter, get_client_ip
+)
 
 logger = logging.getLogger("opsdesk.access")
 logging.basicConfig(level=logging.INFO)
@@ -59,6 +73,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Next-Cursor", "X-Request-ID"],
 )
 
 RATE_LIMIT_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "120"))
@@ -69,30 +84,59 @@ IDEMPOTENCY_TTL_HOURS = int(os.environ.get("IDEMPOTENCY_TTL_HOURS", "24"))
 APP_ENV = os.environ.get("APP_ENV", "development").lower()
 ALLOW_DEMO_AUTH = os.environ.get("ALLOW_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
 
-_rate_limit_lock = threading.Lock()
-_rate_limit_records: Dict[str, List[float]] = {}
+_rate_limiter: RateLimiter = get_rate_limiter()
+_rate_limit_lock = getattr(_rate_limiter, "_lock", None)
+if _rate_limit_lock is None:
+    _rate_limit_lock = threading.Lock()
+_rate_limit_records: Dict[str, List[float]] = getattr(_rate_limiter, "_records", None)
+if _rate_limit_records is None:
+    _rate_limit_records = {}
 
 
 def validate_production_auth_settings():
     """
-    Refuses startup when running in production environment with demo authentication,
-    unless explicitly overridden via ALLOW_DEMO_AUTH=true.
+    Refuses startup when:
+    1. JWT_ALGORITHM is not one of the allowed HMAC algorithms (HS256, HS384, HS512).
+    2. Running in AUTH_MODE=jwt and JWT_SECRET is empty, shorter than 32 characters, or equal to DEFAULT_JWT_SECRET.
+    3. Running in production environment with demo authentication, unless explicitly overridden via ALLOW_DEMO_AUTH=true.
     """
-    env = os.environ.get("APP_ENV", "development").lower()
+    auth_mode = os.environ.get("AUTH_MODE", "demo").lower()
     allow_demo = os.environ.get("ALLOW_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
-    if env == "production" and not allow_demo:
-        msg = "Refusing to start in APP_ENV=production with unauthenticated demo headers (X-User-Id) unless ALLOW_DEMO_AUTH=true is explicitly set."
+    jwt_secret = os.environ.get("JWT_SECRET", "")
+    jwt_algorithm = os.environ.get("JWT_ALGORITHM", DEFAULT_JWT_ALGORITHM)
+
+    if jwt_algorithm not in ALLOWED_JWT_ALGORITHMS:
+        msg = f"Startup refused: Invalid JWT_ALGORITHM '{jwt_algorithm}'. Allowed algorithms are: {', '.join(sorted(ALLOWED_JWT_ALGORITHMS))}."
         logger.error(msg)
         raise RuntimeError(msg)
-    elif env == "production" and allow_demo:
-        logger.warning("WARNING: APP_ENV=production is running with demo authentication because ALLOW_DEMO_AUTH=true is set. Ensure this is intentional!")
+
+    if auth_mode == "jwt":
+        if not jwt_secret or len(jwt_secret.strip()) < 32 or jwt_secret == DEFAULT_JWT_SECRET:
+            msg = f"Startup refused: In AUTH_MODE=jwt, JWT_SECRET must be explicitly configured, at least 32 characters long, and cannot be the default insecure key (got {len(jwt_secret.strip()) if jwt_secret else 0} chars)."
+            logger.error(msg)
+            raise RuntimeError(msg)
+
+    if is_production():
+        # Enforce secure bcrypt rounds in production
+        try:
+            get_bcrypt_rounds()
+        except ValueError as e:
+            logger.error(str(e))
+            raise RuntimeError(f"Startup refused: {e}")
+
+        if auth_mode == "demo" and not allow_demo:
+            msg = "Production environment requires AUTH_MODE=jwt unless ALLOW_DEMO_AUTH=true (Refusing to start in APP_ENV=production with unauthenticated demo headers)."
+            logger.error(msg)
+            raise RuntimeError(msg)
+        elif allow_demo:
+            logger.warning("WARNING: APP_ENV=production is running with demo authentication because ALLOW_DEMO_AUTH=true is set. Ensure this is intentional!")
 
 
 def purge_expired_idempotency_records(db: Session) -> int:
     """
     Assumption: Purges in-database idempotency records older than IDEMPOTENCY_TTL_HOURS (default 24).
     """
-    cutoff = datetime.utcnow() - timedelta(hours=IDEMPOTENCY_TTL_HOURS)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=IDEMPOTENCY_TTL_HOURS)
     deleted = db.query(IdempotencyRecord).filter(IdempotencyRecord.created_at < cutoff).delete(synchronize_session=False)
     db.commit()
     return deleted
@@ -118,12 +162,9 @@ async def opsdesk_protection_middleware(request: Request, call_next):
     start_time = time.time()
 
     # Rate limiting check: Keyed on both X-User-Id and client IP
-    # NOTE: Behind a reverse proxy (e.g. Nginx, Cloudflare), request.client.host represents the proxy IP
-    # unless trusted proxy forwarding (e.g. X-Forwarded-For with CIDR verification) is configured.
-    # Status: planned trusted proxy config, not built.
     if request.url.path not in ["/health", "/ready", "/docs", "/openapi.json"]:
         user_id = request.headers.get("X-User-Id")
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = get_client_ip(request)
 
         keys_to_check = []
         if user_id:
@@ -131,42 +172,21 @@ async def opsdesk_protection_middleware(request: Request, call_next):
         if client_ip:
             keys_to_check.append(f"ip:{client_ip}")
 
-        now = time.time()
-        window_start = now - RATE_LIMIT_WINDOW
+        rate_limited_key = None
+        for key in keys_to_check:
+            if _rate_limiter.is_rate_limited(key, RATE_LIMIT_PER_MINUTE, RATE_LIMIT_WINDOW):
+                rate_limited_key = key
+                break
 
-        with _rate_limit_lock:
-            # 1. Check if any key violates limit
-            for key in keys_to_check:
-                existing = _rate_limit_records.get(key, [])
-                active = [t for t in existing if t > window_start]
-                if len(active) >= RATE_LIMIT_PER_MINUTE:
-                    _rate_limit_records[key] = active
-                    logger.warning(f'{{"event": "rate_limited", "key": "{key}", "request_id": "{request_id}", "path": "{request.url.path}"}}')
-                    resp = Response(
-                        content=json.dumps({"detail": "Rate limit exceeded. Please retry later."}),
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        media_type="application/json",
-                        headers={"Retry-After": "60", "X-Request-ID": request_id}
-                    )
-                    return resp
-
-            # 2. Bounded dict eviction: remove stale keys if size exceeds max bound
-            if len(_rate_limit_records) >= RATE_LIMIT_MAX_KEYS:
-                stale_keys = [k for k, v in _rate_limit_records.items() if not v or v[-1] <= window_start]
-                for k in stale_keys:
-                    del _rate_limit_records[k]
-                if len(_rate_limit_records) >= RATE_LIMIT_MAX_KEYS:
-                    # Drop oldest 10% of entries if still at capacity
-                    sorted_keys = sorted(_rate_limit_records.keys(), key=lambda k: _rate_limit_records[k][-1] if _rate_limit_records[k] else 0)
-                    for k in sorted_keys[: max(1, len(_rate_limit_records) // 10)]:
-                        del _rate_limit_records[k]
-
-            # 3. Append current timestamp to all applicable keys
-            for key in keys_to_check:
-                existing = _rate_limit_records.get(key, [])
-                active = [t for t in existing if t > window_start]
-                active.append(now)
-                _rate_limit_records[key] = active
+        if rate_limited_key:
+            logger.warning(f'{{"event": "rate_limited", "key": "{rate_limited_key}", "request_id": "{request_id}", "path": "{request.url.path}"}}')
+            resp = Response(
+                content=json.dumps({"detail": "Rate limit exceeded. Please retry later."}),
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                media_type="application/json",
+                headers={"Retry-After": "60", "X-Request-ID": request_id}
+            )
+            return resp
 
     try:
         response = await call_next(request)
@@ -224,6 +244,42 @@ def api_suggest_intent(
 
 
 # ============================================================================
+# AUTHENTICATION ENDPOINTS
+# ============================================================================
+
+@app.post("/api/auth/login", response_model=LoginResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    """
+    Authenticates user with email and password, returning a JWT access token.
+    Raises 401 Unauthorized if invalid credentials.
+    """
+    user = db.query(User).filter(func.lower(User.email) == payload.email.strip().lower()).first()
+    if not user or not user.hashed_password:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    try:
+        jwt_expire_minutes = int(os.environ.get("JWT_EXPIRE_MINUTES", "480"))
+    except ValueError:
+        jwt_expire_minutes = 480
+    expires_in_seconds = jwt_expire_minutes * 60
+
+    token = create_access_token({
+        "sub": user.id,
+        "email": user.email,
+        "role": user.role,
+        "name": user.name
+    })
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": expires_in_seconds
+    }
+
+
+# ============================================================================
 # 2. TICKETS ENDPOINTS
 # ============================================================================
 
@@ -233,7 +289,7 @@ def list_tickets(
     intent: Optional[str] = Query(None, description="Optional intent category filter"),
     priority: Optional[str] = Query(None, description="Optional priority filter (Low, Medium, High, Urgent)"),
     status: Optional[str] = Query(None, description="Optional status filter (New, Open, Pending, Escalated, Resolved, Closed)"),
-    search: Optional[str] = Query(None, description="Keyword search across tboh_id, id, title, and description"),
+    search: Optional[str] = Query(None, description="Keyword search across tboh_id, id, and title"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
@@ -257,8 +313,7 @@ def list_tickets(
             or_(
                 Ticket.tboh_id.ilike(term),
                 Ticket.id.ilike(term),
-                Ticket.title.ilike(term),
-                Ticket.description.ilike(term)
+                Ticket.title.ilike(term)
             )
         )
 
@@ -281,8 +336,6 @@ def list_tickets(
         elif view == "by_intent":
             if intent:
                 query = query.filter(Ticket.intent == intent)
-            else:
-                query = query.order_by(Ticket.intent, Ticket.created_at.desc())
     else:
         # Internal Staff views
         if view == "my_queue":
@@ -304,8 +357,6 @@ def list_tickets(
         elif view == "by_intent":
             if intent:
                 query = query.filter(Ticket.intent == intent)
-            else:
-                query = query.order_by(Ticket.intent, Ticket.created_at.desc())
         elif view == "triage":
             # Active queue: strictly unassigned active tickets (unless an explicit search term is provided)
             if not (search and search.strip()):
@@ -314,99 +365,76 @@ def list_tickets(
                     Ticket.assigned_to.is_(None)
                 )
 
-    now = datetime.utcnow()
-
-    # Note: At demo scale (5,000 records), computing SLA and queue_score across filtered candidate tickets in Python
-    # and sorting globally prior to offset/limit slicing provides exact queue prioritization without requiring database-specific
-    # procedural extensions. For production scale (millions of records), queue_score is maintained via indexed column or Rust/Go scoring sidecar.
+    now = datetime.now(timezone.utc)
     if view in ["triage", "my_queue"]:
-        all_candidates = query.options(defer(Ticket.description)).all()
-        total_count = len(all_candidates)
-
-        scored_tickets = []
-        for t in all_candidates:
-            sla = evaluate_travel_sla(
-                status=t.status,
-                check_in_date=t.check_in_date,
-                lcd_date=t.lcd_date,
-                priority=t.priority,
-                intent=t.intent,
-                now=now
-            )
-            queue_score = calculate_queue_score_tier2(
-                priority=t.priority,
-                check_in_date=t.check_in_date,
-                lcd_date=t.lcd_date,
-                intent=t.intent,
-                now=now
-            )
-            scored_tickets.append((queue_score, sla, t))
-
-        # Global sort by queue_score descending, tie-breaking by created_at
-        scored_tickets.sort(key=lambda x: (x[0], -x[2].created_at.timestamp() if x[2].created_at else 0), reverse=True)
-
-        paginated_slice = scored_tickets[offset : offset + limit]
-
-        results = []
-        for queue_score, sla, t in paginated_slice:
-            results.append({
-                "id": t.id,
-                "tboh_id": t.tboh_id,
-                "agency_id": t.agency_id,
-                "title": t.title,
-                "intent": t.intent,
-                "priority": t.priority,
-                "status": t.status,
-                "check_in_date": t.check_in_date.isoformat(),
-                "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
-                "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
-                "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
-                "sla": sla,
-                "queue_score": queue_score if current_user.role != "Requester" else None,
-                "created_at": t.created_at.isoformat()
-            })
-
-        return {"total": total_count, "tickets": results}
-
+        dialect = db.bind.dialect.name if (db.bind is not None) else "sqlite"
+        score_expr = get_sql_queue_score_expr(now=now, dialect_name=dialect)
+        query = query.outerjoin(Agency, Ticket.agency_id == Agency.id).order_by(
+            score_expr.desc(),
+            Ticket.effective_deadline_at.asc(),
+            Ticket.id.asc()
+        )
+    elif view == "by_intent":
+        query = query.order_by(
+            Ticket.intent.asc(),
+            Ticket.created_at.desc(),
+            Ticket.id.asc()
+        )
     else:
-        total_count = query.count()
-        tickets = query.options(defer(Ticket.description)).offset(offset).limit(limit).all()
+        query = query.order_by(
+            Ticket.created_at.desc(),
+            Ticket.id.asc()
+        )
 
-        results = []
-        for t in tickets:
-            sla = evaluate_travel_sla(
-                status=t.status,
-                check_in_date=t.check_in_date,
-                lcd_date=t.lcd_date,
-                priority=t.priority,
-                intent=t.intent,
-                now=now
-            )
-            queue_score = calculate_queue_score_tier2(
-                priority=t.priority,
-                check_in_date=t.check_in_date,
-                lcd_date=t.lcd_date,
-                intent=t.intent,
-                now=now
-            )
-            results.append({
-                "id": t.id,
-                "tboh_id": t.tboh_id,
-                "agency_id": t.agency_id,
-                "title": t.title,
-                "intent": t.intent,
-                "priority": t.priority,
-                "status": t.status,
-                "check_in_date": t.check_in_date.isoformat(),
-                "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
-                "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
-                "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
-                "sla": sla,
-                "queue_score": queue_score if current_user.role != "Requester" else None,
-                "created_at": t.created_at.isoformat()
-            })
+    # Zero writes on read: no refresh_stale_queue_scores called on GET!
 
-        return {"total": total_count, "tickets": results}
+    total_count = query.count()
+    tickets = query.options(defer(Ticket.description)).offset(offset).limit(limit).all()
+
+    agency_map = {}
+    if current_user.role != "Requester":
+        agency_ids = {t.agency_id for t in tickets if t.agency_id}
+        if agency_ids:
+            agency_rows = db.query(Agency.id, Agency.tier).filter(Agency.id.in_(agency_ids)).all()
+            agency_map = {r[0]: r[1] for r in agency_rows}
+
+    results = []
+    for t in tickets:
+        sla = evaluate_travel_sla(
+            status=t.status,
+            check_in_date=t.check_in_date,
+            lcd_date=t.lcd_date,
+            priority=t.priority,
+            intent=t.intent,
+            now=now
+        )
+        agency_tier = agency_map.get(t.agency_id) if current_user.role != "Requester" else None
+        dynamic_score = compute_ticket_queue_score(
+            ticket=t,
+            agency_tier=agency_tier,
+            now=now,
+            user_role=current_user.role
+        )
+
+        results.append({
+            "id": t.id,
+            "tboh_id": t.tboh_id,
+            "agency_id": t.agency_id,
+            "title": t.title,
+            "intent": t.intent,
+            "priority": t.priority,
+            "status": t.status,
+            "hotel_timezone": t.hotel_timezone or "UTC",
+            "check_in_date": t.check_in_date.isoformat(),
+            "lcd_date": t.lcd_date.isoformat() if t.lcd_date else None,
+            "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
+            "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
+            "sla": sla,
+            "queue_score": dynamic_score,
+            "created_at": t.created_at.isoformat()
+        })
+
+    return {"total": total_count, "tickets": results}
 
 
 @app.post("/api/tickets", status_code=status.HTTP_201_CREATED)
@@ -430,10 +458,11 @@ def create_ticket(
     current_payload_hash = hashlib.sha256(payload.model_dump_json().encode("utf-8")).hexdigest()
     if idempotency_key:
         record_id = f"{current_user.id}:{idempotency_key}"
-        cutoff = datetime.utcnow() - timedelta(hours=IDEMPOTENCY_TTL_HOURS)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=IDEMPOTENCY_TTL_HOURS)
         existing_record = db.query(IdempotencyRecord).filter(IdempotencyRecord.id == record_id).first()
         if existing_record:
-            if existing_record.created_at and existing_record.created_at < cutoff:
+            rec_created = to_utc_aware(existing_record.created_at)
+            if rec_created and rec_created < cutoff:
                 db.delete(existing_record)
                 db.commit()
                 existing_record = None
@@ -488,7 +517,31 @@ def create_ticket(
     )
 
     ticket_id = f"TCK-{uuid.uuid4().hex[:8].upper()}"
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
+
+    # Calculate effective deadline hours for Tier-1 Emergency Bypass check
+    deadline_hours = effective_deadline_hours(
+        check_in_date=payload.check_in_date,
+        lcd_date=payload.lcd_date,
+        intent=resolved_intent,
+        now=now
+    )
+
+    priority = payload.priority
+    ticket_status = "Open" if assigned_agent_id else "New"
+    is_emergency_bypass = (
+        deadline_hours is not None
+        and 0.0 <= deadline_hours <= EMERGENCY_BYPASS_HOURS
+        and resolved_intent in EMERGENCY_BYPASS_INTENTS
+    )
+
+    if is_emergency_bypass:
+        priority = "Urgent"
+        ticket_status = "Escalated"
+        routing_reason = (
+            f"Tier-1 Emergency Bypass: effective deadline {deadline_hours:.1f}h <= {EMERGENCY_BYPASS_HOURS}h"
+        )
+        assigned_agent_id = DEFAULT_ESCALATION_MANAGER_ID
 
     new_ticket = Ticket(
         id=ticket_id,
@@ -497,15 +550,18 @@ def create_ticket(
         title=payload.title,
         description=payload.description,
         intent=resolved_intent,
-        priority=payload.priority,
-        status="Open" if assigned_agent_id else "New",
+        priority=priority,
+        status=ticket_status,
         check_in_date=payload.check_in_date,
         lcd_date=payload.lcd_date,
+        hotel_timezone=payload.hotel_timezone or "UTC",
+        priority_weight=PRIORITY_SCORES.get(priority, 200.0),
         assigned_to=assigned_agent_id,
         routing_reason=routing_reason,
         created_at=now,
         updated_at=now
     )
+    compute_ticket_urgency_fields(new_ticket, agency_tier=agency.tier, now=now)
     db.add(new_ticket)
     db.flush()
 
@@ -549,14 +605,40 @@ def create_ticket(
         details={"tboh_id": payload.tboh_id, "agency_id": resolved_agency_id}
     )
 
+    if is_emergency_bypass:
+        record_audit_log(
+            db=db,
+            ticket_id=ticket_id,
+            actor_id=current_user.id,
+            action="ticket.emergency_bypass",
+            details={
+                "reason": routing_reason,
+                "effective_deadline_hours": deadline_hours,
+                "threshold_hours": EMERGENCY_BYPASS_HOURS,
+                "priority": "Urgent",
+                "status": "Escalated",
+                "assigned_to": assigned_agent_id
+            }
+        )
+        db.add(TicketMessage(
+            id=f"MSG-{uuid.uuid4().hex[:8].upper()}",
+            ticket_id=ticket_id,
+            sender_id=None,
+            message_type="InternalNote",
+            content=f"[Emergency Bypass] {routing_reason}",
+            created_at=now
+        ))
+
     response_data = {
         "id": new_ticket.id,
         "tboh_id": new_ticket.tboh_id,
         "agency_id": new_ticket.agency_id,
+        "priority": new_ticket.priority,
         "status": new_ticket.status,
         "assigned_to": new_ticket.assigned_to,
         "routing_reason": new_ticket.routing_reason,
         "intent": new_ticket.intent,
+        "hotel_timezone": new_ticket.hotel_timezone or "UTC",
         "linked_tickets_count": len(prior_tickets)
     }
 
@@ -641,7 +723,7 @@ def get_ticket_details(
         else:
             linked_tickets.append(other_id)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     sla = evaluate_travel_sla(
         status=ticket.status,
         check_in_date=ticket.check_in_date,
@@ -650,12 +732,17 @@ def get_ticket_details(
         intent=ticket.intent,
         now=now
     )
-    queue_score = calculate_queue_score_tier2(
-        priority=ticket.priority,
-        check_in_date=ticket.check_in_date,
-        lcd_date=ticket.lcd_date,
-        intent=ticket.intent,
-        now=now
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    if not agency_tier:
+        agency = db.query(Agency).filter(Agency.id == ticket.agency_id).first()
+        if agency:
+            agency_tier = agency.tier
+
+    queue_score = compute_ticket_queue_score(
+        ticket=ticket,
+        agency_tier=agency_tier,
+        now=now,
+        user_role=current_user.role
     )
 
     return {
@@ -667,6 +754,7 @@ def get_ticket_details(
         "intent": ticket.intent,
         "priority": ticket.priority,
         "status": ticket.status,
+        "hotel_timezone": ticket.hotel_timezone or "UTC",
         "check_in_date": ticket.check_in_date.isoformat(),
         "lcd_date": ticket.lcd_date.isoformat() if ticket.lcd_date else None,
         "assigned_to": ticket.assigned_to if current_user.role != "Requester" else None,
@@ -719,11 +807,17 @@ def assign_ticket(
         filter_conditions.append(Ticket.assigned_to == old_agent)
 
     new_status = "Open" if ticket.status == "New" else ticket.status
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
+    ticket.status = new_status
+    ticket.assigned_to = payload.agent_id
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
     rowcount = db.query(Ticket).filter(*filter_conditions).update(
         {
             Ticket.assigned_to: payload.agent_id,
             Ticket.status: new_status,
+            Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.priority_weight: ticket.priority_weight,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -773,15 +867,24 @@ def unassign_ticket(
     old_agent = ticket.assigned_to
     current_version = ticket.version
 
+    new_status = "Open" if ticket.status in ["New", "Open"] else ticket.status
+    now = datetime.now(timezone.utc)
+    ticket.status = new_status
+    ticket.assigned_to = None
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
+
     rowcount = db.query(Ticket).filter(
         Ticket.id == ticket_id,
         Ticket.version == current_version
     ).update(
         {
             Ticket.assigned_to: None,
-            Ticket.status: "Open" if ticket.status in ["New", "Open"] else ticket.status,
+            Ticket.status: new_status,
+            Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.priority_weight: ticket.priority_weight,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.utcnow()
+            Ticket.updated_at: now
         },
         synchronize_session=False
     )
@@ -841,14 +944,22 @@ def update_ticket_status(
         )
 
     allowed = ALLOWED_STATUS_TRANSITIONS.get(ticket.status, [])
-    if payload.status not in allowed:
+    if payload.status != ticket.status and payload.status not in allowed:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Invalid status transition from '{ticket.status}' to '{payload.status}'. Allowed: {allowed}"
         )
 
     old_status = ticket.status
+    old_priority = ticket.priority
     current_version = ticket.version
+    now = datetime.now(timezone.utc)
+    ticket.status = payload.status
+    if payload.priority is not None:
+        ticket.priority = payload.priority
+        ticket.priority_weight = PRIORITY_SCORES.get(payload.priority, 200.0)
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
 
     rowcount = db.query(Ticket).filter(
         Ticket.id == ticket_id,
@@ -856,8 +967,11 @@ def update_ticket_status(
     ).update(
         {
             Ticket.status: payload.status,
+            Ticket.priority: ticket.priority,
+            Ticket.priority_weight: ticket.priority_weight,
+            Ticket.effective_deadline_at: ticket.effective_deadline_at,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.utcnow()
+            Ticket.updated_at: now
         },
         synchronize_session=False
     )
@@ -874,14 +988,25 @@ def update_ticket_status(
         ticket_id=ticket.id,
         agency_id=ticket.agency_id,
         visibility="public",
-        payload={"ticket_id": ticket.id, "old_status": old_status, "new_status": payload.status}
+        payload={
+            "ticket_id": ticket.id,
+            "old_status": old_status,
+            "new_status": payload.status,
+            "old_priority": old_priority,
+            "new_priority": ticket.priority
+        }
     )
     record_audit_log(
         db=db,
         ticket_id=ticket.id,
         actor_id=current_user.id,
         action="ticket.status_changed",
-        details={"old_status": old_status, "new_status": payload.status}
+        details={
+            "old_status": old_status,
+            "new_status": payload.status,
+            "old_priority": old_priority,
+            "new_priority": ticket.priority
+        }
     )
     db.commit()
 
@@ -927,16 +1052,28 @@ def escalate_ticket(
     current_version = ticket.version
     routing_reason = f"Escalated to Escalation Manager ({DEFAULT_ESCALATION_MANAGER_ID})"
 
+    now = datetime.now(timezone.utc)
+    ticket.status = "Escalated"
+    ticket.priority = payload.priority or "Urgent"
+    ticket.priority_weight = PRIORITY_SCORES.get(ticket.priority, PRIORITY_SCORES["Urgent"])
+    ticket.assigned_to = DEFAULT_ESCALATION_MANAGER_ID
+    ticket.routing_reason = routing_reason
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
+
     rowcount = db.query(Ticket).filter(
         Ticket.id == ticket_id,
         Ticket.version == current_version
     ).update(
         {
             Ticket.status: "Escalated",
+            Ticket.priority: ticket.priority,
+            Ticket.priority_weight: ticket.priority_weight,
             Ticket.assigned_to: DEFAULT_ESCALATION_MANAGER_ID,
             Ticket.routing_reason: routing_reason,
+            Ticket.effective_deadline_at: ticket.effective_deadline_at,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.utcnow()
+            Ticket.updated_at: now
         },
         synchronize_session=False
     )
@@ -1014,6 +1151,11 @@ def transfer_ticket(
         )
 
     routing_reason = f"Transferred from {old_agent} to {payload.target_agent_id}"
+    now = datetime.now(timezone.utc)
+    ticket.assigned_to = payload.target_agent_id
+    ticket.routing_reason = routing_reason
+    agency_tier = ticket.agency.tier if ticket.agency else None
+    compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
 
     rowcount = db.query(Ticket).filter(
         Ticket.id == ticket_id,
@@ -1022,8 +1164,10 @@ def transfer_ticket(
         {
             Ticket.assigned_to: payload.target_agent_id,
             Ticket.routing_reason: routing_reason,
+            Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.priority_weight: ticket.priority_weight,
             Ticket.version: current_version + 1,
-            Ticket.updated_at: datetime.utcnow()
+            Ticket.updated_at: now
         },
         synchronize_session=False
     )
@@ -1102,7 +1246,7 @@ def post_ticket_message(
         raise HTTPException(status_code=400, detail="Invalid message_type; must be PublicReply or InternalNote")
 
     msg_id = f"MSG-{uuid.uuid4().hex[:8].upper()}"
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     msg = TicketMessage(
         id=msg_id,
@@ -1198,7 +1342,7 @@ def create_side_thread(
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     sc_id = f"SC-{uuid.uuid4().hex[:8].upper()}"
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     side_convo = SideConversation(
         id=sc_id,
@@ -1277,7 +1421,7 @@ def post_side_thread_message(
         raise HTTPException(status_code=404, detail="Side conversation thread not found")
 
     msg_id = f"SCM-{uuid.uuid4().hex[:8].upper()}"
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     msg = SideConversationMessage(
         id=msg_id,
@@ -1336,7 +1480,7 @@ def link_suggested_bug(
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     ticket.suggested_bug_link = payload.bug_link
-    ticket.updated_at = datetime.utcnow()
+    ticket.updated_at = datetime.now(timezone.utc)
 
     record_audit_log(
         db=db,
@@ -1372,7 +1516,7 @@ def get_top_themes(
     if current_user.role not in ["Lead", "EscalationManager"]:
         raise HTTPException(status_code=403, detail="Forbidden: Insights view requires Lead or EscalationManager role")
 
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     # Query counts grouped by theme for tickets created within time window
     theme_counts = db.query(
@@ -1434,17 +1578,36 @@ CSV_EXPORT_MAX_DURATION_SECONDS = float(os.environ.get("CSV_EXPORT_MAX_DURATION_
 _export_semaphore = threading.BoundedSemaphore(CSV_EXPORT_MAX_CONCURRENCY)
 
 
+def get_csv_export_default_limit() -> int:
+    """
+    Safely parses CSV_EXPORT_DEFAULT_LIMIT environment variable.
+    Falls back to 50000 with a logged warning if value is missing, non-positive, or malformed.
+    """
+    val = os.environ.get("CSV_EXPORT_DEFAULT_LIMIT", "50000")
+    try:
+        limit = int(str(val).replace(",", "").strip())
+        if limit <= 0:
+            logger.warning(f"Invalid non-positive CSV_EXPORT_DEFAULT_LIMIT='{val}'. Falling back to 50000.")
+            return 50000
+        return limit
+    except (ValueError, TypeError) as exc:
+        logger.warning(f"Failed to parse CSV_EXPORT_DEFAULT_LIMIT='{val}': {exc}. Falling back to 50000.")
+        return 50000
+
+
 @app.get("/api/export/tickets.csv")
 def export_tickets_csv(
     status: Optional[str] = None,
     agency_id: Optional[str] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
+    cursor: Optional[str] = Query(None, description="Cursor for pagination: ID of the last seen ticket"),
+    limit: Optional[int] = Query(None, description="Max rows per page"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Uncapped CSV data streaming export for ops beyond 3K-row UX barrier (MVP-6).
+    CSV data streaming export for ops beyond 3K-row UX barrier (MVP-6).
     Restricted strictly to Lead role. Memory-safe streaming via generator yield_per.
     Applies formula injection sanitization to protect operations spreadsheets.
     Protected by concurrency limiter (max CSV_EXPORT_MAX_CONCURRENCY, default 2).
@@ -1460,20 +1623,56 @@ def export_tickets_csv(
             headers={"Retry-After": "10"}
         )
 
-    query = db.query(Ticket)
-    if status:
-        query = query.filter(Ticket.status == status)
-    if agency_id:
-        query = query.filter(Ticket.agency_id == agency_id)
-    if from_date:
-        query = query.filter(Ticket.created_at >= from_date)
-    if to_date:
-        query = query.filter(Ticket.created_at <= to_date)
+    released = False
+    def release_semaphore():
+        nonlocal released
+        if not released:
+            released = True
+            try:
+                _export_semaphore.release()
+            except ValueError:
+                pass
 
-    query = query.order_by(Ticket.created_at.desc())
+    try:
+        query = db.query(Ticket)
+        if status:
+            query = query.filter(Ticket.status == status)
+        if agency_id:
+            query = query.filter(Ticket.agency_id == agency_id)
+        if from_date:
+            query = query.filter(Ticket.created_at >= from_date)
+        if to_date:
+            query = query.filter(Ticket.created_at <= to_date)
+
+        if cursor:
+            cursor_ticket = db.query(Ticket).filter(Ticket.id == cursor).first()
+            if not cursor_ticket:
+                raise HTTPException(status_code=404, detail=f"Cursor ticket '{cursor}' not found")
+            query = query.filter(
+                or_(
+                    Ticket.created_at < cursor_ticket.created_at,
+                    (Ticket.created_at == cursor_ticket.created_at) & (Ticket.id < cursor_ticket.id)
+                )
+            )
+
+        query = query.order_by(Ticket.created_at.desc(), Ticket.id.desc())
+
+        default_limit = get_csv_export_default_limit()
+        effective_limit = limit if (limit is not None and limit > 0) else default_limit
+
+        # Keyset next-cursor probe: fetch limit+1 rows via keyset without OFFSET
+        cursor_probe = query.with_entities(Ticket.id).limit(effective_limit + 1).all()
+        if len(cursor_probe) > effective_limit:
+            has_more = True
+            next_cursor = cursor_probe[effective_limit - 1][0]
+        else:
+            has_more = False
+            next_cursor = None
+    except Exception:
+        release_semaphore()
+        raise
 
     def iter_csv():
-        start_time = time.time()
         try:
             output = io.StringIO()
             writer = csv.writer(output)
@@ -1487,13 +1686,11 @@ def export_tickets_csv(
             output.seek(0)
             output.truncate(0)
 
-            # Stream rows in chunks of 500 without loading all rows into RAM
-            for ticket in query.yield_per(500):
-                if time.time() - start_time > CSV_EXPORT_MAX_DURATION_SECONDS:
-                    writer.writerow(["# [ABORTED: Export exceeded maximum duration limit]"])
-                    yield output.getvalue()
-                    break
-
+            # Stream strictly via yield_per(500) to keep memory footprint constant
+            stream_delay = float(os.environ.get("CSV_EXPORT_STREAM_DELAY", "0"))
+            for ticket in query.limit(effective_limit).yield_per(500):
+                if stream_delay > 0:
+                    time.sleep(stream_delay)
                 writer.writerow([
                     sanitize_csv_cell(ticket.id),
                     sanitize_csv_cell(ticket.tboh_id),
@@ -1510,15 +1707,21 @@ def export_tickets_csv(
                 yield output.getvalue()
                 output.seek(0)
                 output.truncate(0)
+
         finally:
-            try:
-                _export_semaphore.release()
-            except ValueError:
-                pass
+            release_semaphore()
 
     headers = {
         "Content-Disposition": "attachment; filename=opsdesk_tickets_export.csv",
         "Content-Type": "text/csv; charset=utf-8"
     }
-    return StreamingResponse(iter_csv(), headers=headers, media_type="text/csv")
+    if has_more and next_cursor:
+        headers["X-Next-Cursor"] = next_cursor
+
+    return StreamingResponse(
+        iter_csv(),
+        headers=headers,
+        media_type="text/csv",
+        background=BackgroundTask(release_semaphore)
+    )
 

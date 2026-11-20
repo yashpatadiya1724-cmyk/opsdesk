@@ -3,6 +3,7 @@ import sqlite3
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
+import pytest
 
 
 def run_concurrency_config(journal_mode: str, busy_timeout_ms: int, num_threads: int = 8, writes_per_thread: int = 25):
@@ -59,6 +60,7 @@ def run_concurrency_config(journal_mode: str, busy_timeout_ms: int, num_threads:
             pass
 
 
+@pytest.mark.slow
 def test_sqlite_3_configs_lock_counts():
     """
     Lane B2: Executes 8 threads x 25 writes (200 total writes) across 3 SQLite configurations

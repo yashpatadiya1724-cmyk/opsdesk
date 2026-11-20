@@ -1,7 +1,40 @@
-from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, Integer, Index
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, Boolean, DateTime as _DateTime, ForeignKey, Text, Integer, Index, TypeDecorator, Float
 from sqlalchemy.orm import relationship
 from backend.app.database import Base
+
+def utcnow():
+    return datetime.now(timezone.utc)
+
+class UTCDateTime(TypeDecorator):
+    """
+    SQLAlchemy TypeDecorator that guarantees timezone-aware UTC datetime objects.
+    - On write: converts to UTC, stores as UTC (naive for SQLite to avoid dialect comparison issues).
+    - On read: converts from SQLite/PostgreSQL to timezone-aware UTC datetime (tzinfo=timezone.utc).
+    """
+    impl = _DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            if isinstance(value, str):
+                value = datetime.fromisoformat(value)
+            if value.tzinfo is not None:
+                value = value.astimezone(timezone.utc)
+                if dialect.name == "sqlite":
+                    return value.replace(tzinfo=None)
+                return value
+            return value
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            if value.tzinfo is None:
+                return value.replace(tzinfo=timezone.utc)
+            return value.astimezone(timezone.utc)
+        return value
+
+DateTime = UTCDateTime
 
 class Agency(Base):
     __tablename__ = "agencies"
@@ -9,7 +42,7 @@ class Agency(Base):
     id = Column(String(50), primary_key=True)
     name = Column(String(200), nullable=False)
     country_code = Column(String(10), nullable=False)
-    tier = Column(String(50), default="Standard")
+    tier = Column(String(32), nullable=False, default="standard", server_default="standard")
 
     users = relationship("User", back_populates="agency")
     tickets = relationship("Ticket", back_populates="agency")
@@ -25,6 +58,7 @@ class User(Base):
     region = Column(String(50), nullable=False)  # 'MEA', 'APAC', 'EUR'
     is_available = Column(Boolean, default=True)
     agency_id = Column(String(50), ForeignKey("agencies.id", ondelete="SET NULL"), nullable=True)
+    hashed_password = Column(String(255), nullable=True)
 
     agency = relationship("Agency", back_populates="users")
     assigned_tickets = relationship("Ticket", back_populates="assignee", foreign_keys="Ticket.assigned_to")
@@ -43,12 +77,15 @@ class Ticket(Base):
     status = Column(String(50), nullable=False, default="New", index=True)        # 'New', 'Open', 'Pending', 'Escalated', 'Resolved', 'Closed'
     check_in_date = Column(DateTime, nullable=False, index=True)
     lcd_date = Column(DateTime, nullable=True)
+    effective_deadline_at = Column(DateTime, nullable=True, index=True)
+    priority_weight = Column(Float, nullable=False, default=200.0, server_default="200.0")
+    hotel_timezone = Column(String(64), nullable=False, default="UTC", server_default="UTC")
     assigned_to = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     routing_reason = Column(Text, nullable=True)
     suggested_bug_link = Column(String(200), nullable=True)
     version = Column(Integer, default=1, nullable=False)  # Optimistic concurrency lock control
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow, index=True)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     __table_args__ = (
         Index("ix_tickets_status_assigned", "status", "assigned_to"),
@@ -74,7 +111,7 @@ class EventOutbox(Base):
     agency_id = Column(String(50), ForeignKey("agencies.id", ondelete="CASCADE"), nullable=False, index=True)
     visibility = Column(String(20), nullable=False)  # 'public' or 'internal'
     payload_json = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
     delivered_at = Column(DateTime, nullable=True)
     status = Column(String(20), default="pending", nullable=False, index=True)
     retry_count = Column(Integer, default=0, nullable=False)
@@ -101,7 +138,7 @@ class TicketMessage(Base):
     sender_id = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     message_type = Column(String(50), nullable=False)  # 'PublicReply', 'InternalNote'
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     ticket = relationship("Ticket", back_populates="messages")
     sender = relationship("User")
@@ -115,7 +152,7 @@ class SideConversation(Base):
     supplier_name = Column(String(200), nullable=False)
     subject = Column(String(300), nullable=False)
     created_by = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     ticket = relationship("Ticket", back_populates="side_conversations")
     creator = relationship("User")
@@ -140,7 +177,7 @@ class SideConversationMessage(Base):
     side_conversation_id = Column(String(50), ForeignKey("side_conversations.id", ondelete="CASCADE"), nullable=False, index=True)
     sender_email = Column(String(200), nullable=False)
     body = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     side_conversation = relationship("SideConversation", back_populates="messages")
 
@@ -151,7 +188,7 @@ class TicketTheme(Base):
     id = Column(String(50), primary_key=True)
     ticket_id = Column(String(50), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True)
     theme = Column(String(100), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
 
     ticket = relationship("Ticket", back_populates="themes")
 
@@ -164,7 +201,7 @@ class AuditLog(Base):
     actor_id = Column(String(50), nullable=False)
     action = Column(String(100), nullable=False)
     details = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     ticket = relationship("Ticket", back_populates="audit_logs")
 
@@ -178,4 +215,4 @@ class IdempotencyRecord(Base):
     ticket_id = Column(String(50), nullable=False)
     request_hash = Column(String(64), nullable=True)  # SHA-256 hex digest of payload for conflict detection
     response_json = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=utcnow, index=True)

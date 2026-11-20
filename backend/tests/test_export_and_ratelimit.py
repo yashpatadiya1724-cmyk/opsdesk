@@ -1,0 +1,726 @@
+import io
+import csv
+import uuid
+import time
+from datetime import datetime, timezone, timedelta
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+from backend.app.models import Ticket, User, Agency
+from backend.app.rate_limiter import (
+    RateLimiter,
+    InMemoryRateLimiter,
+    RedisRateLimiter,
+    get_rate_limiter,
+    get_client_ip
+)
+from backend.app import main as main_module
+
+
+class MockRedisPipeline:
+    def __init__(self, client):
+        self.client = client
+        self.ops = []
+
+    def zremrangebyscore(self, key, min_val, max_val):
+        self.ops.append(("zrem", key, min_val, max_val))
+        return self
+
+    def zcard(self, key):
+        self.ops.append(("zcard", key))
+        return self
+
+    def zadd(self, key, mapping):
+        self.ops.append(("zadd", key, mapping))
+        return self
+
+    def expire(self, key, seconds):
+        self.ops.append(("expire", key, seconds))
+        return self
+
+    def execute(self):
+        results = []
+        for op in self.ops:
+            if op[0] == "zrem":
+                self.client.zremrangebyscore(op[1], op[2], op[3])
+                results.append(1)
+            elif op[0] == "zcard":
+                results.append(self.client.zcard(op[1]))
+            elif op[0] == "zadd":
+                self.client.zadd(op[1], op[2])
+                results.append(1)
+            elif op[0] == "expire":
+                self.client.expire(op[1], op[2])
+                results.append(True)
+        self.ops.clear()
+        return results
+
+
+class MockRedisClient:
+    def __init__(self, supports_pipeline=True):
+        self.zsets = {}
+        self.expirations = {}
+        self.supports_pipeline = supports_pipeline
+
+    def pipeline(self):
+        if not self.supports_pipeline:
+            raise AttributeError("Pipeline not supported")
+        return MockRedisPipeline(self)
+
+    def zremrangebyscore(self, key, min_val, max_val):
+        if key in self.zsets:
+            self.zsets[key] = {
+                member: score for member, score in self.zsets[key].items()
+                if not (min_val <= score <= max_val)
+            }
+
+    def zcard(self, key):
+        return len(self.zsets.get(key, {}))
+
+    def zadd(self, key, mapping):
+        if key not in self.zsets:
+            self.zsets[key] = {}
+        self.zsets[key].update(mapping)
+
+    def expire(self, key, seconds):
+        self.expirations[key] = seconds
+
+    def ping(self):
+        return True
+
+
+# ============================================================================
+# 1. CURSOR-BASED EXPORT PAGINATION TESTS
+# ============================================================================
+
+def test_export_tickets_cursor_pagination(client: TestClient, db_session: Session):
+    """
+    Verifies cursor-based export pagination:
+    1. Export first page with limit=5 -> receive X-Next-Cursor header and NEXT_CURSOR in body.
+    2. Export second page with cursor=<X-Next-Cursor> and limit=5.
+    3. Verify no duplicate tickets and contiguous records matching database ordering.
+    """
+    # Fetch page 1
+    resp1 = client.get("/api/export/tickets.csv?limit=5", headers={"X-User-Id": "USR-104"})
+    assert resp1.status_code == 200
+    cursor1 = resp1.headers.get("X-Next-Cursor")
+    assert cursor1 is not None, "Expected X-Next-Cursor header on page 1"
+
+    reader1 = csv.reader(io.StringIO(resp1.text))
+    rows1 = [r for r in reader1 if r and not r[0].startswith("#")]
+    assert len(rows1) == 6, f"Expected 1 header + 5 rows, got {len(rows1)}"
+    header1 = rows1[0]
+    data1 = rows1[1:]
+    page1_ids = [r[0] for r in data1]
+    assert len(page1_ids) == 5
+    assert page1_ids[-1] == cursor1
+    # Verify cursor is strictly in the header, never as a comment row in the CSV body
+    assert "# [NEXT_CURSOR:" not in resp1.text
+
+    # Fetch page 2 using cursor1
+    resp2 = client.get(f"/api/export/tickets.csv?limit=5&cursor={cursor1}", headers={"X-User-Id": "USR-104"})
+    assert resp2.status_code == 200
+    cursor2 = resp2.headers.get("X-Next-Cursor")
+    assert cursor2 is not None, "Expected X-Next-Cursor header on page 2"
+
+    reader2 = csv.reader(io.StringIO(resp2.text))
+    rows2 = [r for r in reader2 if r and not r[0].startswith("#")]
+    assert len(rows2) == 6, f"Expected 1 header + 5 rows, got {len(rows2)}"
+    data2 = rows2[1:]
+    page2_ids = [r[0] for r in data2]
+    assert len(page2_ids) == 5
+    assert page2_ids[-1] == cursor2
+    # Verify cursor is strictly in the header, never as a comment row in the CSV body
+    assert "# [NEXT_CURSOR:" not in resp2.text
+
+    # Verification: Disjoint (no duplicates) and contiguous (no gaps)
+    assert set(page1_ids).isdisjoint(set(page2_ids)), "Pages 1 and 2 must not contain duplicate tickets"
+
+    # Verify against stable query order in DB: order_by(Ticket.created_at.desc(), Ticket.id.desc())
+    expected_top_10 = (
+        db_session.query(Ticket.id)
+        .order_by(Ticket.created_at.desc(), Ticket.id.desc())
+        .limit(10)
+        .all()
+    )
+    expected_ids = [t[0] for t in expected_top_10]
+    assert (page1_ids + page2_ids) == expected_ids, "Export rows must be contiguous with no gaps"
+
+
+def test_export_default_limit_without_limit_param_returns_x_next_cursor(client: TestClient, db_session: Session, monkeypatch):
+    """
+    Verifies that when limit is not given, CSV_EXPORT_DEFAULT_LIMIT is applied:
+    - X-Next-Cursor is returned when more rows exist.
+    - Following cursor returns remaining rows with no overlap or gap.
+    - Body contains only header and data rows, with no line starting with '#'.
+    """
+    monkeypatch.setenv("CSV_EXPORT_DEFAULT_LIMIT", "5")
+
+    # Fetch page 1 without ?limit
+    resp1 = client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-104"})
+    assert resp1.status_code == 200
+    cursor1 = resp1.headers.get("X-Next-Cursor")
+    assert cursor1 is not None, "Expected X-Next-Cursor header when DB has more rows than default limit"
+
+    # Verify no line in body starts with '#'
+    lines1 = [line.strip() for line in resp1.text.splitlines() if line.strip()]
+    for line in lines1:
+        assert not line.startswith("#"), f"CSV body must not contain comment rows, got: {line}"
+
+    reader1 = csv.reader(io.StringIO(resp1.text))
+    rows1 = list(reader1)
+    assert len(rows1) == 6, f"Expected 1 header + 5 data rows, got {len(rows1)}"
+    data1_ids = [r[0] for r in rows1[1:]]
+
+    # Fetch page 2 using cursor1
+    resp2 = client.get(f"/api/export/tickets.csv?cursor={cursor1}", headers={"X-User-Id": "USR-104"})
+    assert resp2.status_code == 200
+
+    lines2 = [line.strip() for line in resp2.text.splitlines() if line.strip()]
+    for line in lines2:
+        assert not line.startswith("#"), f"CSV body must not contain comment rows, got: {line}"
+
+    reader2 = csv.reader(io.StringIO(resp2.text))
+    rows2 = list(reader2)
+    data2_ids = [r[0] for r in rows2[1:]]
+
+    # No overlap (disjoint)
+    assert set(data1_ids).isdisjoint(set(data2_ids)), "Pages 1 and 2 must have no overlap"
+
+    # Contiguous with no gap
+    expected_top_10 = (
+        db_session.query(Ticket.id)
+        .order_by(Ticket.created_at.desc(), Ticket.id.desc())
+        .limit(10)
+        .all()
+    )
+    expected_ids = [t[0] for t in expected_top_10]
+    assert (data1_ids + data2_ids) == expected_ids[:len(data1_ids) + len(data2_ids)]
+
+
+def test_export_tickets_cursor_not_found_404(client: TestClient):
+    """Verifies that an unknown cursor ID returns 404 Not Found."""
+    resp = client.get("/api/export/tickets.csv?cursor=NONEXISTENT-TCK", headers={"X-User-Id": "USR-104"})
+    assert resp.status_code == 404
+    assert "not found" in resp.json()["detail"].lower()
+
+
+def test_export_tickets_last_page_has_no_next_cursor(client: TestClient, db_session: Session):
+    """When all remaining rows fit within the page limit, no X-Next-Cursor header is set."""
+    # Fetch second-to-last ticket to use as cursor so we don't serialize 5000 tickets
+    total = db_session.query(Ticket).count()
+    second_to_last = (
+        db_session.query(Ticket)
+        .order_by(Ticket.created_at.desc(), Ticket.id.desc())
+        .offset(max(0, total - 2))
+        .first()
+    )
+    resp = client.get(
+        f"/api/export/tickets.csv?cursor={second_to_last.id}&limit=10",
+        headers={"X-User-Id": "USR-104"},
+    )
+    assert resp.status_code == 200
+    assert "X-Next-Cursor" not in resp.headers
+    assert "# [NEXT_CURSOR:" not in resp.text
+
+
+def test_export_tickets_keyset_probe_five_rows_limit_two(client: TestClient, db_session: Session):
+    """
+    Keyset probe test: 5 rows with limit 2 returns pages of 2, 2, 1 with no duplicates,
+    and X-Next-Cursor header absent on the last page.
+    """
+    now = datetime(2026, 11, 20, 12, 0, 0, tzinfo=timezone.utc)
+    agency_id = "AGY-KS-5"
+    db_session.merge(Agency(id=agency_id, name="Keyset Test Agency", country_code="AE", tier="standard"))
+    db_session.commit()
+
+    created_ids = []
+    try:
+        for i in range(5):
+            t_id = f"TCK-KS5-{i}"
+            created_ids.append(t_id)
+            db_session.merge(Ticket(
+                id=t_id,
+                tboh_id=f"TBOH-KS5-{i}",
+                agency_id=agency_id,
+                title=f"Keyset Probe Ticket {i}",
+                description="Keyset probe test ticket",
+                priority="Medium",
+                priority_weight=200.0,
+                status="New",
+                check_in_date=now + timedelta(days=2),
+                effective_deadline_at=now + timedelta(days=2),
+                created_at=now + timedelta(minutes=i),
+                updated_at=now + timedelta(minutes=i),
+                version=1
+            ))
+        db_session.commit()
+
+        # Page 1 (limit 2): Expect 2 rows, X-Next-Cursor present
+        res1 = client.get(f"/api/export/tickets.csv?agency_id={agency_id}&limit=2", headers={"X-User-Id": "USR-104"})
+        assert res1.status_code == 200
+        assert "X-Next-Cursor" in res1.headers
+        cursor1 = res1.headers["X-Next-Cursor"]
+        lines1 = [line.strip() for line in res1.text.strip().splitlines() if line.strip()]
+        data1 = lines1[1:]  # skip header
+        assert len(data1) == 2
+        page1_ids = [row.split(",")[0].replace('"', '') for row in data1]
+
+        # Page 2 (limit 2, cursor1): Expect 2 rows, X-Next-Cursor present
+        res2 = client.get(f"/api/export/tickets.csv?agency_id={agency_id}&limit=2&cursor={cursor1}", headers={"X-User-Id": "USR-104"})
+        assert res2.status_code == 200
+        assert "X-Next-Cursor" in res2.headers
+        cursor2 = res2.headers["X-Next-Cursor"]
+        lines2 = [line.strip() for line in res2.text.strip().splitlines() if line.strip()]
+        data2 = lines2[1:]
+        assert len(data2) == 2
+        page2_ids = [row.split(",")[0].replace('"', '') for row in data2]
+
+        # Page 3 (limit 2, cursor2): Expect 1 row, X-Next-Cursor ABSENT
+        res3 = client.get(f"/api/export/tickets.csv?agency_id={agency_id}&limit=2&cursor={cursor2}", headers={"X-User-Id": "USR-104"})
+        assert res3.status_code == 200
+        assert "X-Next-Cursor" not in res3.headers
+        lines3 = [line.strip() for line in res3.text.strip().splitlines() if line.strip()]
+        data3 = lines3[1:]
+        assert len(data3) == 1
+        page3_ids = [row.split(",")[0].replace('"', '') for row in data3]
+
+        # Verifications
+        all_retrieved = page1_ids + page2_ids + page3_ids
+        assert len(all_retrieved) == 5, f"Expected 5 total rows, got {len(all_retrieved)}"
+        assert len(set(all_retrieved)) == 5, "Expected zero duplicates across paginated keyset pages"
+        assert set(all_retrieved) == set(created_ids), "All 5 created tickets must be retrieved"
+    finally:
+        db_session.query(Ticket).filter(Ticket.id.in_(created_ids)).delete(synchronize_session=False)
+        db_session.query(Agency).filter(Agency.id == agency_id).delete(synchronize_session=False)
+        db_session.commit()
+
+
+# ============================================================================
+# 2. SEMAPHORE RELEASE ON CLIENT DISCONNECT / CANCELLATION TESTS
+# ============================================================================
+
+def _run_real_server_semaphore_test(disconnect_count: int = 1):
+    """
+    Deterministic real-server integration test for semaphore release on client disconnect:
+    1. Starts a real uvicorn server on an ephemeral port with an isolated temporary SQLite DB seeded with 3000 tickets.
+    2. Performs `disconnect_count` mid-stream disconnects (opening streaming request, reading 1 chunk, closing).
+    3. Deterministically validates semaphore slots (CSV_EXPORT_MAX_CONCURRENCY=2):
+       - Opens TWO streaming requests at once, reads the first chunk of each, and keeps both connections open.
+       - Asserts both active streams return 200.
+       - A THIRD concurrent request must return 503 (service busy, proving both concurrency slots are occupied).
+       - Closes both active streams and waits <= 2s for connection teardown.
+       - Asserts a fresh export request returns 200 (proving all slots released cleanly).
+    """
+    import socket
+    import subprocess
+    import tempfile
+    import shutil
+    import httpx
+    import sys
+    import os
+    import time
+
+    # 1. Ephemeral port
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+
+    # 2. Isolated temporary database
+    temp_dir = tempfile.mkdtemp()
+    temp_db_path = os.path.join(temp_dir, "test_sem.db").replace("\\", "/")
+    temp_db_url = f"sqlite:///{temp_db_path}"
+
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+    from sqlalchemy import create_engine
+    from backend.app.database import ensure_schema_migrations
+    from backend.app.models import Ticket, User, Agency
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy.orm import sessionmaker
+
+    eng = create_engine(temp_db_url)
+    ensure_schema_migrations(eng)
+    SessionMaker = sessionmaker(bind=eng)
+    s = SessionMaker()
+    s.merge(Agency(id="AGY-SEM", name="Semaphore Agency", country_code="AE", tier="standard"))
+    s.merge(User(id="USR-LEAD-SEM", name="Lead User", email="lead.sem@tbo.test", role="Lead", region="MEA", is_available=True, agency_id="AGY-SEM"))
+    now = datetime(2026, 11, 20, 12, 0, 0, tzinfo=timezone.utc)
+    bulk_tickets = [
+        Ticket(
+            id=f"TCK-SEM-{i:05d}", tboh_id=f"TBOH-SEM-{i:05d}", agency_id="AGY-SEM",
+            title=f"Semaphore Test Ticket {i}",
+            description="Detailed ticket description for real-server concurrency testing", priority="Medium",
+            status="New", check_in_date=now + timedelta(days=2), effective_deadline_at=now + timedelta(days=2),
+            created_at=now - timedelta(seconds=i), updated_at=now, version=1
+        )
+        for i in range(15)
+    ]
+    s.bulk_save_objects(bulk_tickets)
+    s.commit()
+    s.close()
+    eng.dispose()
+
+    # 3. Start uvicorn server with controlled generator stream delay to guarantee active overlap
+    env = os.environ.copy()
+    env["DATABASE_URL"] = temp_db_url
+    env["CSV_EXPORT_MAX_CONCURRENCY"] = "2"
+    env["CSV_EXPORT_STREAM_DELAY"] = "0.5"
+    env["PYTHONPATH"] = repo_root
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "backend.app.main:app", "--port", str(port), "--host", "127.0.0.1", "--log-level", "warning"],
+        env=env,
+        cwd=repo_root
+    )
+
+    try:
+        url = f"http://127.0.0.1:{port}/api/export/tickets.csv"
+        health_url = f"http://127.0.0.1:{port}/health"
+        ready = False
+        for _ in range(30):
+            try:
+                res = httpx.get(health_url, timeout=1.0)
+                if res.status_code == 200:
+                    ready = True
+                    break
+            except Exception:
+                time.sleep(0.1)
+        assert ready, "Server failed to become healthy within 3 seconds"
+
+        headers = {"X-User-Id": "USR-LEAD-SEM"}
+
+        # 4. Perform mid-stream disconnect(s)
+        for _ in range(disconnect_count):
+            with httpx.Client(timeout=10.0) as client:
+                with client.stream("GET", url, headers=headers) as resp:
+                    assert resp.status_code == 200
+                    for chunk in resp.iter_bytes():
+                        assert len(chunk) > 0
+                        break
+            time.sleep(0.5)
+
+        # 5. Deterministic concurrency validation:
+        # Open TWO streaming requests at once, read the first chunk of each, and keep both open
+        c1 = httpx.Client(timeout=10.0)
+        c2 = httpx.Client(timeout=10.0)
+
+        s1 = c1.stream("GET", url, headers=headers)
+        r1 = s1.__enter__()
+        assert r1.status_code == 200
+        chunk1 = next(r1.iter_bytes())
+        assert len(chunk1) > 0
+
+        s2 = c2.stream("GET", url, headers=headers)
+        r2 = s2.__enter__()
+        assert r2.status_code == 200
+        chunk2 = next(r2.iter_bytes())
+        assert len(chunk2) > 0
+
+        # With both concurrency slots occupied, a third request must return 503
+        with httpx.Client(timeout=10.0) as c3:
+            r3 = c3.get(url, headers=headers)
+            assert r3.status_code == 503, f"Expected 503 for 3rd concurrent request, got {r3.status_code}"
+
+        # Close both active streams
+        s1.__exit__(None, None, None)
+        c1.close()
+        s2.__exit__(None, None, None)
+        c2.close()
+
+        # Wait <= 2s for connection teardown
+        time.sleep(0.5)
+
+        # Fresh request must return 200
+        with httpx.Client(timeout=10.0) as c_fresh:
+            r_fresh = c_fresh.get(f"{url}?limit=5", headers=headers)
+            assert r_fresh.status_code == 200, f"Expected 200 after releasing streams, got {r_fresh.status_code}"
+
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=3)
+        except Exception:
+            proc.kill()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_export_semaphore_release_on_generator_exit():
+    """
+    Real-server integration test for semaphore release on single client disconnect:
+    Disconnects once mid-stream, then deterministically validates concurrency limiter (CSV_EXPORT_MAX_CONCURRENCY=2).
+    """
+    _run_real_server_semaphore_test(disconnect_count=1)
+
+
+def test_export_semaphore_release_on_double_generator_exit():
+    """
+    Real-server integration test for semaphore release on double client disconnect:
+    Disconnects twice mid-stream, then deterministically validates concurrency limiter (CSV_EXPORT_MAX_CONCURRENCY=2).
+    """
+    _run_real_server_semaphore_test(disconnect_count=2)
+
+
+def test_export_semaphore_release_on_background_task_fallback(db_session: Session):
+    """
+    Verifies that the BackgroundTask passed to StreamingResponse safely releases
+    the semaphore upon client disconnect or abrupt exit, and is idempotent.
+    """
+    import anyio
+    initial_val = main_module._export_semaphore._value
+    lead_user = db_session.query(User).filter(User.role == "Lead").first()
+
+    streaming_resp = main_module.export_tickets_csv(
+        status=None, agency_id=None, from_date=None, to_date=None,
+        cursor=None, limit=10, current_user=lead_user, db=db_session
+    )
+    assert main_module._export_semaphore._value == initial_val - 1
+
+    async def run_bg():
+        if streaming_resp.background:
+            await streaming_resp.background()
+
+    anyio.run(run_bg)
+    assert main_module._export_semaphore._value == initial_val
+
+    # Verify calling it again does not double-release
+    anyio.run(run_bg)
+    assert main_module._export_semaphore._value == initial_val
+
+
+# ============================================================================
+# 3. RATE LIMITER INTERFACE & BACKENDS TESTS
+# ============================================================================
+
+def test_in_memory_rate_limiter_allows_up_to_limit_and_blocks():
+    """Verifies InMemoryRateLimiter allows up to max_requests and blocks limit + 1."""
+    limiter = InMemoryRateLimiter(max_keys=100)
+    test_key = f"test-key-{uuid.uuid4()}"
+    max_reqs = 5
+    window_sec = 60.0
+
+    # 1 to 5: must return False (not rate limited)
+    for i in range(max_reqs):
+        result = limiter.is_rate_limited(test_key, max_reqs, window_sec)
+        assert result is False, f"Request {i + 1} should be allowed"
+
+    # 6th request: must return True (rate limited!)
+    assert limiter.is_rate_limited(test_key, max_reqs, window_sec) is True
+
+    # 7th request: still blocked
+    assert limiter.is_rate_limited(test_key, max_reqs, window_sec) is True
+
+
+def test_redis_rate_limiter_with_mocked_redis_pipeline():
+    """Verifies RedisRateLimiter with a pipeline-capable mock redis client."""
+    mock_redis = MockRedisClient(supports_pipeline=True)
+    limiter = RedisRateLimiter(redis_client=mock_redis)
+    test_key = "user:42"
+    max_reqs = 3
+    window_sec = 10.0
+
+    # 1..3: allowed
+    for i in range(max_reqs):
+        assert limiter.is_rate_limited(test_key, max_reqs, window_sec) is False
+    assert mock_redis.zcard(f"ratelimit:{test_key}") == 3
+
+    # 4th request: blocked
+    assert limiter.is_rate_limited(test_key, max_reqs, window_sec) is True
+    assert mock_redis.zcard(f"ratelimit:{test_key}") == 3
+
+
+def test_redis_rate_limiter_with_mocked_redis_direct():
+    """Verifies RedisRateLimiter with direct calls (no pipeline support)."""
+    mock_redis = MockRedisClient(supports_pipeline=False)
+    limiter = RedisRateLimiter(redis_client=mock_redis)
+    test_key = "user:99"
+    max_reqs = 3
+    window_sec = 10.0
+
+    # 1..3: allowed
+    for i in range(max_reqs):
+        assert limiter.is_rate_limited(test_key, max_reqs, window_sec) is False
+
+    # 4th request: blocked
+    assert limiter.is_rate_limited(test_key, max_reqs, window_sec) is True
+
+
+def test_redis_rate_limiter_graceful_fallback_on_connection_error(monkeypatch):
+    """
+    Verifies that when Redis connection or operations fail, RedisRateLimiter
+    logs a warning and falls back gracefully to InMemoryRateLimiter without raising.
+    """
+    class BrokenRedisClient:
+        def zremrangebyscore(self, *args, **kwargs):
+            raise ConnectionError("Redis server unreachable")
+
+    broken_client = BrokenRedisClient()
+    limiter = RedisRateLimiter(redis_client=broken_client)
+
+    # Should fall back gracefully to InMemoryRateLimiter
+    assert limiter.is_rate_limited("fallback-test", 2, 60.0) is False
+    assert limiter.is_rate_limited("fallback-test", 2, 60.0) is False
+    assert limiter.is_rate_limited("fallback-test", 2, 60.0) is True
+
+
+def test_get_rate_limiter_factory(monkeypatch):
+    """Verifies get_rate_limiter() selects the appropriate backend according to env vars."""
+    # Default is inmemory
+    monkeypatch.delenv("RATE_LIMIT_BACKEND", raising=False)
+    limiter = get_rate_limiter()
+    assert isinstance(limiter, InMemoryRateLimiter)
+
+    # Redis backend without REDIS_URL falls back to inmemory
+    monkeypatch.setenv("RATE_LIMIT_BACKEND", "redis")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    limiter = get_rate_limiter()
+    assert isinstance(limiter, InMemoryRateLimiter)
+
+
+# ============================================================================
+# 4. PROXY IP SPOOFING & CIDR EXTRACTION TESTS
+# ============================================================================
+
+class DummyClient:
+    def __init__(self, host: str):
+        self.host = host
+
+
+class DummyRequest:
+    def __init__(self, host: str, headers: dict = None):
+        self.client = DummyClient(host)
+        self.headers = headers or {}
+
+
+def test_get_client_ip_unit():
+    """Unit tests for get_client_ip verifying CIDR checks and X-Forwarded-For validation."""
+    trusted_cidrs = "127.0.0.1/32, 10.0.0.0/8, 192.168.1.0/24"
+
+    # Untrusted client sends spoofed header: ignored, host returned
+    req_untrusted = DummyRequest("198.51.100.5", {"X-Forwarded-For": "203.0.113.1"})
+    assert get_client_ip(req_untrusted, trusted_cidrs=trusted_cidrs) == "198.51.100.5"
+
+    # Trusted client sends X-Forwarded-For: extracted
+    req_trusted = DummyRequest("10.0.0.5", {"X-Forwarded-For": "203.0.113.1"})
+    assert get_client_ip(req_trusted, trusted_cidrs=trusted_cidrs) == "203.0.113.1"
+
+    # Trusted proxy chaining (client, trusted_proxy): first non-proxy IP returned
+    req_chained = DummyRequest("10.0.0.5", {"X-Forwarded-For": "203.0.113.1, 10.0.0.2"})
+    assert get_client_ip(req_chained, trusted_cidrs=trusted_cidrs) == "203.0.113.1"
+
+    # Trusted client with missing or invalid header: host returned
+    req_invalid = DummyRequest("10.0.0.5", {"X-Forwarded-For": "not-a-valid-ip"})
+    assert get_client_ip(req_invalid, trusted_cidrs=trusted_cidrs) == "10.0.0.5"
+
+    # Default empty trusted_cidrs: never trust X-Forwarded-For
+    assert get_client_ip(req_trusted, trusted_cidrs="") == "10.0.0.5"
+
+
+def test_proxy_ip_spoofing_middleware_integration(monkeypatch):
+    """
+    Integration test verifying rate limiting with TRUSTED_PROXY_CIDRS:
+    - Untrusted host '198.51.100.5' sending X-Forwarded-For '203.0.113.1':
+      Rate limit applies to '198.51.100.5', NOT '203.0.113.1'.
+    - Trusted host '10.0.0.5' sending X-Forwarded-For '203.0.113.1':
+      Rate limit applies to '203.0.113.1'.
+    """
+    monkeypatch.setenv("TRUSTED_PROXY_CIDRS", "10.0.0.0/8")
+    monkeypatch.setattr(main_module, "RATE_LIMIT_PER_MINUTE", 2)
+
+    with main_module._rate_limit_lock:
+        main_module._rate_limit_records.clear()
+
+    # 1. Untrusted client test
+    untrusted_client = TestClient(main_module.app, client=("198.51.100.5", 50000))
+    resp1 = untrusted_client.get("/api/tickets?view=triage", headers={"X-Forwarded-For": "203.0.113.1"})
+    resp2 = untrusted_client.get("/api/tickets?view=triage", headers={"X-Forwarded-For": "203.0.113.1"})
+    assert resp1.status_code != 429
+    assert resp2.status_code != 429
+
+    # 3rd request should trigger 429
+    resp3 = untrusted_client.get("/api/tickets?view=triage", headers={"X-Forwarded-For": "203.0.113.1"})
+    assert resp3.status_code == 429
+
+    # Verify rate limit key was recorded for untrusted host IP, NOT the spoofed header IP
+    with main_module._rate_limit_lock:
+        assert "ip:198.51.100.5" in main_module._rate_limit_records
+        assert "ip:203.0.113.1" not in main_module._rate_limit_records
+
+    # 2. Trusted proxy test
+    with main_module._rate_limit_lock:
+        main_module._rate_limit_records.clear()
+
+    trusted_proxy_client = TestClient(main_module.app, client=("10.0.0.5", 50000))
+    resp_t1 = trusted_proxy_client.get("/api/tickets?view=triage", headers={"X-Forwarded-For": "203.0.113.1"})
+    resp_t2 = trusted_proxy_client.get("/api/tickets?view=triage", headers={"X-Forwarded-For": "203.0.113.1"})
+    assert resp_t1.status_code != 429
+    assert resp_t2.status_code != 429
+
+    # 3rd request from same forwarded client IP triggers 429
+    resp_t3 = trusted_proxy_client.get("/api/tickets?view=triage", headers={"X-Forwarded-For": "203.0.113.1"})
+    assert resp_t3.status_code == 429
+
+    # Verify rate limit key was recorded for the validated forwarded IP
+    with main_module._rate_limit_lock:
+        assert "ip:203.0.113.1" in main_module._rate_limit_records
+
+
+def test_cors_preflight_exposes_next_cursor_and_request_id(client: TestClient):
+    """
+    Verifies that CORS middleware explicitly exposes X-Next-Cursor and X-Request-ID headers.
+    """
+    # 1. Preflight check
+    resp_options = client.options(
+        "/api/export/tickets.csv",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "X-User-Id"
+        }
+    )
+    assert resp_options.status_code == 200
+    assert resp_options.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+    # 2. Actual request with Origin check for Access-Control-Expose-Headers
+    resp = client.get(
+        "/api/export/tickets.csv?limit=1",
+        headers={
+            "Origin": "http://localhost:3000",
+            "X-User-Id": "USR-104"
+        }
+    )
+    assert resp.status_code == 200
+    exposed = resp.headers.get("access-control-expose-headers", "")
+    exposed_lower = [h.strip().lower() for h in exposed.split(",")]
+    assert "x-next-cursor" in exposed_lower
+    assert "x-request-id" in exposed_lower
+
+
+def test_csv_export_safe_parser_and_streaming_chunked(client: TestClient, monkeypatch, caplog):
+    """
+    Verifies that:
+    1. get_csv_export_default_limit safely parses malformed or negative values and falls back to 50000.
+    2. Streaming export streams rows without loading all ORM models at once.
+    """
+    from backend.app.main import get_csv_export_default_limit
+
+    # Safe parser fallbacks
+    monkeypatch.setenv("CSV_EXPORT_DEFAULT_LIMIT", "invalid_number")
+    assert get_csv_export_default_limit() == 50000
+
+    monkeypatch.setenv("CSV_EXPORT_DEFAULT_LIMIT", "-50")
+    assert get_csv_export_default_limit() == 50000
+
+    monkeypatch.setenv("CSV_EXPORT_DEFAULT_LIMIT", "50,000")
+    assert get_csv_export_default_limit() == 50000
+
+    # Stream chunks check
+    monkeypatch.setenv("CSV_EXPORT_DEFAULT_LIMIT", "10")
+    resp = client.get("/api/export/tickets.csv", headers={"X-User-Id": "USR-104"})
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Next-Cursor") is not None
+    lines = [l for l in resp.text.splitlines() if l.strip()]
+    assert len(lines) == 11  # 1 header + 10 data rows
+
