@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import tempfile
+import subprocess
 from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import text
@@ -433,3 +434,64 @@ def test_legacy_sqlite_db_upgrade_backfills_priority_weights():
                 os.remove(temp_db_path)
             except Exception:
                 pass
+
+
+def test_alembic_postgresql_offline_sql_renders_at_time_zone_utc():
+    """
+    Renders offline migration SQL for postgresql dialect and asserts every
+    datetime column conversion uses `AT TIME ZONE 'UTC'` on upgrade and downgrade.
+    """
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    alembic_exe = os.path.join(repo_root, ".venv", "Scripts", "alembic.exe")
+    pg_url = "postgresql+psycopg://x@localhost/x"
+
+    # 1. Upgrade offline SQL from 0001 to 0002
+    up_cmd = [
+        alembic_exe,
+        "-x", f"url={pg_url}",
+        "upgrade", "0001_baseline_schema:0002_timezone_aware_and_queue_score",
+        "--sql"
+    ]
+    up_res = subprocess.run(up_cmd, cwd=repo_root, capture_output=True, text=True, check=True)
+    up_sql = up_res.stdout
+
+    expected_cols = [
+        ("tickets", "check_in_date"),
+        ("tickets", "lcd_date"),
+        ("tickets", "effective_deadline_at"),
+        ("tickets", "created_at"),
+        ("tickets", "updated_at"),
+        ("events_outbox", "created_at"),
+        ("events_outbox", "delivered_at"),
+        ("ticket_messages", "created_at"),
+        ("side_conversations", "created_at"),
+        ("side_conversation_messages", "created_at"),
+        ("ticket_themes", "created_at"),
+        ("audit_logs", "created_at"),
+        ("idempotency_records", "created_at"),
+    ]
+
+    for table, col in expected_cols:
+        expected_stmt = (
+            f"ALTER TABLE {table} ALTER COLUMN {col} TYPE TIMESTAMP WITH TIME ZONE "
+            f"USING {col} AT TIME ZONE 'UTC';"
+        )
+        assert expected_stmt in up_sql, f"Missing expected upgrade SQL for {table}.{col}: {expected_stmt}"
+
+    # 2. Downgrade offline SQL from 0002 to 0001
+    down_cmd = [
+        alembic_exe,
+        "-x", f"url={pg_url}",
+        "downgrade", "0002_timezone_aware_and_queue_score:0001_baseline_schema",
+        "--sql"
+    ]
+    down_res = subprocess.run(down_cmd, cwd=repo_root, capture_output=True, text=True, check=True)
+    down_sql = down_res.stdout
+
+    for table, col in expected_cols:
+        expected_down_stmt = (
+            f"ALTER TABLE {table} ALTER COLUMN {col} TYPE TIMESTAMP WITHOUT TIME ZONE "
+            f"USING {col} AT TIME ZONE 'UTC';"
+        )
+        assert expected_down_stmt in down_sql, f"Missing expected downgrade SQL for {table}.{col}: {expected_down_stmt}"
+
