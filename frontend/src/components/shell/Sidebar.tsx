@@ -131,14 +131,14 @@ export function Sidebar({ className, onToggleCollapse }: SidebarProps) {
                     className={cn(
                       "group flex items-center gap-3 rounded-full text-table font-medium transition-subtle py-2.5 px-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
                       isActive
-                        ? "bg-[#1E293B] text-white font-semibold border-l-[3px] border-brand-orange pl-[11px]"
+                        ? "bg-[#1E293B] text-white font-semibold border-l-[3px] border-[#115E59] pl-[11px]"
                         : "text-slate-400 hover:text-slate-100 hover:bg-[#1E293B]/70"
                     )}
                   >
                     <Icon
                       className={cn(
                         "w-4 h-4 shrink-0 transition-transform duration-120 group-hover:translate-x-0.5",
-                        isActive ? "text-brand-orange" : "text-slate-400 group-hover:text-slate-100"
+                        isActive ? "text-[#E3EFEE]" : "text-slate-400 group-hover:text-slate-100"
                       )}
                     />
                     {effectivelyExpanded && <span className="truncate">{item.label}</span>}
@@ -165,7 +165,7 @@ export function Sidebar({ className, onToggleCollapse }: SidebarProps) {
             <div className="px-3 py-2 flex flex-col gap-2 bg-[#1E293B]/70 rounded-2xl border border-[#334155]/40">
               <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono-numbers">
                 <span className="flex items-center gap-1 uppercase tracking-wider font-semibold">
-                  <Activity className="w-3.5 h-3.5 text-brand-orange" />
+                  <Activity className="w-3.5 h-3.5 text-[#D9733A]" />
                   Region Load
                 </span>
                 <span className="text-[10px]">AVG 70%</span>

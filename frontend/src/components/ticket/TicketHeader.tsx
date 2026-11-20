@@ -251,16 +251,16 @@ export function TicketHeader({
                 )}
               </div>
 
-              {/* 4. ESCALATE (VIOLET OUTLINE WITH WIPE HOVER) */}
+              {/* 4. ESCALATE (RED OUTLINE, STATE COLOUR) */}
               {isEscalated ? (
                 <Tooltip content="Ticket is already escalated to Operations Escalation Manager">
                   <span>
                     <button
                       type="button"
                       disabled
-                      className="inline-flex items-center gap-1.5 h-8 px-3 text-caption font-semibold rounded-input border border-violet-200 dark:border-violet-800/60 bg-violet-50 dark:bg-violet-950/40 text-violet-400 dark:text-violet-500 opacity-60 cursor-not-allowed"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 text-caption font-semibold rounded-input border border-[#EDB9B3] bg-[#F8E1DE]/20 text-[#9B1C1C] opacity-60 cursor-not-allowed"
                     >
-                      <ShieldAlert className="w-3.5 h-3.5 text-violet-400 dark:text-violet-500" />
+                      <ShieldAlert className="w-3.5 h-3.5 text-[#9B1C1C]" />
                       <span>Escalated</span>
                     </button>
                   </span>
@@ -271,9 +271,9 @@ export function TicketHeader({
                     <button
                       type="button"
                       disabled
-                      className="inline-flex items-center gap-1.5 h-8 px-3 text-caption font-semibold rounded-input border border-violet-200 dark:border-violet-800/60 bg-violet-50 dark:bg-violet-950/40 text-violet-400 dark:text-violet-500 opacity-60 cursor-not-allowed"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 text-caption font-semibold rounded-input border border-[#EDB9B3] bg-[#F8E1DE]/20 text-[#9B1C1C] opacity-60 cursor-not-allowed"
                     >
-                      <ShieldAlert className="w-3.5 h-3.5 text-violet-400 dark:text-violet-500" />
+                      <ShieldAlert className="w-3.5 h-3.5 text-[#9B1C1C]" />
                       <span>Escalate</span>
                     </button>
                   </span>
@@ -282,12 +282,10 @@ export function TicketHeader({
                 <button
                   type="button"
                   onClick={onOpenEscalate}
-                  className="relative overflow-hidden border border-violet-500 text-violet-700 dark:text-violet-300 font-semibold rounded-input px-3 h-8 text-caption inline-flex items-center gap-1.5 group transition-colors duration-300 before:absolute before:inset-0 before:bg-violet-600 before:translate-x-[-101%] hover:before:translate-x-0 before:transition-transform before:duration-300 before:ease-out z-0 cursor-pointer shadow-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="border border-[#EDB9B3] text-[#9B1C1C] bg-[#F8E1DE]/20 hover:bg-[#F8E1DE]/50 font-semibold rounded-input px-3 h-8 text-caption inline-flex items-center gap-1.5 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9B1C1C]"
                 >
-                  <span className="relative z-10 flex items-center gap-1.5 group-hover:text-white transition-colors duration-300">
-                    <ShieldAlert className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 group-hover:text-white transition-colors duration-300" />
-                    <span>Escalate</span>
-                  </span>
+                  <ShieldAlert className="w-3.5 h-3.5 text-[#9B1C1C]" />
+                  <span>Escalate</span>
                 </button>
               )}
 

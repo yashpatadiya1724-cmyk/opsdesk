@@ -6,98 +6,114 @@
 
 :root {
   /* Typography Stacks */
-  --font-inter: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-heading: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Airport Control Tower Chrome Tokens (Navy) */
-  --chrome-navy-900: #0F172A;
-  --chrome-navy-800: #1E293B;
-  --chrome-text: #F1F5F9;
-  --chrome-muted: #94A3B8;
-  --departure-amber: #FFB020;
+  /* Target Palette: Paper + Teal + Clay */
+  --paper: #F6F3EE;
+  --canvas: #F6F3EE;
+  --surface: #FDFCFA;
+  --surface-subtle: #F6F3EE;
+  --border: #E4DED5;
+  --border-strong: #5E5A53;
 
-  /* Canvas & Surface Tokens — Light Mode */
-  --canvas: #F8FAFC;
-  --surface: #FFFFFF;
-  --surface-subtle: #F1F5F9;
-  --border: #E2E8F0;
-  --border-strong: #CBD5E1;
+  /* Ink Typography Tokens */
+  --text-primary: #1C1B19;
+  --text-secondary: #5E5A53;
+  --text-tertiary: #706B63;
+  --text-disabled: #A8A196;
+  --text-muted: #706B63;
 
-  /* Typography Tokens — Light Mode */
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --text-tertiary: #64748B;
-  --text-disabled: #94A3B8;
-  --text-muted: #94A3B8;
+  /* Brand Teal Tokens */
+  --brand: #115E59;
+  --brand-hover: #0B4745;
+  --brand-soft: #E3EFEE;
+  --brand-orange: #115E59;
+  --brand-orange-fill: #115E59;
+  --brand-orange-text: #115E59;
+  --brand-orange-navy: #1C1B19;
+  --brand-50: #E3EFEE;
+  --brand-100: #E3EFEE;
+  --brand-500: #115E59;
+  --brand-600: #0B4745;
+  --brand-700: #0B4745;
+  --orange-tint: rgba(17, 94, 89, 0.08);
 
-  /* Brand / Orange Accent Tokens — Light Mode (Udaan Palette) */
-  --brand-orange: #EA580C;
-  --brand-orange-fill: #EA580C;
-  --brand-orange-text: #C2410C;
-  --brand-orange-navy: #0F172A;
-  --brand-50: #FFF7ED;
-  --brand-100: #FFEDD5;
-  --brand-500: #EA580C;
-  --brand-600: #EA580C;
-  --brand-700: #C2410C;
-  --orange-tint: rgba(234, 88, 12, 0.08);
+  /* Clay Accent Tokens (Decorative only: logo dot, card top 2px, row hover left border) */
+  --clay: #D9733A;
+  --clay-text: #9A4A1E;
+  --clay-soft: #FBEFE6;
+  --clay-line: #EBCDB8;
 
-  /* SLA Semantic Tokens — Light Mode (Never color alone) */
-  --sla-normal-text: #15803D;
-  --sla-normal-bg: #DCFCE7;
-  --sla-at-risk-text: #A16207;
-  --sla-at-risk-bg: #FEF9C3;
-  --sla-breached-text: #B91C1C;
-  --sla-breached-bg: #FEE2E2;
+  /* SLA Semantic Tokens */
+  --sla-normal-text: #25623A;
+  --sla-normal-bg: #E6F0E8;
+  --sla-normal-line: #CFE0D3;
+  --sla-at-risk-text: #7A5200;
+  --sla-at-risk-bg: #FBF0D0;
+  --sla-at-risk-line: #E8D58A;
+  --sla-breached-text: #9B1C1C;
+  --sla-breached-bg: #F8E1DE;
+  --sla-breached-line: #EDB9B3;
   --sla-escalated-text: #6D28D9;
   --sla-escalated-bg: #EDE9FE;
-  --sla-stopped-text: #64748B;
-  --sla-stopped-bg: #F1F5F9;
+  --sla-stopped-text: #55524C;
+  --sla-stopped-bg: #ECEAE6;
+  --sla-stopped-line: #D6D2CB;
+
+  /* Internal Note Lilac Tokens */
+  --note-bg: #F1EDF7;
+  --note-border: #D6CCE6;
+  --note-lock: #5B4A86;
+
+  /* Priority Tokens: Neutral outline chip + colored dot */
+  --priority-urgent-dot: #B42318;
+  --priority-high-dot: #D9733A;
+  --priority-medium-dot: #6B7C93;
+  --priority-low-dot: #A8A196;
+
+  --priority-urgent-text: #1C1B19;
+  --priority-urgent-bg: #FDFCFA;
+  --priority-high-text: #1C1B19;
+  --priority-high-bg: #FDFCFA;
+  --priority-medium-text: #1C1B19;
+  --priority-medium-bg: #FDFCFA;
+  --priority-low-text: #1C1B19;
+  --priority-low-bg: #FDFCFA;
 
   /* Region Tokens (Muted Hues) */
-  --region-mea-text: #B45309;
-  --region-mea-bg: #FEF3C7;
-  --region-apac-text: #0D9488;
-  --region-apac-bg: #CCFBF1;
-  --region-eu-text: #2563EB;
-  --region-eu-bg: #DBEAFE;
-  --region-amer-text: #7C3AED;
-  --region-amer-bg: #EDE9FE;
-
-  /* Priority Tokens — Muted Slate Tones Only (NO red/orange chips) */
-  --priority-urgent-text: #334155;
-  --priority-urgent-bg: #E2E8F0;
-  --priority-high-text: #475569;
-  --priority-high-bg: #F1F5F9;
-  --priority-medium-text: #64748B;
-  --priority-medium-bg: #F8FAFC;
-  --priority-low-text: #94A3B8;
-  --priority-low-bg: #F8FAFC;
+  --region-mea-text: #9A4A1E;
+  --region-mea-bg: #FBEFE6;
+  --region-apac-text: #115E59;
+  --region-apac-bg: #E3EFEE;
+  --region-eu-text: #134159;
+  --region-eu-bg: #C5E7FF;
+  --region-amer-text: #5B4A86;
+  --region-amer-bg: #F1EDF7;
 
   /* Status Tokens */
-  --status-new-text: #1D4ED8;
-  --status-new-bg: #EFF6FF;
-  --status-open-text: #C2410C;
-  --status-open-bg: #FFF7ED;
-  --status-pending-text: #A16207;
-  --status-pending-bg: #FEF9C3;
+  --status-new-text: #115E59;
+  --status-new-bg: #E3EFEE;
+  --status-open-text: #9A4A1E;
+  --status-open-bg: #FBEFE6;
+  --status-pending-text: #7A5200;
+  --status-pending-bg: #FBF0D0;
   --status-escalated-text: #6D28D9;
   --status-escalated-bg: #EDE9FE;
-  --status-resolved-text: #15803D;
-  --status-resolved-bg: #DCFCE7;
-  --status-closed-text: #64748B;
-  --status-closed-bg: #F1F5F9;
+  --status-resolved-text: #25623A;
+  --status-resolved-bg: #E6F0E8;
+  --status-closed-text: #55524C;
+  --status-closed-bg: #ECEAE6;
 
-  /* Focus Ring: 2px orange ring with 2px offset */
-  --focus-ring: #EA580C;
+  /* Focus Ring */
+  --focus-ring: #115E59;
 
   /* Geometry & Radii */
-  --radius-input: 8px;
-  --radius-chip: 9999px;
-  --radius-card: 12px;
-  --radius-modal: 24px;
-  --radius-panel: 24px;
+  --radius-input: 6px;
+  --radius-chip: 6px;
+  --radius-card: 8px;
+  --radius-modal: 8px;
+  --radius-panel: 8px;
 
   /* Motion & Duration */
   --duration-hover: 120ms;

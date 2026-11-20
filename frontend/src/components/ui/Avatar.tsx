@@ -13,8 +13,8 @@ export interface AvatarProps {
 // Deterministic palette generation for avatars
 const PALETTE = [
   { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200" },
-  { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
-  { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+  { bg: "bg-stone-100", text: "text-stone-700", border: "border-stone-200" },
+  { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
   { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
   { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" },
   { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },

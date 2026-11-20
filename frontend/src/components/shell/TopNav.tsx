@@ -23,17 +23,10 @@ export function LogoMark({ className = "w-7 h-7" }: { className?: string }) {
       className={className}
       aria-hidden="true"
     >
-      {/* Geometric 'O' ring in brand orange */}
-      <circle cx="16" cy="16" r="11" stroke="#EA580C" strokeWidth="2.5" />
-      {/* Flight path arc crossing the ring */}
-      <path
-        d="M 6 22 C 12 18, 18 10, 26 6"
-        stroke="#FB923C"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      {/* Departure beacon: amber departure accent */}
-      <circle cx="26" cy="6" r="2.5" fill="#FFB020" />
+      {/* Geometric 'O' ring in brand teal */}
+      <circle cx="16" cy="16" r="11" stroke="#115E59" strokeWidth="2.5" />
+      {/* Decorative clay dot */}
+      <circle cx="26" cy="6" r="2.5" fill="#D9733A" />
     </svg>
   );
 }
@@ -225,16 +218,16 @@ export function TopNav() {
 
       {/* 2. Slim demo-auth banner (32px, dismissible per session) */}
       {!isBannerDismissed && !isApiDown && (
-        <div className="max-w-[1440px] mx-auto mb-2 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-700/50 rounded-full h-8 px-4 text-[12px] text-amber-800 dark:text-amber-300 flex items-center justify-between transition-subtle font-medium shadow-xs">
+        <div className="max-w-[1440px] mx-auto mb-2 bg-[#FBEFE6] border border-[#EBCDB8] rounded-full h-8 px-4 text-[12px] text-[#9A4A1E] flex items-center justify-between transition-subtle font-medium shadow-none">
           <div className="flex items-center gap-2 mx-auto">
-            <ShieldAlert className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <ShieldAlert className="w-3.5 h-3.5 text-[#9A4A1E] shrink-0" />
             <span>Demo authentication — identity is client-supplied and not secure.</span>
           </div>
           <button
             type="button"
             onClick={handleDismissBanner}
             aria-label="Dismiss demo authentication banner"
-            className="text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 p-1 rounded-full transition-subtle cursor-pointer shrink-0"
+            className="text-[#9A4A1E] hover:opacity-80 p-1 rounded-full transition-subtle cursor-pointer shrink-0"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -242,7 +235,7 @@ export function TopNav() {
       )}
 
       {/* 3. Floating Pill Top Bar (surface, fully rounded, shadow sm, sticky with solid opaque surface) */}
-      <div className="w-full max-w-[1440px] mx-auto h-14 bg-surface border border-border rounded-full shadow-sm px-4 sm:px-6 flex items-center justify-between gap-4 transition-subtle">
+      <div className="w-full max-w-[1440px] mx-auto h-14 bg-surface border border-border rounded-full shadow-none px-4 sm:px-6 flex items-center justify-between gap-4 transition-subtle">
         {/* Left: Geometric flight-path 'O' logo mark + 'OpsDesk' */}
         <div className="flex items-center gap-3 shrink-0">
           <Link
@@ -252,11 +245,12 @@ export function TopNav() {
           >
             <LogoMark className="w-7 h-7 shrink-0" />
             <div className="flex items-center gap-2">
-              <span className="font-heading font-bold text-section tracking-tight text-content-primary">
+              <span className="font-heading font-bold text-section tracking-tight text-content-primary flex items-center gap-1">
                 OpsDesk
+                <span className="w-1.5 h-1.5 rounded-full inline-block bg-[#D9733A]" />
               </span>
-              <span className="hidden sm:inline-block text-[10px] font-mono-numbers font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-surface-subtle text-brand-orange-text dark:text-brand-orange border border-border">
-                CONTROL TOWER
+              <span className="hidden sm:inline-block text-[10px] font-mono-numbers font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-surface-subtle text-[#115E59] border border-border">
+                OPS CONSOLE
               </span>
             </div>
           </Link>
@@ -402,7 +396,7 @@ export function TopNav() {
                         }}
                         className={cn(
                           "w-full flex items-center justify-between px-3.5 py-2.5 text-left hover:bg-surface-subtle transition-subtle cursor-pointer min-h-[44px]",
-                          isSelected && "bg-brand-50/70 dark:bg-orange-950/30"
+                          isSelected && "bg-brand-soft"
                         )}
                       >
                         <div className="flex items-center gap-2.5 truncate">
@@ -417,7 +411,7 @@ export function TopNav() {
                           </div>
                         </div>
                         {isSelected && (
-                          <Check className="w-4 h-4 text-brand-orange-text dark:text-brand-orange shrink-0 ml-2" />
+                          <Check className="w-4 h-4 text-brand shrink-0 ml-2" />
                         )}
                       </button>
                     );

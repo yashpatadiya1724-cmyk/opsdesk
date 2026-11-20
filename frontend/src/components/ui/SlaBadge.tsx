@@ -106,7 +106,7 @@ export function SlaBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap min-w-[76px] bg-sla-stopped-bg text-sla-stopped-text select-none shrink-0 leading-none",
+          "inline-flex items-center gap-1.5 rounded-[6px] font-medium whitespace-nowrap min-w-[76px] bg-sla-stopped-bg text-sla-stopped-text border border-sla-stopped-line select-none shrink-0 leading-none",
           sizeClasses[size],
           className
         )}
@@ -124,7 +124,7 @@ export function SlaBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full font-semibold whitespace-nowrap min-w-[96px] bg-sla-escalated-bg text-sla-escalated-text select-none shrink-0 leading-none",
+          "inline-flex items-center gap-1.5 rounded-[6px] font-semibold whitespace-nowrap min-w-[96px] bg-sla-escalated-bg text-sla-escalated-text border border-[#DDD6FE] select-none shrink-0 leading-none",
           sizeClasses[size],
           className
         )}
@@ -144,7 +144,7 @@ export function SlaBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full font-semibold whitespace-nowrap min-w-[104px] bg-sla-breached-bg text-sla-breached-text select-none shrink-0 leading-none animate-sla-breach hover:[animation-play-state:paused]",
+          "inline-flex items-center gap-1.5 rounded-[6px] font-semibold whitespace-nowrap min-w-[104px] bg-sla-breached-bg text-sla-breached-text border border-sla-breached-line select-none shrink-0 leading-none animate-sla-breach hover:[animation-play-state:paused]",
           sizeClasses[size],
           className
         )}
@@ -164,7 +164,7 @@ export function SlaBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full font-semibold whitespace-nowrap min-w-[96px] bg-sla-at_risk-bg text-sla-at_risk-text select-none shrink-0 leading-none",
+          "inline-flex items-center gap-1.5 rounded-[6px] font-semibold whitespace-nowrap min-w-[96px] bg-sla-at_risk-bg text-sla-at_risk-text border border-sla-at_risk-line select-none shrink-0 leading-none",
           sizeClasses[size],
           className
         )}
@@ -183,7 +183,7 @@ export function SlaBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap min-w-[96px] bg-sla-normal-bg text-sla-normal-text select-none shrink-0 leading-none",
+        "inline-flex items-center gap-1.5 rounded-[6px] font-medium whitespace-nowrap min-w-[96px] bg-sla-normal-bg text-sla-normal-text border border-sla-normal-line select-none shrink-0 leading-none",
         sizeClasses[size],
         className
       )}
