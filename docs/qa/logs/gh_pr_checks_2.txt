@@ -1,0 +1,4 @@
+﻿Backend Test Suite	pass	52s	https://github.com/yashpatadiya1724-cmyk/opsdesk/actions/runs/44834761134/job/136628236181	
+Backend Test Suite (PostgreSQL)	pass	1m5s	https://github.com/yashpatadiya1724-cmyk/opsdesk/actions/runs/44834761134/job/136628236374	
+Container Build & Runtime Verification	pending	0	https://github.com/yashpatadiya1724-cmyk/opsdesk/actions/runs/44834761134/job/136628236368	
+Frontend Build & Typecheck	pass	1m31s	https://github.com/yashpatadiya1724-cmyk/opsdesk/actions/runs/44834761134/job/136628235868	

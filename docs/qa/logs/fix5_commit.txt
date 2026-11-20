@@ -1,0 +1,3 @@
+﻿[qa/browser-fixes 17e8745] fix(frontend): send Idempotency-Key header on ticket creation
+ 2 files changed, 31 insertions(+), 1 deletion(-)
+ create mode 100644 docs/qa/logs/fix5_idempotency_diff.txt

@@ -85,10 +85,17 @@ export async function createTicket(
     intent?: string | null;
     agency_id?: string | null;
   },
-  userId: string = "USR-101"
+  userId: string = "USR-101",
+  idempotencyKey?: string
 ): Promise<{ id: string; tboh_id: string; status: string }> {
+  const key =
+    idempotencyKey ||
+    (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `req-${Date.now()}`);
   return request("/api/tickets", {
     method: "POST",
+    headers: {
+      "Idempotency-Key": key,
+    },
     body: JSON.stringify(payload),
   }, userId);
 }

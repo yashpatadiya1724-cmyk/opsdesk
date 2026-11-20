@@ -46,8 +46,9 @@ export interface TicketMessage {
   id: string;
   message_type: "PublicReply" | "InternalNote";
   content: string;
-  sender_user_id: string;
-  sender_name: string;
+  sender_id?: string;
+  sender_user_id?: string;
+  sender_name?: string;
   created_at: string;
 }
 

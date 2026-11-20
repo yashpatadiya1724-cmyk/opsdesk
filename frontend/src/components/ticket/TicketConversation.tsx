@@ -214,7 +214,13 @@ export function TicketConversation({
               {visibleMessages.length > 0 ? (
                 visibleMessages.map((msg) => {
                   const isInternal = msg.message_type === "InternalNote";
-                  const roleInfo = getSenderRole(msg.sender_user_id, msg.sender_name);
+                  const senderId = msg.sender_id || msg.sender_user_id || "";
+                  const matchedUser = DEMO_USERS.find(
+                    (u) => u.id === senderId || (msg.sender_name && u.name === msg.sender_name)
+                  );
+                  const senderName =
+                    msg.sender_name || matchedUser?.name || senderId || (isInternal ? "Staff Member" : "Agency Agent");
+                  const roleInfo = getSenderRole(senderId, senderName);
                   const isCopied = copiedMessageId === msg.id;
 
                   return (
@@ -230,9 +236,9 @@ export function TicketConversation({
                       {/* Bubble Header */}
                       <div className="flex items-center justify-between gap-3 mb-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Avatar name={msg.sender_name} size="sm" />
+                          <Avatar name={senderName} id={senderId} size="sm" />
                           <span className="text-table font-semibold text-content-primary">
-                            {msg.sender_name}
+                            {senderName}
                           </span>
                           <Chip size="sm" variant={roleInfo.variant}>
                             {roleInfo.label}

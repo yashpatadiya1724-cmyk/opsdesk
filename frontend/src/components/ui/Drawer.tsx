@@ -93,7 +93,7 @@ export function Drawer({
               </h2>
             )}
             {subtitle && (
-              <p className="text-caption text-content-secondary mt-1">{subtitle}</p>
+              <div className="text-caption text-content-secondary mt-1">{subtitle}</div>
             )}
           </div>
           <IconButton

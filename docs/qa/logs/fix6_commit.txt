@@ -1,0 +1,3 @@
+﻿[qa/browser-fixes 708b31e] fix(frontend): add optional sender fields to TicketMessage type to eliminate any
+ 3 files changed, 33 insertions(+), 3 deletions(-)
+ create mode 100644 docs/qa/logs/fix6_types_diff.txt
