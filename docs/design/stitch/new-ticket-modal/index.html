@@ -1,0 +1,292 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&amp;family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary": "#115E59", "primary-hover": "#0B4745", "primary-container": "#115E59", "primary-tint": "#E3EFEE", "on-primary": "#ffffff", "surface": "#F6F3EE", "surface-card": "#FDFCFA", "border-custom": "#E4DED5", "on-surface": "#1C1B19", "on-surface-variant": "#5E5A53", "outline": "#706B63", "surface-container-low": "#F6F3EE", "surface-container": "#EFEAE4", "surface-container-high": "#E7E2DB", "surface-container-lowest": "#FFFFFF", "error": "#ba1a1a", "error-container": "#ffdad6", "secondary": "#805533", "secondary-container": "#fdc39a", "on-secondary-container": "#794e2e", "tertiary": "#134159", "tertiary-container": "#2f5971" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "gutter": "1rem", "space-md": "1rem", "gutter-lg": "1.5rem", "space-sm": "0.5rem", "margin-md": "1.5rem", "space-xl": "2rem", "space-xs": "0.25rem", "margin": "1rem", "space-lg": "1.5rem", "margin-lg": "2rem" }, "fontFamily": { "headline-sm": ["Hanken Grotesk", "sans-serif"], "headline-xl": ["Hanken Grotesk", "sans-serif"], "body-sm": ["Hanken Grotesk", "sans-serif"], "headline-lg": ["Hanken Grotesk", "sans-serif"], "body-lg": ["Hanken Grotesk", "sans-serif"], "label-md": ["Hanken Grotesk", "sans-serif"], "title-sm": ["Hanken Grotesk", "sans-serif"], "label-sm": ["Hanken Grotesk", "sans-serif"], "label-xs": ["Hanken Grotesk", "sans-serif"], "headline-md": ["Hanken Grotesk", "sans-serif"], "title-md": ["Hanken Grotesk", "sans-serif"], "body-md": ["Hanken Grotesk", "sans-serif"] }, "fontSize": { "headline-sm": ["1.125rem", { "lineHeight": "1.5rem", "letterSpacing": "-0.01em", "fontWeight": "600" }], "headline-xl": ["2rem", { "lineHeight": "2.5rem", "letterSpacing": "-0.025em", "fontWeight": "600" }], "body-sm": ["0.75rem", { "lineHeight": "1rem", "fontWeight": "400" }], "headline-lg": ["1.5rem", { "lineHeight": "2rem", "letterSpacing": "-0.02em", "fontWeight": "600" }], "body-lg": ["1rem", { "lineHeight": "1.5rem", "fontWeight": "400" }], "label-md": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "500" }], "title-sm": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "600" }], "label-sm": ["0.75rem", { "lineHeight": "1rem", "fontWeight": "500" }], "label-xs": ["0.6875rem", { "lineHeight": "0.875rem", "letterSpacing": "0.025em", "fontWeight": "600" }], "headline-md": ["1.25rem", { "lineHeight": "1.75rem", "letterSpacing": "-0.015em", "fontWeight": "600" }], "title-md": ["1rem", { "lineHeight": "1.5rem", "fontWeight": "600" }], "body-md": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "400" }] } } } };</script></head><body class="bg-[#F6F3EE] text-[#1C1B19] font-body-md text-body-md" style="font-family: &quot;DM Sans&quot;, Inter, -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums;"><header class="fixed top-0 left-0 right-0 z-50 bg-[#12302F] text-[#F6F3EE] border-b border-[#2C4A48]"><div class="h-16 w-full px-space-lg flex items-center justify-between"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[#F6F3EE] text-[28px]">flight_takeoff</span><span class="font-headline-md text-headline-md tracking-tight text-[#F6F3EE]">OpsDesk</span><span class="w-2 h-2 rounded-full bg-[#D9733A] shrink-0"></span><span class="font-label-xs text-label-xs bg-[#1C3D3B] text-[#F6F3EE] border border-[#2C4A48] px-space-xs py-0.5 rounded">B2B OPS</span></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-sm bg-[#12302F] border border-[#2C4A48] px-space-md py-space-sm rounded-lg cursor-pointer hover:bg-[#1C3D3B] transition-colors"><div class="w-8 h-8 rounded-full bg-[#1C3D3B] border border-[#2C4A48] flex items-center justify-center"><span class="material-symbols-outlined text-[#F6F3EE] text-[18px]">person</span></div><div class="flex flex-col text-left"><span class="font-label-sm text-label-sm text-[#F6F3EE]">Aisha Khan</span><span class="font-body-sm text-body-sm text-[#F6F3EE]/75">Active SLA workload for MEA lodging &amp; booking operations</span></div><span class="material-symbols-outlined text-[#F6F3EE]/75 text-[20px]">expand_more</span></div></div></div><div class="w-full bg-[#FFF7ED] border-b border-[#FDBA74] px-space-lg py-1.5 flex items-center gap-space-sm text-[#C2410C]"><span class="material-symbols-outlined text-[16px]">info</span><span class="font-body-sm text-body-sm">Demo auth: identity is client-supplied, not secure</span></div></header><aside class="fixed left-0 top-[88px] bottom-0 w-64 bg-[#FDFCFA] border-r border-[#E4DED5] z-40 flex flex-col justify-between py-space-md"><div class="px-space-md"><div class="font-label-xs text-label-xs uppercase tracking-wider text-[#706B63] px-space-sm mb-space-sm">Desk Queue</div><nav class="flex flex-col gap-1" data-active-classes="bg-[#115E59] text-[#ffffff] font-title-sm text-title-sm"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-[#5E5A53] hover:bg-[#F6F3EE] hover:text-[#1C1B19] transition-colors font-label-md text-label-md" data-path="ticket-detail" href="#"><span class="material-symbols-outlined text-[20px]">confirmation_number</span>Ticket Detail</a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-[#5E5A53] hover:bg-[#F6F3EE] hover:text-[#1C1B19] transition-colors font-label-md text-label-md" data-path="booking-queue" href="#"><span class="material-symbols-outlined text-[20px]">receipt_long</span>Booking Queue</a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-[#5E5A53] hover:bg-[#F6F3EE] hover:text-[#1C1B19] transition-colors font-label-md text-label-md" data-path="sla-triage" href="#"><span class="material-symbols-outlined text-[20px]">timer</span>SLA Triage</a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-[#5E5A53] hover:bg-[#F6F3EE] hover:text-[#1C1B19] transition-colors font-label-md text-label-md" data-path="hotel-reaccommodations" href="#"><span class="material-symbols-outlined text-[20px]">hotel</span>Hotels &amp; Reacc</a></nav></div><div class="px-space-md"><div class="font-label-xs text-label-xs uppercase tracking-wider text-[#706B63] px-space-sm mb-space-sm">Compliance</div><nav class="flex flex-col gap-1" data-active-classes="bg-[#115E59] text-[#ffffff] font-title-sm text-title-sm"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-[#5E5A53] hover:bg-[#F6F3EE] hover:text-[#1C1B19] transition-colors font-label-md text-label-md" data-path="operational-logs" href="#"><span class="material-symbols-outlined text-[20px]">receipt_long</span>Audit Logs</a></nav></div></aside><div class="pl-64"><main class="relative pt-[88px] min-h-screen bg-[#F6F3EE]"><div class="flex flex-col w-full relative">
+<!-- Underlying Queue Canvas (Simulated OpsDesk active view under modal backdrop) -->
+<div class="w-full pointer-events-none select-none filter blur-[1px] opacity-75">
+<div class="px-margin-lg py-margin-md flex flex-col gap-space-lg">
+<!-- Top Action Bar -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-md">
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-[#1C1B19]">Queue Triage &amp; Dispatch</span>
+<span class="font-body-sm text-body-sm text-[#5E5A53]">Active SLA workload for MEA lodging &amp; booking operations</span>
+</div>
+<span class="font-label-xs text-label-xs bg-[#EFEAE4] text-[#1C1B19] border border-[#E4DED5] px-2 py-0.5 rounded">38 Pending</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<button class="h-9 px-space-md bg-[#115E59] hover:bg-[#0B4745] text-white font-label-md text-label-md rounded flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span>New ticket</span>
+</button>
+</div>
+</div>
+<!-- Filters Row -->
+<div class="bg-[#FDFCFA] border border-[#E4DED5] p-space-md rounded-lg flex items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-sm flex-1 max-w-md">
+<div class="h-9 w-full bg-[#F6F3EE] rounded flex items-center px-3 gap-2 border border-[#E4DED5]">
+<span class="material-symbols-outlined text-[#706B63] text-[18px]">search</span>
+<span class="font-body-sm text-body-sm text-[#706B63]">Filter by TBOH ID or agency reference...</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<div class="h-8 px-3 rounded bg-[#F6F3EE] text-[#1C1B19] font-label-sm text-label-sm flex items-center gap-1 border border-[#E4DED5]">
+<span>Priority: All</span>
+<span class="material-symbols-outlined text-[16px]">arrow_drop_down</span>
+</div>
+<div class="h-8 px-3 rounded bg-[#F6F3EE] text-[#1C1B19] font-label-sm text-label-sm flex items-center gap-1 border border-[#E4DED5]">
+<span>Intent: Refund &amp; Cancel</span>
+<span class="material-symbols-outlined text-[16px]">arrow_drop_down</span>
+</div>
+<div class="h-8 px-3 rounded bg-[#F6F3EE] text-[#1C1B19] font-label-sm text-label-sm flex items-center gap-1 border border-[#E4DED5]">
+<span>SLA: At Risk &amp; Breached</span>
+<span class="material-symbols-outlined text-[16px]">arrow_drop_down</span>
+</div>
+</div>
+</div>
+<!-- Data Table Placeholder -->
+<div class="bg-[#FDFCFA] border border-[#E4DED5] rounded-lg overflow-hidden">
+<div class="grid grid-cols-12 bg-[#F6F3EE] border-b border-[#E4DED5] px-space-md py-2.5 font-label-xs text-label-xs text-[#5E5A53] uppercase tracking-wider">
+<div class="col-span-2">Ticket ID / TBOH</div>
+<div class="col-span-4">Subject &amp; Booking Details</div>
+<div class="col-span-2">Intent</div>
+<div class="col-span-2">SLA Status</div>
+<div class="col-span-2 text-right">Deadline</div>
+</div>
+<!-- Row 1 -->
+<div class="grid grid-cols-12 px-space-md py-3 items-center bg-[#FDFCFA] border-b border-[#E4DED5]">
+<div class="col-span-2 flex flex-col">
+<span class="font-title-sm text-title-sm text-[#115E59]">TCK-88210</span>
+<span class="font-body-sm text-body-sm text-[#706B63]">TBOH-49120</span>
+</div>
+<div class="col-span-4 flex flex-col"><span class="font-label-md text-label-md text-[#1C1B19] truncate">Emergency hotel check-in denial - Dubai Terminal 3</span><span class="font-body-sm text-body-sm text-[#5E5A53]">Demo Agency A (fictional)</span></div>
+<div class="col-span-2">
+<span class="font-label-xs text-label-xs bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded">Emergency Assist</span>
+</div>
+<div class="col-span-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-error text-[16px]">warning</span>
+<span class="font-label-xs text-label-xs text-error font-semibold">00:12:44 (At Risk)</span>
+</div>
+<div class="col-span-2 text-right font-body-sm text-body-sm text-[#5E5A53]">
+            Today 16:30 UTC
+          </div>
+</div>
+<!-- Row 2 -->
+<div class="grid grid-cols-12 px-space-md py-3 items-center bg-[#F6F3EE]">
+<div class="col-span-2 flex flex-col">
+<span class="font-title-sm text-title-sm text-[#115E59]">TCK-88209</span>
+<span class="font-body-sm text-body-sm text-[#706B63]">TBOH-49118</span>
+</div>
+<div class="col-span-4 flex flex-col">
+<span class="font-label-md text-label-md text-[#1C1B19] truncate">Unprocessed cancellation fee waiver inquiry</span>
+<span class="font-body-sm text-body-sm text-[#5E5A53]">Demo Agency A (fictional) (Hilton Dead Sea)</span>
+</div>
+<div class="col-span-2">
+<span class="font-label-xs text-label-xs bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded">Refund Request</span>
+</div>
+<div class="col-span-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-[#706B63] text-[16px]">check_circle</span>
+<span class="font-label-xs text-label-xs text-[#706B63]">03:45:10</span>
+</div>
+<div class="col-span-2 text-right font-body-sm text-body-sm text-[#5E5A53]">
+            Tomorrow 09:00 UTC
+          </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal Backdrop Layer -->
+<div class="fixed inset-0 z-40 bg-[#1C1B19]/50 backdrop-blur-sm flex items-center justify-center p-space-md">
+<!-- Centered Dialog Box (~700px width) with #FDFCFA surface and 1px solid border #E4DED5, flat without drop shadow -->
+<div aria-labelledby="modal-headline" aria-modal="true" class="w-full max-w-[700px] bg-[#FDFCFA] border border-[#E4DED5] rounded-[8px] z-50 overflow-hidden flex flex-col max-h-[921px]" role="dialog">
+<!-- Modal Header -->
+<div class="px-6 py-4 bg-[#FDFCFA] flex items-start justify-between">
+<div class="flex flex-col gap-0.5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#115E59] text-[20px]">add_circle</span>
+<h2 class="font-headline-sm text-headline-sm text-[#1C1B19] font-semibold" id="modal-headline">New ticket</h2>
+</div>
+<p class="font-body-sm text-body-sm text-[#5E5A53]">
+            Create a support ticket and route it into the ops triage queue
+          </p>
+</div>
+<button aria-label="Close dialog" class="w-8 h-8 rounded-md flex items-center justify-center text-[#706B63] hover:text-[#1C1B19] hover:bg-[#F6F3EE] transition-colors" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Header Separator Line -->
+<div class="h-[1px] w-full bg-[#E4DED5]"></div>
+<!-- Modal Body (Scrollable form) -->
+<form class="overflow-y-auto px-6 py-5 flex flex-col gap-5 flex-1 bg-[#FDFCFA]" id="new-ticket-form" onsubmit="event.preventDefault();">
+<!-- Field 1: Title -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-[#1C1B19]" for="ticket-title">
+              Title <span aria-hidden="true" class="text-error">*</span>
+</label>
+<span class="font-label-xs text-label-xs text-[#706B63]">Max 120 chars</span>
+</div>
+<div class="relative rounded-md">
+<input class="w-full h-9 px-3 rounded border border-[#E4DED5] bg-[#FFFFFF] text-[#1C1B19] font-body-md text-body-md placeholder:text-[#706B63] focus:outline-none focus:ring-2 focus:ring-[#115E59] focus:border-[#115E59]" id="ticket-title" name="ticket-title" placeholder="e.g., Urgent refund request before cancellation deadline" required="" type="text" value="Urgent refund requested before free cancellation threshold">
+</div>
+</div>
+<!-- Field 2: Description -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-[#1C1B19]" for="ticket-description">
+              Description <span aria-hidden="true" class="text-error">*</span>
+</label>
+<span class="font-label-xs text-label-xs text-[#706B63]">Markdown supported</span>
+</div>
+<div class="relative rounded-md">
+<textarea class="w-full p-3 rounded border border-[#E4DED5] bg-[#FFFFFF] text-[#1C1B19] font-body-md text-body-md placeholder:text-[#706B63] focus:outline-none focus:ring-2 focus:ring-[#115E59] focus:border-[#115E59] resize-none" id="ticket-description" name="ticket-description" placeholder="Provide full context from agency inquiry or booking record..." required="" rows="3">Agency Demo Agency A (fictional) requested non-penalized refund confirmation for booking TBOH-89104 prior to 18:00 UTC cutoff.</textarea>
+</div>
+</div>
+<!-- Field 3: TBOH ID (With inline validation error state) -->
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-[#1C1B19]" for="ticket-tboh">
+              TBOH ID <span aria-hidden="true" class="text-error">*</span>
+</label>
+<span class="font-label-xs text-label-xs text-[#706B63]">Format: TBOH-XXXXX</span>
+</div>
+<div class="relative flex items-center">
+<input aria-describedby="tboh-error-msg" aria-invalid="true" class="w-full h-9 px-3 pr-10 rounded border border-error font-body-md text-body-md text-error bg-error-container/30 focus:outline-none focus:ring-2 focus:ring-error" id="ticket-tboh" name="ticket-tboh" type="text" value="TBOH89104" style="font-family: &quot;IBM Plex Mono&quot;, &quot;JetBrains Mono&quot;, monospace; font-size: 13px; font-variant-numeric: tabular-nums;">
+<div class="absolute right-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-error text-[18px]">error</span>
+</div>
+</div>
+<!-- Inline Validation Error Text -->
+<p class="font-label-xs text-label-xs text-error font-medium flex items-center gap-1 mt-0.5" id="tboh-error-msg"><span class="material-symbols-outlined text-[14px]">report</span><span>TBOH ID must look like <span style="font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace; font-size: 13px; font-variant-numeric: tabular-nums;">TBOH-12345</span></span></p>
+</div>
+<!-- Field 4: Priority Segmented Pill Selector -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-[#1C1B19]">
+            Priority
+          </label>
+<div aria-label="Priority selection" class="grid grid-cols-4 gap-2 p-1 bg-[#F6F3EE] rounded-lg border border-[#E4DED5]" role="radiogroup"><!-- Low -->
+<label class="cursor-pointer flex items-center justify-center py-1.5 px-3 rounded-[6px] border border-[#D6CFC4] bg-[#FFFFFF] hover:bg-[#F6F3EE] text-[#1C1B19] text-[12px] font-semibold transition-all">
+  <input class="sr-only" name="priority" type="radio" value="low">
+  <span class="tracking-wider flex items-center">
+    <span class="w-[6px] h-[6px] rounded-full bg-[#A8A196] inline-block mr-1.5"></span>
+    Low
+  </span>
+</label>
+<!-- Medium -->
+<label class="cursor-pointer flex items-center justify-center py-1.5 px-3 rounded-[6px] border border-[#D6CFC4] bg-[#FFFFFF] hover:bg-[#F6F3EE] text-[#1C1B19] text-[12px] font-semibold transition-all">
+  <input class="sr-only" name="priority" type="radio" value="medium">
+  <span class="tracking-wider flex items-center">
+    <span class="w-[6px] h-[6px] rounded-full bg-[#6B7C93] inline-block mr-1.5"></span>
+    Medium
+  </span>
+</label>
+<!-- High (Selected) -->
+<label class="cursor-pointer flex items-center justify-center py-1.5 px-3 rounded-[6px] border border-[#D6CFC4] bg-[#FDFCFA] text-[#1C1B19] text-[12px] font-semibold transition-all shadow-sm">
+  <input checked="" class="sr-only" name="priority" type="radio" value="high">
+  <span class="tracking-wider flex items-center">
+    <span class="w-[6px] h-[6px] rounded-full bg-[#D9733A] inline-block mr-1.5"></span>
+    High
+  </span>
+</label>
+<!-- Urgent -->
+<label class="cursor-pointer flex items-center justify-center py-1.5 px-3 rounded-[6px] border border-[#D6CFC4] bg-[#FFFFFF] hover:bg-[#F6F3EE] text-[#1C1B19] text-[12px] font-semibold transition-all">
+  <input class="sr-only" name="priority" type="radio" value="urgent">
+  <span class="tracking-wider flex items-center">
+    <span class="w-[6px] h-[6px] rounded-full bg-[#B42318] inline-block mr-1.5"></span>
+    Urgent
+  </span>
+</label></div>
+</div>
+<!-- Field 5: Intent Selector & Smart Suggestion -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-[#1C1B19]" for="ticket-intent">
+              Intent
+            </label>
+<!-- Smart Action -->
+<button class="font-label-xs text-label-xs text-[#115E59] bg-[#E3EFEE] hover:bg-[#d5e7e5] px-2.5 py-1 rounded flex items-center gap-1 transition-colors border border-[#E4DED5]" type="button">
+<span class="material-symbols-outlined text-[14px]">auto_fix_high</span>
+<span>Re-analyze description</span>
+</button>
+</div>
+<div class="relative">
+<select class="w-full h-9 px-3 pr-8 rounded border border-[#E4DED5] bg-[#FFFFFF] text-[#1C1B19] font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-[#115E59] focus:border-[#115E59] appearance-none cursor-pointer" id="ticket-intent" name="ticket-intent">
+<option selected="" value="refund_request">Refund Request</option>
+<option value="cancellation_inconvenience">Cancellation Inconvenience</option>
+<option value="date_amendment">Date Amendment</option>
+<option value="room_preference">Bedding / Room Preference</option>
+<option value="voucher_resend">Voucher Resend</option>
+<option value="emergency_checkin">Emergency Check-in Assist</option>
+<option value="unclassified">Unclassified</option>
+</select>
+<div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-[#706B63]">
+<span class="material-symbols-outlined text-[20px]">unfold_more</span>
+</div>
+</div>
+<!-- Suggested Intent Chip Result -->
+<div class="flex items-center gap-2 mt-0.5">
+<div class="font-label-xs text-label-xs bg-[#fdc39a] text-[#794e2e] px-2 py-1 rounded flex items-center gap-1.5 border border-[#E4DED5]">
+<span class="material-symbols-outlined text-[14px]">smart_toy</span>
+<span>Suggested: <strong>Refund Request</strong> (rule-based: description mentions "refund" and "penalized")</span>
+<span class="material-symbols-outlined text-[14px] text-[#115E59]">check</span>
+</div>
+</div>
+</div>
+<!-- Fields 6 & 7: Two-column grid for Date/Time pickers -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Column 1: Check-in date & time -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-[#1C1B19]" for="checkin-datetime">
+              Check-in date &amp; time
+            </label>
+<div class="relative flex items-center">
+<input class="w-full h-9 pl-9 pr-3 rounded border border-[#E4DED5] bg-[#FFFFFF] text-[#1C1B19] font-body-md text-body-md placeholder:text-[#706B63] focus:outline-none focus:ring-2 focus:ring-[#115E59] focus:border-[#115E59]" id="checkin-datetime" name="checkin-datetime" type="text" value="2025-11-20 14:00 UTC" style="font-family: &quot;IBM Plex Mono&quot;, &quot;JetBrains Mono&quot;, monospace; font-size: 13px; font-variant-numeric: tabular-nums;">
+<span class="material-symbols-outlined absolute left-2.5 text-[#706B63] text-[18px]">calendar_today</span>
+</div>
+<span class="font-label-xs text-label-xs text-[#5E5A53]">Scheduled arrival</span>
+</div>
+<!-- Column 2: Cancellation deadline (LCD) -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-[#1C1B19]" for="lcd-datetime">
+              Cancellation deadline (LCD)
+            </label>
+<div class="relative flex items-center">
+<input class="w-full h-9 pl-9 pr-3 rounded border border-[#E4DED5] bg-[#FFFFFF] text-[#1C1B19] font-body-md text-body-md placeholder:text-[#706B63] focus:outline-none focus:ring-2 focus:ring-[#115E59] focus:border-[#115E59]" id="lcd-datetime" name="lcd-datetime" type="text" value="2025-11-18 18:00 UTC" style="font-family: &quot;IBM Plex Mono&quot;, &quot;JetBrains Mono&quot;, monospace; font-size: 13px; font-variant-numeric: tabular-nums;">
+<span class="material-symbols-outlined absolute left-2.5 text-[#706B63] text-[18px]">alarm</span>
+</div>
+<span class="font-label-xs text-label-xs text-[#5E5A53]">Active SLA workload for MEA lodging &amp; booking operations</span>
+</div>
+</div>
+<!-- Internal Operator Notice / Context -->
+<div class="bg-[#F6F3EE] border border-[#E4DED5] p-3 rounded flex items-start gap-2.5">
+<span class="material-symbols-outlined text-[#115E59] text-[18px] shrink-0 mt-0.5">lock</span>
+<div class="flex flex-col">
+<span class="font-title-sm text-title-sm text-[#1C1B19]">Ops Routing Policy</span>
+<span class="font-body-sm text-body-sm text-[#5E5A53]">Active SLA workload for MEA lodging &amp; booking operations</span>
+</div>
+</div>
+</form>
+<!-- Footer Separator Line -->
+<div class="h-[1px] w-full bg-[#E4DED5]"></div>
+<!-- Modal Footer -->
+<div class="px-6 py-4 bg-[#FDFCFA] flex items-center justify-between gap-4">
+<!-- Validation Guidance Indicator -->
+<div class="flex items-center gap-1.5 text-error font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[16px]">info</span>
+<span>Resolve 1 format error before dispatching</span>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-3">
+<button class="h-9 px-4 rounded border border-[#E4DED5] bg-[#F6F3EE] hover:bg-[#EFEAE4] text-[#1C1B19] font-label-md text-label-md transition-colors" type="button">
+            Cancel
+          </button>
+<button class="h-9 px-5 rounded bg-[#115E59] hover:bg-[#0B4745] text-white font-label-md text-label-md flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-[#115E59]/40" type="button">
+<span class="material-symbols-outlined text-[18px]">send</span>
+<span>Create ticket</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div></main></div>
+
+
+</body></html>

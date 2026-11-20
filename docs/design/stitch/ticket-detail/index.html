@@ -1,0 +1,463 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-primary-fixed-variant": "#3323cc", "primary-fixed-dim": "#c3c0ff", "surface-variant": "#dae2fd", "surface-container-highest": "#dae2fd", "secondary-fixed": "#d5e3fc", "surface-container-lowest": "#ffffff", "error-container": "#ffdad6", "inverse-on-surface": "#eef0ff", "primary-container": "#4f46e5", "on-tertiary": "#ffffff", "on-surface-variant": "#464555", "surface-container-high": "#e2e7ff", "on-secondary-fixed": "#0d1c2e", "on-tertiary-fixed-variant": "#7b2f00", "primary-fixed": "#e2dfff", "secondary-container": "#d5e3fc", "tertiary-fixed-dim": "#ffb695", "on-background": "#131b2e", "on-primary": "#ffffff", "on-secondary-container": "#57657a", "on-primary-fixed": "#0f0069", "tertiary-fixed": "#ffdbcc", "surface-container-low": "#f2f3ff", "error": "#ba1a1a", "surface": "#faf8ff", "surface-container": "#eaedff", "surface-tint": "#4d44e3", "on-error-container": "#93000a", "secondary-fixed-dim": "#b9c7df", "on-error": "#ffffff", "surface-bright": "#faf8ff", "on-tertiary-fixed": "#351000", "outline": "#777587", "on-secondary-fixed-variant": "#3a485b", "surface-dim": "#d2d9f4", "on-primary-container": "#dad7ff", "secondary": "#515f74", "tertiary-container": "#a44100", "inverse-surface": "#283044", "primary": "#3525cd", "inverse-primary": "#c3c0ff", "on-secondary": "#ffffff", "on-tertiary-container": "#ffd2be", "tertiary": "#7e3000", "outline-variant": "#c7c4d8", "background": "#faf8ff", "on-surface": "#131b2e" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "gutter": "1rem", "space-md": "1rem", "gutter-lg": "1.5rem", "space-sm": "0.5rem", "margin-md": "1.5rem", "space-xl": "2rem", "space-xs": "0.25rem", "margin": "1rem", "space-lg": "1.5rem", "margin-lg": "2rem" }, "fontFamily": { "headline-sm": ["Inter"], "headline-xl": ["Inter"], "body-sm": ["Inter"], "headline-lg": ["Inter"], "body-lg": ["Inter"], "label-md": ["Inter"], "title-sm": ["Inter"], "label-sm": ["Inter"], "label-xs": ["Inter"], "headline-md": ["Inter"], "title-md": ["Inter"], "body-md": ["Inter"] }, "fontSize": { "headline-sm": ["1.125rem", { "lineHeight": "1.5rem", "letterSpacing": "-0.01em", "fontWeight": "600" }], "headline-xl": ["2rem", { "lineHeight": "2.5rem", "letterSpacing": "-0.025em", "fontWeight": "600" }], "body-sm": ["0.75rem", { "lineHeight": "1rem", "fontWeight": "400" }], "headline-lg": ["1.5rem", { "lineHeight": "2rem", "letterSpacing": "-0.02em", "fontWeight": "600" }], "body-lg": ["1rem", { "lineHeight": "1.5rem", "fontWeight": "400" }], "label-md": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "500" }], "title-sm": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "600" }], "label-sm": ["0.75rem", { "lineHeight": "1rem", "fontWeight": "500" }], "label-xs": ["0.6875rem", { "lineHeight": "0.875rem", "letterSpacing": "0.025em", "fontWeight": "600" }], "headline-md": ["1.25rem", { "lineHeight": "1.75rem", "letterSpacing": "-0.015em", "fontWeight": "600" }], "title-md": ["1rem", { "lineHeight": "1.5rem", "fontWeight": "600" }], "body-md": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "400" }] } } } };</script><style>.btn-secondary-hover { transition: all 0.15s ease-in-out; } .btn-secondary-hover:hover { background-color: #FFF7ED !important; border-color: #FDBA74 !important; color: #C2410C !important; } .btn-secondary-hover:hover .material-symbols-outlined { color: #C2410C !important; } .timeline-item-hover { transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out; border-radius: 6px; padding: 6px 8px 6px 1.5rem; } .timeline-item-hover:hover { background-color: #FFF7ED; box-shadow: inset 3px 0 0 0 #F97316; } button:focus-visible, a:focus-visible { outline: 2px solid #4F46E5 !important; outline-offset: 2px !important; }</style></head><body class="bg-surface text-on-surface font-body-md text-body-md" style="background-color: rgb(248, 250, 252);"><header class="fixed top-0 left-0 right-0 z-50 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 w-full px-space-lg flex items-center justify-between"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-primary text-[28px]">flight_takeoff</span><span class="font-headline-md text-headline-md tracking-tight text-on-surface flex items-center gap-1.5">OpsDesk<span class="w-2 h-2 rounded-full inline-block" style="background-color: rgb(217, 115, 58);"></span></span><span class="font-label-xs text-label-xs bg-secondary-container text-on-secondary-container px-space-xs py-0.5 rounded">B2B OPS</span></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-sm bg-surface-container-low px-space-md py-space-sm rounded-lg cursor-pointer hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-primary text-[28px]">flight_takeoff</span><span class="font-headline-md text-headline-md tracking-tight text-on-surface flex items-center gap-1.5">OpsDesk<span class="w-2 h-2 rounded-full inline-block" style="background-color: #D9733A;"></span></span><span class="font-label-xs text-label-xs bg-secondary-container text-on-secondary-container px-space-xs py-0.5 rounded">B2B OPS</span></div></div></div><div class="w-full bg-surface-container-high px-space-lg py-1.5 flex items-center gap-space-sm" style="background-color: rgb(251, 239, 230); border-bottom: 1px solid rgb(235, 205, 184); color: rgb(154, 74, 30);"><span class="material-symbols-outlined text-[16px]" style="color: rgb(154, 74, 30);">info</span><span class="font-body-sm text-body-sm" style="color: rgb(154, 74, 30);">Demo auth: identity is client-supplied, not secure</span></div></header><aside class="fixed left-0 top-[88px] bottom-0 w-64 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex flex-col justify-between py-space-md"><div class="px-space-md"><div class="font-label-xs text-label-xs uppercase tracking-wider text-on-surface-variant px-space-sm mb-space-sm">Desk Queue</div><nav class="flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary font-title-sm text-title-sm"><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg transition-colors bg-primary-container text-on-primary font-title-sm text-title-sm" data-path="ticket-detail" href="#"><span class="material-symbols-outlined text-[20px]">confirmation_number</span>Ticket Detail</a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label-md text-label-md" data-path="flight-disruptions" href="#"><span class="material-symbols-outlined text-[20px]">connecting_airports</span>Booking Queue</a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label-md text-label-md" data-path="sla-triage" href="#"><span class="material-symbols-outlined text-[20px]">timer</span>SLA Triage</a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label-md text-label-md" data-path="hotel-reaccommodations" href="#"><span class="material-symbols-outlined text-[20px]">hotel</span>Hotels &amp; Reacc</a></nav></div><div class="px-space-md"><div class="font-label-xs text-label-xs uppercase tracking-wider text-on-surface-variant px-space-sm mb-space-sm">Compliance</div><nav class="flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary font-title-sm text-title-sm"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label-md text-label-md" data-path="operational-logs" href="#"><span class="material-symbols-outlined text-[20px]">receipt_long</span>Audit Logs</a></nav></div></aside><div class="pl-64"><main class="relative pt-[88px] min-h-screen bg-surface" style="background-color: rgb(248, 250, 252);"><div class="flex flex-col w-full">
+<div class="w-full max-w-[1440px] mx-auto px-gutter-lg py-margin-md flex flex-col gap-space-lg text-on-surface">
+<!-- Header Section -->
+<header class="flex flex-col gap-space-sm bg-surface-container-lowest p-space-lg rounded-lg shadow-sm border border-outline-variant/30" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(226, 232, 240); border-radius: 8px;">
+<!-- Breadcrumb -->
+<nav aria-label="Breadcrumb" class="flex items-center gap-space-xs font-label-sm text-label-sm text-secondary">
+<a class="hover:text-primary transition-colors flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-[16px]">inbox</span>
+          Queue
+        </a>
+<span class="text-outline-variant">/</span>
+<span class="font-title-sm text-title-sm text-on-surface">TCK-1008</span>
+</nav>
+<!-- Ticket Title -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-md pt-space-xs" style="background-color: #FBEFE6; border-bottom: 1px solid #EBCDB8; color: #9A4A1E;"><span class="material-symbols-outlined text-[16px]" style="color: #9A4A1E;">info</span><span class="font-body-sm text-body-sm" style="color: #9A4A1E;">Demo auth: identity is client-supplied, not secure</span></div>
+<!-- Badges Row & Metadata -->
+<div class="flex flex-wrap items-center gap-x-space-md gap-y-space-xs pt-space-xs">
+<!-- SLA Status Badge -->
+<span class="inline-flex items-center gap-space-xs px-2 py-0.5 font-semibold text-[12px]" style="background-color: rgb(251, 240, 208); color: rgb(122, 82, 0); border: 1px solid rgb(232, 213, 138); border-radius: 6px;"><span class="material-symbols-outlined text-[14px]">schedule</span>At risk 2h 59m</span>
+<!-- Status Badge -->
+<span class="inline-flex items-center gap-space-xs px-2 py-0.5 rounded-[4px] font-label-sm text-label-sm bg-blue-50 text-blue-700 border border-blue-200">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+          Open
+        </span>
+<!-- Priority Chip -->
+<span class="inline-flex items-center px-2 py-0.5 uppercase font-semibold text-[12px]" style="border: 1px solid rgb(214, 207, 196); color: rgb(28, 27, 25); border-radius: 6px;"><span class="w-1.5 h-1.5 rounded-full inline-block mr-1.5 shrink-0" style="background-color: #D9733A; width: 6px; height: 6px;"></span>HIGH</span>
+<!-- Divider dot -->
+<span class="text-outline-variant">•</span>
+<!-- Metadata items -->
+<div class="flex items-center gap-space-md font-body-sm text-body-sm text-secondary">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-outline" style="color: rgb(154, 74, 30);">history</span>
+            Created 3h 15m ago
+          </span>
+<span>•</span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-outline" style="color: rgb(154, 74, 30);">account_circle</span>
+            Assignee: <span class="font-label-sm text-label-sm text-on-surface">Aisha Khan</span>
+</span>
+<span>•</span>
+<span class="flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface">
+            TBOH-89104
+          </span>
+</div>
+</div>
+</header>
+<!-- Two-Column Layout (65% / 35%) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter-lg items-start">
+<!-- Main Column (65% -> 8 cols of 12) -->
+<section class="lg:col-span-8 flex flex-col gap-space-lg">
+<!-- (a) Routing Insight Card -->
+<div class="bg-surface-container-lowest p-space-md rounded-lg shadow-sm border border-outline-variant/30 flex flex-col gap-space-sm" style="background-color: rgb(255, 255, 255); border-width: 2px 1px 1px; border-style: solid; border-color: rgb(217, 115, 58) rgb(226, 232, 240) rgb(226, 232, 240); border-radius: 8px;">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]" style="color: rgb(154, 74, 30);">alt_route</span>
+<h2 class="font-title-sm text-title-sm text-on-surface">Why this ticket was routed</h2>
+</div>
+<span class="font-label-xs text-label-xs text-secondary bg-surface-container px-2 py-0.5 rounded">Tier-1 Engine</span>
+</div>
+<p class="font-body-md text-body-md text-secondary">
+            Assigned to <strong class="text-on-surface font-title-sm">Aisha Khan</strong> — Tier-1 rule: region MEA match, availability true, workload 3 active cases.
+          </p>
+<div class="flex flex-wrap items-center gap-space-sm pt-space-xs border-t border-surface-container">
+<span class="font-label-xs text-label-xs font-mono bg-surface-container-low text-secondary px-2 py-1 rounded border border-outline-variant/20">
+              Rule: T1-MEA-WORKLOAD-BALANCER
+            </span>
+<span class="font-label-xs text-label-xs font-mono bg-surface-container-low text-secondary px-2 py-1 rounded border border-outline-variant/20">
+              Matched: 10:14 UTC
+            </span>
+<span class="font-label-xs text-label-xs font-mono bg-surface-container-low text-secondary px-2 py-1 rounded border border-outline-variant/20">
+              Confidence: 100%
+            </span>
+</div>
+</div>
+<!-- (b) Messages Card -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm border border-outline-variant/30 flex flex-col overflow-hidden" style="background-color: rgb(255, 255, 255); border-width: 2px 1px 1px; border-style: solid; border-color: rgb(217, 115, 58) rgb(226, 232, 240) rgb(226, 232, 240); border-radius: 8px;">
+<!-- Card Header & Tabs -->
+<div class="p-space-md border-b border-surface-container flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+<div class="flex items-center gap-space-xs">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Messages</h2>
+<span class="px-2 py-0.5 rounded-full font-label-xs text-label-xs bg-surface-container-high text-on-surface-variant font-semibold">2</span>
+</div>
+<!-- Segmented Control -->
+<div class="inline-flex p-1 bg-surface-container-low rounded-lg border border-outline-variant/20" id="tab-controls">
+<button class="px-space-md py-1 rounded-[6px] font-label-sm text-label-sm text-secondary hover:text-on-surface transition-all" id="btn-public" onclick="switchMode('public')" type="button">
+                Public reply
+              </button>
+<button class="px-space-md py-1 rounded-[6px] font-label-sm text-label-sm bg-surface-container-lowest text-on-surface shadow-xs font-semibold flex items-center gap-1 transition-all" id="btn-internal" onclick="switchMode('internal')" type="button">
+<span class="material-symbols-outlined text-[14px] text-amber-700" style="color: rgb(91, 74, 134);">lock</span>
+                Internal note
+              </button>
+</div>
+</div>
+<!-- Composer Box (Internal note active by default) -->
+<div class="p-space-md border-b border-surface-container">
+<div class="rounded-lg p-space-md bg-yellow-50 border border-yellow-200 transition-colors flex flex-col gap-space-sm" id="composer-card" style="background-color: rgb(241, 237, 247); border: 1px solid rgb(214, 204, 230);">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs text-yellow-800 font-label-sm text-label-sm font-semibold" style="color: rgb(91, 74, 134);">
+<span class="material-symbols-outlined text-[16px]" id="composer-icon" style="color: rgb(91, 74, 134);">lock</span>
+<span id="composer-badge-text">Visible to staff only</span>
+</div>
+<span class="font-label-xs text-label-xs text-yellow-700" style="color: rgb(91, 74, 134);">MEA Escalation &amp; Internal Logs</span>
+</div>
+<textarea class="w-full bg-surface-container-lowest border border-yellow-300 rounded-[6px] p-space-sm font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary" id="composer-input" placeholder="Type internal note for MEA desk agents and tier-2 escalation..." rows="3" style="border-color: rgb(214, 204, 230);"></textarea>
+<div class="flex flex-wrap items-center justify-between gap-space-sm pt-space-xs">
+<!-- Formatting Toolbar -->
+<div class="flex items-center gap-1">
+<button class="w-7 h-7 flex items-center justify-center rounded hover:bg-yellow-200/50 text-yellow-900 transition-colors" title="Bold" type="button">
+<span class="material-symbols-outlined text-[18px]">format_bold</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded hover:bg-yellow-200/50 text-yellow-900 transition-colors" title="Italic" type="button">
+<span class="material-symbols-outlined text-[18px]">format_italic</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded hover:bg-yellow-200/50 text-yellow-900 transition-colors" title="Insert Template" type="button">
+<span class="material-symbols-outlined text-[18px]">quickreply</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded hover:bg-yellow-200/50 text-yellow-900 transition-colors" title="Attach file" type="button">
+<span class="material-symbols-outlined text-[18px]">attach_file</span>
+</button>
+</div>
+<!-- Submit / Draft CTA -->
+<div class="flex items-center gap-space-sm">
+<button class="h-8 px-space-md bg-transparent hover:bg-yellow-200/60 text-yellow-900 rounded-[6px] font-label-md text-label-md transition-colors" type="button">
+                    Save draft
+                  </button>
+<button class="h-8 px-space-md bg-primary-container hover:bg-on-primary-fixed-variant text-on-primary rounded-[6px] font-label-md text-label-md font-semibold transition-colors shadow-sm flex items-center gap-1" id="submit-btn" type="button">
+<span class="material-symbols-outlined text-[16px]">send</span>
+                    Post Note
+                  </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Message Thread -->
+<div class="p-space-lg flex flex-col gap-space-lg">
+<!-- Message 2: Internal Note (Recent) -->
+<article class="flex flex-col gap-space-xs pl-space-md border-l-2 border-amber-400" style="border-left-color: rgb(214, 204, 230);">
+<div class="flex flex-wrap items-center justify-between gap-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-on-primary font-label-sm text-label-sm font-semibold">
+                    AK
+                  </div>
+<div class="flex items-center gap-1.5">
+<span class="font-title-sm text-title-sm text-on-surface">Aisha Khan</span>
+<span class="font-label-xs text-label-xs bg-secondary-container text-on-secondary-container px-1.5 py-0.2 rounded">Agent</span>
+<span class="flex items-center gap-0.5 font-label-xs text-label-xs text-amber-800 bg-yellow-100 px-1.5 py-0.5 rounded ml-1" style="background-color: rgb(241, 237, 247); color: rgb(91, 74, 134); border: 1px solid rgb(214, 204, 230);">
+<span class="material-symbols-outlined text-[12px]">lock</span>
+                      Internal Note
+                    </span>
+</div>
+</div>
+<time class="font-body-sm text-body-sm text-secondary" datetime="2025-11-13T10:04:00Z">1h 10m ago</time>
+</div>
+<!-- Content Box (yellow-tinted note styling #FEF9C3 with lock icon) -->
+<div class="mt-space-xs p-space-md bg-[#FEF9C3] rounded-lg border border-yellow-200 text-yellow-900 font-body-md text-body-md flex gap-space-sm items-start shadow-xs" style="background-color: rgb(241, 237, 247); border: 1px solid rgb(214, 204, 230); color: rgb(40, 48, 68);">
+<span class="material-symbols-outlined text-[18px] text-yellow-800 shrink-0 mt-0.5" style="color: rgb(91, 74, 134);">lock</span>
+<div class="flex flex-col gap-1 w-full">
+<p class="text-yellow-900 leading-relaxed">
+                    Checking supplier contract with Hotel Demo partner regarding LCD policy. Supplier thread initiated with high priority flag for force majeure waiver verification.
+                  </p>
+<span class="font-label-xs text-label-xs text-yellow-800 font-mono" style="color: rgb(91, 74, 134);">Referenced supplier thread: #SUP-88219</span>
+</div>
+</div>
+</article>
+<!-- Message 1: Public Agency message -->
+<article class="flex flex-col gap-space-xs pl-space-md border-l-2 border-outline-variant">
+<div class="flex flex-wrap items-center justify-between gap-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-secondary font-label-sm text-label-sm font-semibold">
+                    ER
+                  </div>
+<div class="flex items-center gap-1.5">
+<span class="font-title-sm text-title-sm text-on-surface">Elena Rostova</span>
+<span class="font-label-xs text-label-xs text-secondary">(Demo Agency A)</span>
+<span class="font-label-xs text-label-xs text-outline font-mono">guest@example.com</span>
+</div>
+</div>
+<time class="font-body-sm text-body-sm text-secondary" datetime="2025-11-13T08:29:00Z">2h 45m ago</time>
+</div>
+<!-- Content Box -->
+<div class="mt-space-xs p-space-md bg-surface-container-low rounded-lg text-on-surface font-body-md text-body-md border border-outline-variant/30 leading-relaxed shadow-xs">
+                Dear support, we have an emergency cancellation for booking <span class="font-mono font-semibold text-primary">TBOH-89104</span>. The cancellation deadline is in less than 3 hours, please confirm full refund waiver according to force majeure clause.
+              </div>
+</article>
+</div>
+</div>
+<!-- (c) Activity Timeline Card -->
+<div class="bg-surface-container-lowest p-space-lg rounded-lg shadow-sm border border-outline-variant/30 flex flex-col gap-space-md" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(226, 232, 240); border-radius: 8px;">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Activity timeline</h2>
+<span class="font-label-xs text-label-xs text-secondary font-mono">5 events recorded</span>
+</div>
+<!-- Timeline items -->
+<ol class="relative border-l border-surface-container-high ml-3 flex flex-col gap-space-lg">
+<!-- Event 5 -->
+<li class="pl-space-lg relative timeline-item-hover">
+<span class="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-yellow-100 border-2 border-yellow-500 flex items-center justify-center">
+<span class="w-1.5 h-1.5 rounded-full bg-yellow-600"></span>
+</span>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm font-title-sm text-title-sm text-on-surface">
+                  Note added
+                  <span class="font-body-sm text-body-sm text-secondary font-normal">1h 10m ago</span>
+</div>
+<p class="font-body-md text-body-md text-secondary mt-0.5">
+                  Internal note posted by Aisha Khan (Agent)
+                </p>
+</div>
+</li>
+<!-- Event 4 -->
+<li class="pl-space-lg relative timeline-item-hover">
+<span class="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-surface-container-lowest border-2 border-outline-variant flex items-center justify-center">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+</span>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm font-title-sm text-title-sm text-on-surface">
+                  Linked
+                  <span class="font-body-sm text-body-sm text-secondary font-normal">2h 20m ago</span>
+</div>
+<p class="font-body-md text-body-md text-secondary mt-0.5">
+                  Linked to historical ticket <a class="text-primary font-mono underline" href="#">TCK-1001</a> (Shared TBOH-89104)
+                </p>
+</div>
+</li>
+<!-- Event 3 -->
+<li class="pl-space-lg relative timeline-item-hover">
+<span class="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-blue-100 border-2 border-blue-500 flex items-center justify-center">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+</span>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm font-title-sm text-title-sm text-on-surface">
+                  Status changed
+                  <span class="font-body-sm text-body-sm text-secondary font-normal">3h 05m ago</span>
+</div>
+<p class="font-body-md text-body-md text-secondary mt-0.5">
+                  Status updated from <span class="font-mono text-outline line-through">New</span> to <span class="font-mono text-blue-700 font-semibold">Open</span>
+</p>
+</div>
+</li>
+<!-- Event 2 -->
+<li class="pl-space-lg relative timeline-item-hover">
+<span class="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-surface-container-lowest border-2 border-primary flex items-center justify-center">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+</span>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm font-title-sm text-title-sm text-on-surface">
+                  Routed
+                  <span class="font-body-sm text-body-sm text-secondary font-normal">3h 14m ago</span>
+</div>
+<p class="font-body-md text-body-md text-secondary mt-0.5">
+                  Auto-routed to Aisha Khan via Tier-1 MEA rule balance system
+                </p>
+</div>
+</li>
+<!-- Event 1 -->
+<li class="pl-space-lg relative timeline-item-hover">
+<span class="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-surface-container-high border-2 border-outline-variant flex items-center justify-center">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+</span>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm font-title-sm text-title-sm text-on-surface">
+                  Created
+                  <span class="font-body-sm text-body-sm text-secondary font-normal">3h 15m ago</span>
+</div>
+<p class="font-body-md text-body-md text-secondary mt-0.5">
+                  Ticket submitted via B2B Agency Portal by Demo Agency A
+                </p>
+</div>
+</li>
+</ol>
+</div>
+</section>
+<!-- Right Sidebar (35% -> 4 cols of 12) -->
+<aside class="lg:col-span-4 flex flex-col gap-space-lg">
+<!-- (d) Details Card -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm border border-outline-variant/30 overflow-hidden" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(226, 232, 240); border-radius: 8px;">
+<div class="p-space-md border-b border-surface-container flex items-center justify-between">
+<h2 class="font-title-md text-title-md text-on-surface">Ticket Details</h2>
+<span class="font-label-xs text-label-xs text-secondary font-mono">B2B Core</span>
+</div>
+<div class="p-space-md flex flex-col gap-space-sm font-body-sm text-body-sm">
+<!-- Key Value Rows -->
+<div class="flex items-center justify-between py-1">
+<span class="text-secondary font-medium">TBOH Reference</span>
+<a class="font-mono text-primary font-semibold bg-surface-container-low px-2 py-0.5 rounded border border-outline-variant/30 hover:bg-surface-container transition-colors" href="#">
+                TBOH-89104
+              </a>
+</div>
+<div class="flex items-center justify-between py-1">
+<span class="text-secondary font-medium">Agency</span>
+<span class="text-on-surface font-title-sm text-title-sm">Demo Agency A (fictional)</span>
+</div>
+<div class="flex items-center justify-between py-1">
+<span class="text-secondary font-medium">Intent</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded bg-surface-container text-on-surface font-label-xs text-label-xs font-semibold">
+                Refund Request
+              </span>
+</div>
+<div class="flex items-center justify-between py-1">
+<span class="text-secondary font-medium">Check-in</span>
+<span class="text-on-surface">In 5 days (Nov 18, 2025)</span>
+</div>
+<!-- Cancellation Deadline (LCD) -->
+<div class="flex flex-col gap-1 p-space-sm rounded-lg bg-amber-50 border border-amber-300">
+<div class="flex items-center justify-between">
+<span class="text-amber-900 font-medium font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-amber-700">warning</span>
+                  Cancellation deadline (LCD)
+                </span>
+</div>
+<div class="font-title-sm text-title-sm text-amber-800 font-semibold">
+                In 3 hours (Today 14:00 UTC)
+              </div>
+<span class="text-[11px] text-amber-700">Penalties apply past 14:00. Requires immediate supplier approval.</span>
+</div>
+<div class="flex items-center justify-between py-1">
+<span class="text-secondary font-medium">Region</span>
+<span class="text-on-surface font-label-sm text-label-sm">MEA Desk</span>
+</div>
+<div class="flex items-center justify-between py-1">
+<span class="text-secondary font-medium">Customer tier</span>
+<span class="inline-flex items-center gap-1 font-label-xs text-label-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+<span class="material-symbols-outlined text-[13px]">stars</span>
+                Gold Enterprise
+              </span>
+</div>
+</div>
+</div>
+<!-- (e) Linked Tickets Card -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm border border-outline-variant/30 overflow-hidden" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(226, 232, 240); border-radius: 8px;">
+<div class="p-space-md border-b border-surface-container flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<h2 class="font-title-md text-title-md text-on-surface">Linked tickets</h2>
+<span class="px-2 py-0.2 rounded-full font-label-xs text-label-xs bg-surface-container-high text-on-surface font-semibold">1</span>
+</div>
+</div>
+<div class="p-space-md">
+<div class="p-space-sm rounded-lg bg-surface-container-low border border-outline-variant/20 hover:border-outline-variant transition-colors flex flex-col gap-space-xs">
+<div class="flex items-start justify-between gap-space-xs">
+<a class="font-title-sm text-title-sm text-primary hover:underline flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-[16px]">link</span>
+                  TCK-1001
+                </a>
+<span class="inline-flex items-center px-2 py-0.5 font-semibold text-[12px]" style="background-color: rgb(236, 234, 230); color: rgb(85, 82, 76); border: 1px solid rgb(214, 210, 203); border-radius: 6px;">Stopped (Closed)</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface line-clamp-1">
+                Refund processed for cancelled booking
+              </p>
+<div class="flex items-center gap-space-xs pt-1">
+<span class="font-label-xs text-label-xs bg-secondary-container/60 text-on-secondary-container px-1.5 py-0.5 rounded font-mono">
+                  Shared TBOH
+                </span>
+<span class="font-body-sm text-body-sm text-outline">• Resolved Oct 28</span>
+</div>
+</div>
+</div>
+</div>
+<!-- (f) Supplier Threads Card -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm border border-outline-variant/30 overflow-hidden" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(226, 232, 240); border-radius: 8px;">
+<div class="p-space-md border-b border-surface-container flex items-center justify-between">
+<h2 class="font-title-md text-title-md text-on-surface">Supplier threads</h2>
+<button class="font-label-sm text-label-sm font-semibold text-primary hover:text-on-primary-fixed-variant transition-colors flex items-center gap-0.5" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+              New thread
+            </button>
+</div>
+<div class="p-space-md flex flex-col gap-space-sm">
+<div class="p-space-sm rounded-lg bg-surface-container-low border border-outline-variant/20 flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-title-sm text-title-sm text-on-surface">Hotel Demo Reservations</span>
+<span class="w-2 h-2 rounded-full bg-amber-500" title="Awaiting action"></span>
+</div>
+<div class="font-body-sm text-body-sm text-secondary">
+                Dispute LCD Waiver
+              </div>
+<!-- Recipient Chips -->
+<div class="flex flex-wrap gap-1 pt-1">
+<span class="font-mono text-[10px] bg-surface-container text-secondary px-1.5 py-0.5 rounded truncate max-w-[200px]" title="reservations@hotel-demo.example.com">
+                  reservations@hotel-demo.example.com
+                </span>
+<span class="font-mono text-[10px] bg-surface-container text-secondary px-1.5 py-0.5 rounded truncate max-w-[200px]" title="escalations@hotel-demo.example.com">
+                  escalations@hotel-demo.example.com
+                </span>
+</div>
+<!-- Last response -->
+<div class="pt-space-xs border-t border-surface-container flex items-center justify-between font-label-xs text-label-xs text-secondary">
+<span class="text-on-surface font-medium truncate">Supplier investigating policy exemption</span>
+<span class="shrink-0 text-outline">45m ago</span>
+</div>
+</div>
+</div>
+</div>
+<!-- (g) Actions Card -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm border border-outline-variant/30 overflow-hidden" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(226, 232, 240); border-radius: 8px;">
+<div class="p-space-md border-b border-surface-container">
+<h2 class="font-title-md text-title-md text-on-surface">Desk Actions</h2>
+</div>
+<div class="p-space-md grid grid-cols-2 gap-space-sm">
+<button class="h-9 px-space-sm bg-surface-container-lowest hover:bg-surface-container-low text-on-surface rounded-[6px] border border-outline-variant font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors shadow-xs btn-secondary-hover" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">person_add</span>
+              Assign
+            </button>
+<button class="h-9 px-space-sm bg-surface-container-lowest hover:bg-surface-container-low text-on-surface rounded-[6px] border border-outline-variant font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors shadow-xs btn-secondary-hover" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">person_remove</span>
+              Unassign
+            </button>
+<button class="h-9 px-space-sm bg-surface-container-lowest hover:bg-surface-container-low text-on-surface rounded-[6px] border border-outline-variant font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors shadow-xs btn-secondary-hover" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">swap_horiz</span>
+              Transfer
+            </button>
+<button class="h-9 px-space-sm bg-surface-container-lowest hover:bg-surface-container-low text-on-surface rounded-[6px] border border-outline-variant font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors shadow-xs" type="button" style="background-color: rgb(251, 239, 230); border: 1px solid rgb(235, 205, 184); color: rgb(154, 74, 30);">
+<span class="material-symbols-outlined text-[18px] text-secondary" style="color: rgb(154, 74, 30);">published_with_changes</span>
+              Change status
+            </button>
+<!-- Escalate Button (Full width destructive outline) -->
+<button class="col-span-2 h-9 px-space-md bg-surface-container-lowest hover:bg-red-50 text-red-700 border border-red-700 rounded-[6px] font-label-md text-label-md font-semibold flex items-center justify-center gap-space-xs transition-colors shadow-xs" type="button">
+<span class="material-symbols-outlined text-[18px]">report_problem</span>
+              Escalate to Tier 2
+            </button>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</div>
+<script>
+  function switchMode(mode) {
+    const card = document.getElementById('composer-card');
+    const badgeText = document.getElementById('composer-badge-text');
+    const icon = document.getElementById('composer-icon');
+    const input = document.getElementById('composer-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const btnPublic = document.getElementById('btn-public');
+    const btnInternal = document.getElementById('btn-internal');
+
+    if (mode === 'internal') {
+      card.className = "rounded-lg p-space-md bg-[#FEF9C3] border border-[#FEF08A] transition-colors flex flex-col gap-space-sm";
+      badgeText.innerText = "Visible to staff only";
+      icon.innerText = "lock";
+      badgeText.parentElement.className = "flex items-center gap-space-xs text-[#854D0E] font-label-sm text-label-sm font-semibold";
+      input.placeholder = "Type internal note for MEA desk agents and tier-2 escalation...";
+      submitBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">lock</span> Post Note';
+      submitBtn.className = "h-8 px-space-md bg-primary-container hover:bg-on-primary-fixed-variant text-on-primary rounded-[6px] font-label-md text-label-md font-semibold transition-colors shadow-sm flex items-center gap-1";
+
+      btnInternal.className = "px-space-md py-1 rounded-[6px] font-label-sm text-label-sm bg-surface-container-lowest text-on-surface shadow-xs font-semibold flex items-center gap-1 transition-all";
+      btnPublic.className = "px-space-md py-1 rounded-[6px] font-label-sm text-label-sm text-secondary hover:text-on-surface transition-all";
+    } else {
+      card.className = "rounded-lg p-space-md bg-surface-container-low border border-outline-variant/40 transition-colors flex flex-col gap-space-sm";
+      badgeText.innerText = "Visible to Guest / Agency";
+      icon.innerText = "public";
+      badgeText.parentElement.className = "flex items-center gap-space-xs text-primary font-label-sm text-label-sm font-semibold";
+      input.placeholder = "Type your response to Demo Agency A...";
+      submitBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">send</span> Send Reply';
+      submitBtn.className = "h-8 px-space-md bg-primary-container hover:bg-on-primary-fixed-variant text-on-primary rounded-[6px] font-label-md text-label-md font-semibold transition-colors shadow-sm flex items-center gap-1";
+
+      btnPublic.className = "px-space-md py-1 rounded-[6px] font-label-sm text-label-sm bg-surface-container-lowest text-on-surface shadow-xs font-semibold transition-all";
+      btnInternal.className = "px-space-md py-1 rounded-[6px] font-label-sm text-label-sm text-secondary hover:text-on-surface flex items-center gap-1 transition-all";
+    }
+  }
+</script></main></div>
+
+</body></html>
