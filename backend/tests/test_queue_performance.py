@@ -706,7 +706,8 @@ def test_queue_score_grid_python_equals_sql(db_session: Session):
     tiers = ["platinum", "gold", "standard"]
     null_deadline_flags = [False, True]  # False: effective_deadline_at set; True: effective_deadline_at NULL (fallback to check_in_date)
 
-    sql_expr = get_sql_queue_score_expr(now=now, dialect_name="sqlite")
+    dialect = db_session.bind.dialect.name if (db_session.bind is not None) else "sqlite"
+    sql_expr = get_sql_queue_score_expr(now=now, dialect_name=dialect)
 
     for t in tiers:
         db_session.merge(Agency(id=f"AGY-GRID-{t}", name=f"Grid {t}", country_code="AE", tier=t))

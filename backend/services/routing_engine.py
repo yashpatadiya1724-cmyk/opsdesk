@@ -204,7 +204,7 @@ def get_sql_queue_score_expr(now: datetime, dialect_name: str = "sqlite"):
       - Time modifiers: <=2h: 2000.0 (IMMINENT_2H), <=6h: 800.0 (SAME_DAY_6H), <=24h: 300.0 (NEXT_DAY_24H)
       - Tier multipliers: platinum=1.3, gold=1.15, standard=1.0
     """
-    from sqlalchemy import case, literal, func
+    from sqlalchemy import case, literal, func, cast, Numeric
     from backend.app.models import Ticket, Agency
 
     # 1. Base Priority Weight
@@ -224,7 +224,7 @@ def get_sql_queue_score_expr(now: datetime, dialect_name: str = "sqlite"):
     now_utc = to_utc_aware(now) or datetime.now(timezone.utc)
     deadline_col = func.coalesce(Ticket.effective_deadline_at, Ticket.check_in_date)
     if dialect_name == "postgresql":
-        hours_diff_expr = func.extract("epoch", deadline_col - now_utc) / 3600.0
+        hours_diff_expr = func.round(cast(func.extract("epoch", deadline_col - now_utc) / 3600.0, Numeric), 4)
     else:
         # SQLite
         now_iso = now_utc.strftime("%Y-%m-%d %H:%M:%S")
