@@ -76,6 +76,98 @@ app.add_middleware(
     expose_headers=["X-Next-Cursor", "X-Request-ID"],
 )
 
+
+class RequestBodySizeLimitMiddleware:
+    """
+    Enforces maximum request body size (MAX_BODY_BYTES, default 1MB).
+    Checks Content-Length header, and monitors streamed request body chunks.
+    Returns 413 Payload Too Large if size limit is exceeded.
+    """
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        try:
+            max_bytes = int(os.environ.get("MAX_BODY_BYTES", "1048576"))
+        except (ValueError, TypeError):
+            max_bytes = 1048576
+
+        headers = dict(scope.get("headers", []))
+        cl_bytes = headers.get(b"content-length")
+        path = scope.get("path", "")
+        security_headers = [
+            (b"x-content-type-options", b"nosniff"),
+            (b"referrer-policy", b"no-referrer"),
+            (b"x-frame-options", b"DENY"),
+        ]
+        if path.startswith("/api/"):
+            security_headers.append((b"cache-control", b"no-store"))
+
+        if cl_bytes:
+            try:
+                cl = int(cl_bytes)
+                if cl > max_bytes:
+                    body = json.dumps({"detail": f"Payload Too Large: {cl} bytes exceeds maximum allowed {max_bytes} bytes"}).encode("utf-8")
+                    res_headers = [
+                        (b"content-type", b"application/json"),
+                        (b"content-length", str(len(body)).encode("utf-8")),
+                    ] + security_headers
+                    await send({
+                        "type": "http.response.start",
+                        "status": 413,
+                        "headers": res_headers,
+                    })
+                    await send({
+                        "type": "http.response.body",
+                        "body": body,
+                    })
+                    return
+            except ValueError:
+                pass
+
+        total_bytes = 0
+
+        async def limited_receive():
+            nonlocal total_bytes
+            message = await receive()
+            if message["type"] == "http.request":
+                chunk = message.get("body", b"")
+                total_bytes += len(chunk)
+                if total_bytes > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Payload Too Large: body exceeded maximum allowed {max_bytes} bytes"
+                    )
+            return message
+
+        try:
+            await self.app(scope, limited_receive, send)
+        except HTTPException as exc:
+            if exc.status_code == 413:
+                body = json.dumps({"detail": exc.detail}).encode("utf-8")
+                res_headers = [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode("utf-8")),
+                ] + security_headers
+                await send({
+                    "type": "http.response.start",
+                    "status": 413,
+                    "headers": res_headers,
+                })
+                await send({
+                    "type": "http.response.body",
+                    "body": body,
+                })
+            else:
+                raise
+
+
+app.add_middleware(RequestBodySizeLimitMiddleware)
+
 RATE_LIMIT_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "120"))
 RATE_LIMIT_MAX_KEYS = int(os.environ.get("RATE_LIMIT_MAX_KEYS", "10000"))
 RATE_LIMIT_WINDOW = 60.0  # seconds
@@ -155,52 +247,98 @@ def on_app_startup():
             with SessionLocal() as db:
                 purged = purge_expired_idempotency_records(db)
                 if purged > 0:
-                    logger.info(f'{{"event": "idempotency_startup_purge", "purged": {purged}}}')
+                    logger.info(json.dumps({"event": "idempotency_startup_purge", "purged": purged}))
         except Exception as exc:
             logger.warning(f"Startup maintenance warning: {exc}")
 
 @app.middleware("http")
 async def opsdesk_protection_middleware(request: Request, call_next):
-    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    raw_request_id = request.headers.get("X-Request-ID")
+    request_id = raw_request_id if raw_request_id else str(uuid.uuid4())
     start_time = time.time()
 
-    # Rate limiting check: Keyed on both X-User-Id and client IP
+    # Rate limiting check:
+    # Must NOT use client-supplied X-User-Id header as a bucket key before authentication.
+    # Before auth, key strictly on ip:{client_ip}.
+    # After authentication (e.g. if user is authenticated via JWT), key on user:{user_id}.
     if request.url.path not in ["/health", "/ready", "/docs", "/openapi.json"]:
-        user_id = request.headers.get("X-User-Id")
-        client_ip = get_client_ip(request)
+        authenticated_user_id = None
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+            try:
+                from backend.app.auth import decode_access_token
+                payload = decode_access_token(token)
+                authenticated_user_id = payload.get("sub")
+            except Exception:
+                authenticated_user_id = None
 
-        keys_to_check = []
-        if user_id:
-            keys_to_check.append(f"user:{user_id}")
-        if client_ip:
-            keys_to_check.append(f"ip:{client_ip}")
+        if authenticated_user_id:
+            rate_limit_key = f"user:{authenticated_user_id}"
+        else:
+            client_ip = get_client_ip(request)
+            rate_limit_key = f"ip:{client_ip}"
 
-        rate_limited_key = None
-        for key in keys_to_check:
-            if _rate_limiter.is_rate_limited(key, RATE_LIMIT_PER_MINUTE, RATE_LIMIT_WINDOW):
-                rate_limited_key = key
-                break
+        if _rate_limiter.is_rate_limited(rate_limit_key, RATE_LIMIT_PER_MINUTE, RATE_LIMIT_WINDOW):
+            logger.warning(
+                json.dumps({
+                    "event": "rate_limited",
+                    "key": rate_limit_key,
+                    "request_id": request_id,
+                    "path": request.url.path
+                })
+            )
+            headers = {
+                "Retry-After": "60",
+                "X-Request-ID": request_id,
+                "X-Content-Type-Options": "nosniff",
+                "Referrer-Policy": "no-referrer",
+                "X-Frame-Options": "DENY",
+            }
+            if request.url.path.startswith("/api/"):
+                headers["Cache-Control"] = "no-store"
 
-        if rate_limited_key:
-            logger.warning(f'{{"event": "rate_limited", "key": "{rate_limited_key}", "request_id": "{request_id}", "path": "{request.url.path}"}}')
-            resp = Response(
+            return Response(
                 content=json.dumps({"detail": "Rate limit exceeded. Please retry later."}),
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 media_type="application/json",
-                headers={"Retry-After": "60", "X-Request-ID": request_id}
+                headers=headers
             )
-            return resp
 
     try:
         response = await call_next(request)
     except Exception as exc:
         duration_ms = (time.time() - start_time) * 1000
-        logger.error(f'{{"event": "request_error", "request_id": "{request_id}", "method": "{request.method}", "path": "{request.url.path}", "duration_ms": {duration_ms:.2f}, "error": "{str(exc)}"}}')
+        logger.error(
+            json.dumps({
+                "event": "request_error",
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "duration_ms": round(duration_ms, 2),
+                "error": str(exc)
+            })
+        )
         raise exc
 
     duration_ms = (time.time() - start_time) * 1000
     response.headers["X-Request-ID"] = request_id
-    logger.info(f'{{"event": "request_completed", "request_id": "{request_id}", "method": "{request.method}", "path": "{request.url.path}", "status_code": {response.status_code}, "duration_ms": {duration_ms:.2f}}}')
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Frame-Options"] = "DENY"
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+
+    logger.info(
+        json.dumps({
+            "event": "request_completed",
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": round(duration_ms, 2)
+        })
+    )
     return response
 
 # Allowed status transitions graph. Any invalid transition yields 409 Conflict.
@@ -225,10 +363,15 @@ def health_check():
 
 @app.get("/ready")
 def readiness_check(db: Session = Depends(get_db)):
-    """Readiness probe checking database connectivity via SELECT 1."""
+    """Readiness probe checking database connectivity via SELECT 1 and rate limiter."""
     try:
         db.execute(text("SELECT 1"))
-        return {"status": "ready", "database": "connected"}
+        limiter_status = getattr(_rate_limiter, "status", "fallback")
+        return {
+            "status": "ready",
+            "database": "connected",
+            "rate_limiter": limiter_status
+        }
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -251,16 +394,54 @@ def api_suggest_intent(
 # ============================================================================
 
 @app.post("/api/auth/login", response_model=LoginResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
     """
     Authenticates user with email and password, returning a JWT access token.
+    Enforces dedicated failure rate limiter buckets:
+    - Per lower-cased email: 5 failures / 15 minutes (900 seconds)
+    - Per client IP: 20 failures / 15 minutes (900 seconds)
     Raises 401 Unauthorized if invalid credentials.
     """
-    user = db.query(User).filter(func.lower(User.email) == payload.email.strip().lower()).first()
-    if not user or not user.hashed_password:
+    cleaned_email = payload.email.strip().lower()
+    client_ip = get_client_ip(request)
+
+    email_bucket = f"login_fail:email:{cleaned_email}"
+    ip_bucket = f"login_fail:ip:{client_ip}"
+
+    # Check failure rate limit buckets (5 failures per email, 20 per IP in 900s)
+    if _rate_limiter.check_rate_limited(email_bucket, 5, 900.0) or _rate_limiter.check_rate_limited(ip_bucket, 20, 900.0):
+        return Response(
+            content=json.dumps({"detail": "Rate limit exceeded. Please retry later."}),
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            media_type="application/json",
+            headers={
+                "Retry-After": "900",
+                "X-Content-Type-Options": "nosniff",
+                "Referrer-Policy": "no-referrer",
+                "X-Frame-Options": "DENY",
+                "Cache-Control": "no-store",
+            }
+        )
+
+    user = db.query(User).filter(func.lower(User.email) == cleaned_email).first()
+    valid = False
+    if user and user.hashed_password:
+        valid = verify_password(payload.password, user.hashed_password)
+
+    if not valid:
+        _rate_limiter.record_event(email_bucket, 900.0)
+        _rate_limiter.record_event(ip_bucket, 900.0)
+        logger.warning(
+            json.dumps({
+                "event": "login_failed",
+                "email": cleaned_email,
+                "client_ip": client_ip
+            })
+        )
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    if not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Success resets the email failure bucket
+    _rate_limiter.reset(email_bucket)
 
     try:
         jwt_expire_minutes = int(os.environ.get("JWT_EXPIRE_MINUTES", "480"))
