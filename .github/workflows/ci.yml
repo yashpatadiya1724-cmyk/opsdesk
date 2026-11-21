@@ -14,6 +14,16 @@ jobs:
   backend-test:
     name: Backend Test Suite
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -33,6 +43,7 @@ jobs:
       - name: Run Pytest Suite
         env:
           PYTHONPATH: .
+          REDIS_URL: redis://localhost:6379/0
         run: |
           python -m pytest backend/tests -v -m "slow or not slow"
 
@@ -50,6 +61,15 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -83,6 +103,7 @@ jobs:
         env:
           PYTHONPATH: .
           DATABASE_URL: postgresql+psycopg://opsdesk:opsdesk_password@localhost:5432/opsdesk
+          REDIS_URL: redis://localhost:6379/0
         run: |
           python -m pytest backend/tests -v -m "slow or not slow"
 
