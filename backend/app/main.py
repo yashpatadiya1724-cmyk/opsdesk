@@ -677,7 +677,7 @@ def get_ticket_details(
 
     # Access control
     if current_user.role == "Requester" and ticket.agency_id != current_user.agency_id:
-        raise HTTPException(status_code=403, detail="Forbidden: You do not have access to tickets from another agency")
+        raise HTTPException(status_code=404, detail="Ticket not found")
 
     # Format messages
     messages = []
@@ -1238,7 +1238,7 @@ def post_ticket_message(
 
     if current_user.role == "Requester":
         if ticket.agency_id != current_user.agency_id:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have access to this ticket")
+            raise HTTPException(status_code=404, detail="Ticket not found")
         if payload.message_type == "InternalNote":
             raise HTTPException(status_code=403, detail="Forbidden: Agency requesters cannot post internal notes")
 

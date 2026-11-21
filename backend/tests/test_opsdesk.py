@@ -417,16 +417,16 @@ def test_auth_unknown_user_401(client: TestClient):
     assert resp.status_code == 401
     assert "not found" in resp.json()["detail"]
 
-def test_requester_cannot_access_other_agency_ticket_403(client: TestClient):
+def test_requester_cannot_access_other_agency_ticket_404(client: TestClient):
     """
     CRITICAL MULTI-TENANT TEST:
     USR-202 belongs to AGY-002 (Demo Agency B (fictional)).
     TCK-1004 belongs to AGY-001 (Demo Agency A (fictional)).
-    Accessing TCK-1004 must return 403 Forbidden.
+    Accessing TCK-1004 must return 404 Not Found (no existence leak).
     """
     resp = client.get("/api/tickets/TCK-1004", headers={"X-User-Id": "USR-202"})
-    assert resp.status_code == 403
-    assert "Forbidden" in resp.json()["detail"]
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Ticket not found"
 
 def test_requester_sees_only_own_agency_in_list(client: TestClient):
     """
