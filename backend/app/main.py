@@ -80,6 +80,9 @@ RATE_LIMIT_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "120"))
 RATE_LIMIT_MAX_KEYS = int(os.environ.get("RATE_LIMIT_MAX_KEYS", "10000"))
 RATE_LIMIT_WINDOW = 60.0  # seconds
 
+RATE_LIMIT_TICKET_CREATE_USER_PER_MINUTE = int(os.environ.get("RATE_LIMIT_TICKET_CREATE_USER_PER_MINUTE", "10"))
+RATE_LIMIT_TICKET_CREATE_AGENCY_PER_HOUR = int(os.environ.get("RATE_LIMIT_TICKET_CREATE_AGENCY_PER_HOUR", "100"))
+
 IDEMPOTENCY_TTL_HOURS = int(os.environ.get("IDEMPOTENCY_TTL_HOURS", "24"))
 APP_ENV = os.environ.get("APP_ENV", "development").lower()
 ALLOW_DEMO_AUTH = os.environ.get("ALLOW_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
@@ -488,6 +491,31 @@ def create_ticket(
     agency = db.query(Agency).filter(Agency.id == resolved_agency_id).first()
     if not agency:
         raise HTTPException(status_code=400, detail="Invalid agency_id specified")
+
+    # Rate limiting for ticket creation (per-user and per-agency)
+    try:
+        user_create_limit = int(os.environ.get("RATE_LIMIT_TICKET_CREATE_USER_PER_MINUTE", str(RATE_LIMIT_TICKET_CREATE_USER_PER_MINUTE)))
+    except (ValueError, TypeError):
+        user_create_limit = 10
+
+    if _rate_limiter.is_rate_limited(f"ticket_create:user:{current_user.id}", user_create_limit, 60.0):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded: too many tickets created",
+            headers={"Retry-After": "60"}
+        )
+
+    try:
+        agency_create_limit = int(os.environ.get("RATE_LIMIT_TICKET_CREATE_AGENCY_PER_HOUR", str(RATE_LIMIT_TICKET_CREATE_AGENCY_PER_HOUR)))
+    except (ValueError, TypeError):
+        agency_create_limit = 100
+
+    if _rate_limiter.is_rate_limited(f"ticket_create:agency:{resolved_agency_id}", agency_create_limit, 3600.0):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded: too many tickets created",
+            headers={"Retry-After": "3600"}
+        )
 
     # 2. Intent suggestion / resolution
     # Client-supplied intent from Requesters is untrusted and ignored; classify server-side.
