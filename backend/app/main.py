@@ -489,10 +489,14 @@ def create_ticket(
     if not agency:
         raise HTTPException(status_code=400, detail="Invalid agency_id specified")
 
-    # 2. Intent suggestion if not provided
-    resolved_intent = payload.intent
-    if not resolved_intent:
+    # 2. Intent suggestion / resolution
+    # Client-supplied intent from Requesters is untrusted and ignored; classify server-side.
+    if current_user.role == "Requester":
         resolved_intent, _ = suggest_ticket_intent(payload.title, payload.description)
+    else:
+        resolved_intent = payload.intent
+        if not resolved_intent:
+            resolved_intent, _ = suggest_ticket_intent(payload.title, payload.description)
 
     # 3. Tier-1 Routing
     # Find available desk agents
@@ -529,11 +533,13 @@ def create_ticket(
 
     priority = payload.priority
     ticket_status = "Open" if assigned_agent_id else "New"
-    is_emergency_bypass = (
+    is_near_checkin = (
         deadline_hours is not None
         and 0.0 <= deadline_hours <= EMERGENCY_BYPASS_HOURS
         and resolved_intent in EMERGENCY_BYPASS_INTENTS
     )
+    is_staff = current_user.role in ("Agent", "EscalationManager", "Lead")
+    is_emergency_bypass = is_staff and is_near_checkin
 
     if is_emergency_bypass:
         priority = "Urgent"
@@ -542,6 +548,8 @@ def create_ticket(
             f"Tier-1 Emergency Bypass: effective deadline {deadline_hours:.1f}h <= {EMERGENCY_BYPASS_HOURS}h"
         )
         assigned_agent_id = DEFAULT_ESCALATION_MANAGER_ID
+    elif current_user.role == "Requester" and is_near_checkin:
+        routing_reason = "Requester ticket: near check-in, review recommended"
 
     new_ticket = Ticket(
         id=ticket_id,
