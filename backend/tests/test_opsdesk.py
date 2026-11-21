@@ -1780,7 +1780,10 @@ def test_readiness_probe_returns_200(client: TestClient):
     """Step 5.4: GET /ready executes SELECT 1 and returns 200 ready."""
     resp = client.get("/ready")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ready", "database": "connected"}
+    data = resp.json()
+    assert data["status"] == "ready"
+    assert data["database"] == "connected"
+    assert data.get("rate_limiter") in ("redis", "fallback")
 
 
 def test_request_id_injected_in_response(client: TestClient):
