@@ -122,6 +122,20 @@ def cmd_create_user(
         db.close()
 
 
+def cmd_refresh_scores(batch_size: int = 500) -> None:
+    """Refreshes stale ticket queue scores in batches."""
+    from backend.services.routing_engine import refresh_stale_queue_scores
+    db = SessionLocal()
+    try:
+        count = refresh_stale_queue_scores(db, batch_size=batch_size)
+        print(f"Successfully refreshed {count} ticket queue scores.")
+    except Exception as e:
+        print(f"Error during refresh-scores: {e}", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        db.close()
+
+
 def main(argv: Optional[list] = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m backend.app.manage", description="OpsDesk Management CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -141,6 +155,10 @@ def main(argv: Optional[list] = None) -> None:
     p_create.add_argument("--password", required=False, help="User password (prompts if omitted)")
     p_create.add_argument("--user-id", required=False, help="Optional explicit user ID")
 
+    # refresh-scores
+    p_refresh = subparsers.add_parser("refresh-scores", help="Refresh stale ticket queue scores")
+    p_refresh.add_argument("--batch-size", type=int, default=500, help="Batch size for refresh updates (default: 500)")
+
     args = parser.parse_args(argv)
 
     if args.command == "set-password":
@@ -155,6 +173,8 @@ def main(argv: Optional[list] = None) -> None:
             password=args.password,
             user_id=args.user_id,
         )
+    elif args.command == "refresh-scores":
+        cmd_refresh_scores(batch_size=args.batch_size)
 
 
 if __name__ == "__main__":

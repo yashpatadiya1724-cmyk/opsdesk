@@ -129,10 +129,14 @@ def compute_ticket_urgency_fields(
     """
     Computes and sets urgency fields on a ticket:
       - effective_deadline_at: effective deadline UTC datetime
+      - priority_weight: base priority score
       - queue_score: numerical priority queue score
+      - score_computed_at: UTC timestamp when score was evaluated
     """
     if now is None:
         now = datetime.now(timezone.utc)
+    else:
+        now = to_utc_aware(now) or datetime.now(timezone.utc)
 
     if agency_tier is None and hasattr(ticket, "agency") and ticket.agency:
         agency_tier = getattr(ticket.agency, "tier", None)
@@ -155,12 +159,14 @@ def compute_ticket_urgency_fields(
         agency_tier=agency_tier,
         lcd_date=ticket.lcd_date,
         intent=ticket.intent,
-        now=now
+        now=now,
+        priority_weight=PRIORITY_SCORES.get(ticket.priority, PRIORITY_SCORES["Medium"])
     )
 
     ticket.priority_weight = PRIORITY_SCORES.get(ticket.priority, PRIORITY_SCORES["Medium"])
     ticket.effective_deadline_at = effective_deadline
     ticket.queue_score = queue_score
+    ticket.score_computed_at = now
     return ticket
 
 
@@ -249,11 +255,98 @@ def get_sql_queue_score_expr(now: datetime, dialect_name: str = "sqlite"):
     return (priority_weight_expr + time_modifier_expr) * tier_multiplier_expr
 
 
-def refresh_stale_queue_scores(db: Any, now: Optional[datetime] = None) -> int:
+def refresh_stale_queue_scores(
+    db: Any,
+    now: Optional[datetime] = None,
+    batch_size: int = 500
+) -> int:
     """
-    Compatibility helper: tickets.queue_score is no longer a stored column (removed in revision 0003);
-    queue scores are computed dynamically on read in SQL queries (via get_sql_queue_score_expr)
-    and Python endpoints, eliminating stale score drift.
+    Refreshes stored queue_score and score_computed_at for tickets whose score is stale.
+    Bounded staleness guarantee: Stored scores reflect time urgency within at most 30 seconds
+    (the background refresher run interval).
+
+    Updates ONLY:
+      1. Uncomputed tickets (queue_score IS NULL or score_computed_at IS NULL).
+      2. Active tickets (status in ['New', 'Open', 'Pending', 'Escalated']) whose effective
+         deadline crossed an urgency tier boundary (2h, 6h, or 24h) since their last
+         score computation.
+
+    Processes in batches of size `batch_size` to minimize database lock duration.
+    Returns the total number of tickets refreshed.
     """
-    return 0
+    from sqlalchemy import or_, and_, func, cast, Numeric
+    from sqlalchemy.orm import joinedload
+    from backend.app.models import Ticket, Agency
+
+    if now is None:
+        now = datetime.now(timezone.utc)
+    else:
+        now = to_utc_aware(now) or datetime.now(timezone.utc)
+
+    # Resolve dialect
+    bind = getattr(db, "bind", None)
+    if bind is None and hasattr(db, "get_bind"):
+        bind = db.get_bind()
+    dialect_name = getattr(getattr(bind, "dialect", None), "name", "sqlite")
+
+    deadline_col = func.coalesce(Ticket.effective_deadline_at, Ticket.check_in_date)
+
+    if dialect_name == "postgresql":
+        hours_prev = cast(func.extract("epoch", deadline_col - Ticket.score_computed_at) / 3600.0, Numeric)
+        hours_now = cast(func.extract("epoch", deadline_col - now) / 3600.0, Numeric)
+    else:
+        # SQLite
+        now_iso = now.strftime("%Y-%m-%d %H:%M:%S")
+        hours_prev = (func.julianday(deadline_col) - func.julianday(Ticket.score_computed_at)) * 24.0
+        hours_now = (func.julianday(deadline_col) - func.julianday(now_iso)) * 24.0
+
+    stale_condition = or_(
+        Ticket.queue_score.is_(None),
+        Ticket.score_computed_at.is_(None),
+        and_(
+            Ticket.status.in_(["New", "Open", "Pending", "Escalated"]),
+            or_(
+                and_(hours_prev > 24.0, hours_now <= 24.0),
+                and_(hours_prev > 6.0, hours_now <= 6.0),
+                and_(hours_prev > 2.0, hours_now <= 2.0),
+            )
+        )
+    )
+
+    total_refreshed = 0
+    batch_limit = max(1, batch_size)
+
+    while True:
+        stale_tickets = (
+            db.query(Ticket)
+            .options(joinedload(Ticket.agency))
+            .filter(stale_condition)
+            .limit(batch_limit)
+            .all()
+        )
+        if not stale_tickets:
+            break
+
+        for ticket in stale_tickets:
+            agency_tier = ticket.agency.tier if ticket.agency else None
+            orig_updated = ticket.updated_at
+            compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
+            db.query(Ticket).filter(Ticket.id == ticket.id).update(
+                {
+                    Ticket.queue_score: ticket.queue_score,
+                    Ticket.score_computed_at: ticket.score_computed_at,
+                    Ticket.priority_weight: ticket.priority_weight,
+                    Ticket.effective_deadline_at: ticket.effective_deadline_at,
+                    Ticket.updated_at: orig_updated,
+                },
+                synchronize_session="fetch"
+            )
+
+        db.commit()
+        total_refreshed += len(stale_tickets)
+
+        if len(stale_tickets) < batch_limit:
+            break
+
+    return total_refreshed
 

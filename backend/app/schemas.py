@@ -149,6 +149,9 @@ class AgencySchema(BaseModel):
     country_code: str
     tier: Optional[str] = "standard"
 
+class AgencyTierUpdateSchema(BaseModel):
+    tier: str
+
 class TicketResponseSchema(BaseModel):
     id: str
     tboh_id: str

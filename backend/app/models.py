@@ -83,6 +83,8 @@ class Ticket(Base):
     assigned_to = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     routing_reason = Column(Text, nullable=True)
     suggested_bug_link = Column(String(200), nullable=True)
+    queue_score = Column(Float, nullable=True, index=True)
+    score_computed_at = Column(DateTime, nullable=True)
     version = Column(Integer, default=1, nullable=False)  # Optimistic concurrency lock control
     created_at = Column(DateTime, default=utcnow, index=True)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
@@ -91,6 +93,7 @@ class Ticket(Base):
         Index("ix_tickets_status_assigned", "status", "assigned_to"),
         Index("ix_tickets_assigned_status", "assigned_to", "status"),
         Index("ix_tickets_agency_status", "agency_id", "status"),
+        Index("ix_tickets_status_assigned_score", "status", "assigned_to", "queue_score"),
     )
 
     agency = relationship("Agency", back_populates="tickets")

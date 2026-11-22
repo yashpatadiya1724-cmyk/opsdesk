@@ -139,6 +139,17 @@ def ensure_schema_migrations(engine_obj):
                         END
                     """))
                     conn.commit()
+                if cols and "queue_score" not in cols:
+                    logger.info("Adding column 'queue_score' to tickets table")
+                    conn.execute(text("ALTER TABLE tickets ADD COLUMN queue_score FLOAT"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tickets_queue_score ON tickets (queue_score)"))
+                    conn.commit()
+                if cols and "score_computed_at" not in cols:
+                    logger.info("Adding column 'score_computed_at' to tickets table")
+                    conn.execute(text("ALTER TABLE tickets ADD COLUMN score_computed_at DATETIME"))
+                    conn.commit()
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tickets_status_assigned_score ON tickets (status, assigned_to, queue_score)"))
+                conn.commit()
 
                 res_check = conn.execute(text("PRAGMA table_info(tickets)")).fetchall()
                 updated_cols = [r[1] for r in res_check]
@@ -167,6 +178,36 @@ def ensure_schema_migrations(engine_obj):
                             )
                         conn.commit()
                         logger.info("Backfill complete.")
+
+                if "queue_score" in updated_cols:
+                    null_scores = conn.execute(text(
+                        "SELECT t.id, t.priority, t.check_in_date, t.lcd_date, t.intent, t.priority_weight, a.tier "
+                        "FROM tickets t LEFT JOIN agencies a ON t.agency_id = a.id WHERE t.queue_score IS NULL"
+                    )).fetchall()
+                    if null_scores:
+                        logger.info("Backfilling queue_score for %d tickets", len(null_scores))
+                        from datetime import datetime, timezone
+                        from backend.services.routing_engine import calculate_queue_score_tier2
+                        now_dt = datetime.now(timezone.utc)
+                        now_naive = now_dt.replace(tzinfo=None)
+                        for t_id, prio, cid_raw, lcd_raw, intent_val, pw, agy_tier in null_scores:
+                            cid = datetime.fromisoformat(cid_raw) if isinstance(cid_raw, str) else cid_raw
+                            lcd = datetime.fromisoformat(lcd_raw) if isinstance(lcd_raw, str) and lcd_raw else (lcd_raw if lcd_raw else None)
+                            q_score = calculate_queue_score_tier2(
+                                priority=prio or "Medium",
+                                check_in_date=cid,
+                                agency_tier=agy_tier or "standard",
+                                lcd_date=lcd,
+                                intent=intent_val,
+                                now=now_dt,
+                                priority_weight=pw
+                            )
+                            conn.execute(
+                                text("UPDATE tickets SET queue_score = :score, score_computed_at = :now WHERE id = :tid"),
+                                {"score": q_score, "now": now_naive, "tid": t_id}
+                            )
+                        conn.commit()
+                        logger.info("queue_score backfill complete.")
 
                 res_agencies = conn.execute(text("PRAGMA table_info(agencies)")).fetchall()
                 cols_agencies = [r[1] for r in res_agencies]

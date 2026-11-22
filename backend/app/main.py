@@ -21,7 +21,7 @@ from backend.app.schemas import (
     TicketEscalateSchema, TicketTransferSchema, TicketLinkSuggestionSchema, MessageCreateSchema,
     SideThreadCreateSchema, SideThreadMessageCreateSchema,
     IntentSuggestRequestSchema, IntentSuggestResponseSchema, to_utc_aware,
-    LoginRequest, LoginResponse
+    LoginRequest, LoginResponse, AgencyTierUpdateSchema
 )
 from backend.app.auth import (
     get_current_user, verify_password, create_access_token,
@@ -237,8 +237,33 @@ def purge_expired_idempotency_records(db: Session) -> int:
     return deleted
 
 
+_score_refresher_task = None
+
+
+async def _score_refresher_worker():
+    """
+    In-process background task that refreshes stale queue scores across tickets.
+    Bounded staleness guarantee: Stored scores reflect time urgency within at most 30 seconds
+    (the background refresher run interval).
+    """
+    interval = float(os.getenv("SCORE_REFRESHER_INTERVAL", "30"))
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            from backend.app.database import SessionLocal
+            with SessionLocal() as db:
+                refreshed = refresh_stale_queue_scores(db)
+                if refreshed > 0:
+                    logger.info(json.dumps({"event": "score_refresher_run", "refreshed": refreshed}))
+        except asyncio.CancelledError:
+            break
+        except Exception as exc:
+            logger.warning(f"Error in score_refresher_worker: {exc}")
+
+
 @app.on_event("startup")
-def on_app_startup():
+async def on_app_startup():
+    global _score_refresher_task
     validate_production_auth_settings()
     if not os.environ.get("PYTEST_CURRENT_TEST"):
         try:
@@ -250,6 +275,21 @@ def on_app_startup():
                     logger.info(json.dumps({"event": "idempotency_startup_purge", "purged": purged}))
         except Exception as exc:
             logger.warning(f"Startup maintenance warning: {exc}")
+
+        score_refresher_enabled = os.getenv("SCORE_REFRESHER_ENABLED", "true").lower() in ("true", "1", "yes")
+        if score_refresher_enabled:
+            _score_refresher_task = asyncio.create_task(_score_refresher_worker())
+
+
+@app.on_event("shutdown")
+async def on_app_shutdown():
+    global _score_refresher_task
+    if _score_refresher_task and not _score_refresher_task.done():
+        _score_refresher_task.cancel()
+        try:
+            await _score_refresher_task
+        except asyncio.CancelledError:
+            pass
 
 @app.middleware("http")
 async def opsdesk_protection_middleware(request: Request, call_next):
@@ -551,10 +591,8 @@ def list_tickets(
 
     now = datetime.now(timezone.utc)
     if view in ["triage", "my_queue"]:
-        dialect = db.bind.dialect.name if (db.bind is not None) else "sqlite"
-        score_expr = get_sql_queue_score_expr(now=now, dialect_name=dialect)
-        query = query.outerjoin(Agency, Ticket.agency_id == Agency.id).order_by(
-            score_expr.desc(),
+        query = query.order_by(
+            Ticket.queue_score.desc(),
             Ticket.effective_deadline_at.asc(),
             Ticket.id.asc()
         )
@@ -593,11 +631,19 @@ def list_tickets(
             now=now
         )
         agency_tier = agency_map.get(t.agency_id) if current_user.role != "Requester" else None
-        dynamic_score = compute_ticket_queue_score(
-            ticket=t,
-            agency_tier=agency_tier,
-            now=now,
-            user_role=current_user.role
+        score_val = (
+            None
+            if current_user.role == "Requester"
+            else (
+                t.queue_score
+                if t.queue_score is not None
+                else compute_ticket_queue_score(
+                    ticket=t,
+                    agency_tier=agency_tier,
+                    now=now,
+                    user_role=current_user.role,
+                )
+            )
         )
 
         results.append({
@@ -614,7 +660,7 @@ def list_tickets(
             "assigned_to": t.assigned_to if current_user.role != "Requester" else None,
             "routing_reason": t.routing_reason if current_user.role != "Requester" else None,
             "sla": sla,
-            "queue_score": dynamic_score,
+            "queue_score": score_val,
             "created_at": t.created_at.isoformat()
         })
 
@@ -1035,6 +1081,8 @@ def assign_ticket(
             Ticket.status: new_status,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
             Ticket.priority_weight: ticket.priority_weight,
+            Ticket.queue_score: ticket.queue_score,
+            Ticket.score_computed_at: ticket.score_computed_at,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -1100,6 +1148,8 @@ def unassign_ticket(
             Ticket.status: new_status,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
             Ticket.priority_weight: ticket.priority_weight,
+            Ticket.queue_score: ticket.queue_score,
+            Ticket.score_computed_at: ticket.score_computed_at,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -1187,6 +1237,8 @@ def update_ticket_status(
             Ticket.priority: ticket.priority,
             Ticket.priority_weight: ticket.priority_weight,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.queue_score: ticket.queue_score,
+            Ticket.score_computed_at: ticket.score_computed_at,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -1289,6 +1341,8 @@ def escalate_ticket(
             Ticket.assigned_to: DEFAULT_ESCALATION_MANAGER_ID,
             Ticket.routing_reason: routing_reason,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
+            Ticket.queue_score: ticket.queue_score,
+            Ticket.score_computed_at: ticket.score_computed_at,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -1383,6 +1437,8 @@ def transfer_ticket(
             Ticket.routing_reason: routing_reason,
             Ticket.effective_deadline_at: ticket.effective_deadline_at,
             Ticket.priority_weight: ticket.priority_weight,
+            Ticket.queue_score: ticket.queue_score,
+            Ticket.score_computed_at: ticket.score_computed_at,
             Ticket.version: current_version + 1,
             Ticket.updated_at: now
         },
@@ -1774,6 +1830,53 @@ def get_top_themes(
 
 
 # ============================================================================
+# 12. AGENCY MANAGEMENT & TIER UPDATES
+# ============================================================================
+
+@app.patch("/api/agencies/{agency_id}/tier")
+@app.put("/api/agencies/{agency_id}/tier")
+def update_agency_tier_endpoint(
+    agency_id: str,
+    payload: AgencyTierUpdateSchema,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Updates an agency's tier (standard, gold, platinum) and immediately recomputes
+    queue_score for all active tickets belonging to that agency.
+    """
+    if current_user.role not in ["Lead", "EscalationManager"]:
+        raise HTTPException(status_code=403, detail="Forbidden: Only Lead or EscalationManager can update agency tier")
+
+    agency = db.query(Agency).filter(Agency.id == agency_id).first()
+    if not agency:
+        raise HTTPException(status_code=404, detail="Agency not found")
+
+    normalized_tier = payload.tier.lower().strip()
+    if normalized_tier not in ["platinum", "gold", "standard"]:
+        raise HTTPException(status_code=400, detail="Invalid agency tier. Allowed: standard, gold, platinum")
+
+    agency.tier = normalized_tier
+    now = datetime.now(timezone.utc)
+
+    # Recompute stored urgency fields for all active tickets belonging to this agency
+    active_tickets = db.query(Ticket).filter(
+        Ticket.agency_id == agency_id,
+        Ticket.status.in_(["New", "Open", "Pending", "Escalated"])
+    ).all()
+    for t in active_tickets:
+        compute_ticket_urgency_fields(t, agency_tier=normalized_tier, now=now)
+
+    db.commit()
+    return {
+        "status": "success",
+        "agency_id": agency_id,
+        "tier": normalized_tier,
+        "tickets_updated": len(active_tickets)
+    }
+
+
+# ============================================================================
 # 13. UNCAPPED OPS DATA EXPORT (MVP-6)
 # ============================================================================
 
@@ -1851,7 +1954,20 @@ def export_tickets_csv(
                 pass
 
     try:
-        query = db.query(Ticket)
+        # Select only exported columns instead of querying full ORM models
+        query = db.query(
+            Ticket.id,
+            Ticket.tboh_id,
+            Ticket.agency_id,
+            Ticket.title,
+            Ticket.intent,
+            Ticket.priority,
+            Ticket.status,
+            Ticket.check_in_date,
+            Ticket.lcd_date,
+            Ticket.assigned_to,
+            Ticket.created_at
+        )
         if status:
             query = query.filter(Ticket.status == status)
         if agency_id:
@@ -1862,7 +1978,7 @@ def export_tickets_csv(
             query = query.filter(Ticket.created_at <= to_date)
 
         if cursor:
-            cursor_ticket = db.query(Ticket).filter(Ticket.id == cursor).first()
+            cursor_ticket = db.query(Ticket.created_at, Ticket.id).filter(Ticket.id == cursor).first()
             if not cursor_ticket:
                 raise HTTPException(status_code=404, detail=f"Cursor ticket '{cursor}' not found")
             query = query.filter(
@@ -1903,23 +2019,23 @@ def export_tickets_csv(
             output.seek(0)
             output.truncate(0)
 
-            # Stream strictly via yield_per(500) to keep memory footprint constant
+            # Stream strictly via yield_per(500) with scalar tuples to keep memory footprint constant
             stream_delay = float(os.environ.get("CSV_EXPORT_STREAM_DELAY", "0"))
-            for ticket in query.limit(effective_limit).yield_per(500):
+            for row in query.limit(effective_limit).yield_per(500):
                 if stream_delay > 0:
                     time.sleep(stream_delay)
                 writer.writerow([
-                    sanitize_csv_cell(ticket.id),
-                    sanitize_csv_cell(ticket.tboh_id),
-                    sanitize_csv_cell(ticket.agency_id),
-                    sanitize_csv_cell(ticket.title),
-                    sanitize_csv_cell(ticket.intent or ""),
-                    sanitize_csv_cell(ticket.priority),
-                    sanitize_csv_cell(ticket.status),
-                    sanitize_csv_cell(ticket.check_in_date.isoformat() if ticket.check_in_date else ""),
-                    sanitize_csv_cell(ticket.lcd_date.isoformat() if ticket.lcd_date else ""),
-                    sanitize_csv_cell(ticket.assigned_to or ""),
-                    sanitize_csv_cell(ticket.created_at.isoformat() if ticket.created_at else "")
+                    sanitize_csv_cell(row.id),
+                    sanitize_csv_cell(row.tboh_id),
+                    sanitize_csv_cell(row.agency_id),
+                    sanitize_csv_cell(row.title),
+                    sanitize_csv_cell(row.intent or ""),
+                    sanitize_csv_cell(row.priority),
+                    sanitize_csv_cell(row.status),
+                    sanitize_csv_cell(row.check_in_date.isoformat() if row.check_in_date else ""),
+                    sanitize_csv_cell(row.lcd_date.isoformat() if row.lcd_date else ""),
+                    sanitize_csv_cell(row.assigned_to or ""),
+                    sanitize_csv_cell(row.created_at.isoformat() if row.created_at else "")
                 ])
                 yield output.getvalue()
                 output.seek(0)
