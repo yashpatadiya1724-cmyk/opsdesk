@@ -4,10 +4,10 @@ import React from "react";
 import { cn } from "@/lib/utils";
 
 export interface AvatarProps {
-  name: string;
+  name?: string | null;
   size?: "sm" | "md" | "lg";
   className?: string;
-  id?: string;
+  id?: string | null;
 }
 
 // Deterministic palette generation for avatars
@@ -22,7 +22,8 @@ const PALETTE = [
   { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200" },
 ];
 
-function getDeterministicColor(str: string) {
+function getDeterministicColor(str?: string | null) {
+  if (!str) return PALETTE[0];
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -31,7 +32,7 @@ function getDeterministicColor(str: string) {
   return PALETTE[index];
 }
 
-function getInitials(name: string): string {
+function getInitials(name?: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -39,7 +40,8 @@ function getInitials(name: string): string {
 }
 
 export function Avatar({ name, size = "md", className, id }: AvatarProps) {
-  const color = getDeterministicColor(id || name);
+  const safeName = name || id || "User";
+  const color = getDeterministicColor(id || name || "");
   const initials = getInitials(name);
 
   const sizeStyles = {
@@ -50,8 +52,8 @@ export function Avatar({ name, size = "md", className, id }: AvatarProps) {
 
   return (
     <div
-      title={name}
-      aria-label={name}
+      title={safeName}
+      aria-label={safeName}
       className={cn(
         "inline-flex items-center justify-center rounded-full font-medium border select-none shrink-0 transition-subtle",
         sizeStyles[size],

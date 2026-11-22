@@ -13,8 +13,9 @@ Designed specifically for travel consolidators, online travel agencies (OTAs), a
 - **First-Class TBOH Linkage:** Instantly correlates past contacts sharing the same TBO Booking Reference (`TBOH_ID`) without requiring manual lookups or external third-party add-ons.
 - **Intent-Aware LCD SLA Engine:** Dynamically calculates countdowns based on guest check-in proximity and Last Cancellation Date (LCD). Distinguishes cancellation-sensitive deadlines from on-the-ground check-in emergencies.
 - **Deterministic 2-Tier Routing Engine:** 
-  - **Tier 1 (Emergency Bypass):** Departures or effective deadlines within 4 hours automatically trigger Tier-1 Emergency Bypass, forcing priority to `Urgent` and status to `Escalated`, jumping to Queue Rank #1.
-  - **Tier 2 (Continuous Scoring):** Continuous multi-factor dynamic queue scoring factoring base priority (`Urgent`: 1000, `High`: 500, `Medium`: 200, `Low`: 50), deadline urgency modifiers (<=2h: +2000, <=6h: +800, <=24h: +300), and agency tier multipliers (Platinum: 1.3x, Gold: 1.15x, Standard: 1.0x).
+  - **Tier 1 (Emergency Bypass - Staff Only):** Departures or effective deadlines within 4 hours created by internal staff (`Agent`, `EscalationManager`, `Lead`) automatically trigger Tier-1 Emergency Bypass, forcing priority to `Urgent`, status to `Escalated`, and assigning to Escalation Manager `USR-103`.
+  - **Requester Bypass Policy (Option A):** Tickets created by `Requester` roles never auto-escalate or pre-empt queues. Priority remains as requested, status remains `New`/`Open`, assignment proceeds through normal Tier-1 regional agent pools, and routing reason is annotated `"Requester ticket: near check-in, review recommended"`. Client-supplied `intent` from Requesters is strictly ignored and classified server-side to prevent self-prioritization abuse.
+  - **Tier 2 (Continuous Scoring):** Continuous multi-factor dynamic queue scoring factoring base priority (`Urgent`: 1000, `High`: 500, `Medium`: 200, `Low`: 50), deadline urgency modifiers (<=2h: +2000, <=6h: +800, <=24h: +300), and agency tier multipliers (Platinum: 1.3x, Gold: 1.15x, Standard: 1.0x). Driven by materialized column `tickets.queue_score` and composite index `ix_tickets_status_assigned_score` with a 30-second bounded staleness refresher.
 - **Hotel Timezone & UTC Normalization:** Native `hotel_timezone` support on tickets (default `"UTC"`). Local hotel check-in and cancellation timestamps are localized to property timezones (e.g. `Asia/Dubai`, `Asia/Kolkata`) and normalized to timezone-aware UTC for drift-free SLA countdowns and queue ranking.
 - **Transfer-Proof Supplier Threads:** Decouples supplier conversation recipients from internal ticket assignees, guaranteeing that external communications remain preserved across agent transfers.
 - **Streaming Ops Data Path:** Eliminates artificial 3,000-row export barriers via direct SQL database cursor streaming (`yield_per(500)`) with cursor pagination (`cursor`, `limit`, `X-Next-Cursor` header) and formula injection sanitization. Benchmarked at **5,000 rows in ~1.32s**.
@@ -131,8 +132,31 @@ OpsDesk supports two operational authentication modes configured via environment
 | `POST` | `/api/tickets/{ticket_id}/side-threads/{side_thread_id}/messages` | Append supplier message to existing side thread | Agent / EscalationManager / Lead |
 | `POST` | `/api/tickets/{ticket_id}/link-suggestion` | Confirm or reject TBOH linked case recommendation | Agent / EscalationManager / Lead |
 | `GET` | `/api/insights/themes` | Aggregate top recurring operational issue themes | EscalationManager / Lead |
+| `GET` | `/api/ai/stats` | Observability statistics for Gemini AI suggestions, caching, and fallbacks | Lead Only |
 | `GET` | `/api/export/tickets.csv` | Stream operations tickets with cursor pagination (`cursor`, `limit`, `X-Next-Cursor` header; concurrency limited to 2) | Lead Only |
 | `PATCH` / `PUT` | `/api/agencies/{agency_id}/tier` | Update agency tier and recalculate active ticket queue scores | Lead / EscalationManager |
+
+#### Environment Variables Reference
+
+| Variable | Default | Purpose / Notes |
+| :--- | :--- | :--- |
+| `APP_ENV` | `development` | Application environment (`development`, `test`, `production`). In production, demo auth is refused. |
+| `AUTH_MODE` | `demo` | Authentication mode: `demo` (uses `X-User-Id` header) or `jwt` (enforces Bearer token). |
+| `ALLOW_DEMO_AUTH` | `false` | Explicit override required to run `AUTH_MODE=demo` when `APP_ENV=production`. |
+| `JWT_SECRET` | (unset) | Secret for signing JWT tokens in production (must be $\ge 32$ chars). |
+| `BCRYPT_ROUNDS` | `12` | Password hashing complexity for bcrypt. |
+| `RATE_LIMIT_BACKEND` | `memory` | Rate limit backend: `memory` (per-process sliding window) or `redis` (atomic Lua script). |
+| `REDIS_URL` | `redis://localhost:6379/0` | Connection URL for Redis rate limiter. |
+| `RATE_LIMIT_FAIL_MODE` | `open` | Fail mode when Redis trips circuit breaker (`open` to allow traffic, `closed` to reject). |
+| `RATE_LIMIT_TICKET_CREATE_USER_PER_MINUTE` | `10` | Maximum ticket creations allowed per user per minute. |
+| `RATE_LIMIT_TICKET_CREATE_AGENCY_PER_HOUR` | `100` | Maximum ticket creations allowed per agency per hour. |
+| `RATE_LIMIT_AI_SUGGEST_USER_PER_MINUTE` | `20` | Maximum AI intent suggestions allowed per user per minute. |
+| `MAX_BODY_BYTES` | `1048576` | Maximum allowed request body size in bytes (1 MB default). Rejects larger payloads with 413. |
+| `SCORE_REFRESHER_ENABLED` | `true` | Enables background thread for periodic score boundary refreshes. |
+| `SCORE_REFRESHER_INTERVAL` | `30` | Interval in seconds between queue score boundary checks ($\le 30$s staleness guarantee). |
+| `GEMINI_MAX_WORKERS` | `5` | Maximum concurrent threads dispatching external requests to Gemini. |
+| `GEMINI_REDACT_PII` | `true` | Pre-egress redaction of emails, phone numbers, URLs, booking tokens, and numbers $\ge 6$ digits. |
+| `GEMINI_CACHE_ENABLED` | `true` | In-memory LRU cache (1,000 entries, 1-hour TTL) for Gemini intent suggestions. |
 
 ### 3b. Triage Scalability & Stored Score Cache
 OpsDesk uses an indexed stored queue score cache (`tickets.queue_score` with composite index on `(status, assigned_to, queue_score)`) ensuring sub-millisecond triage queries at 124k+ tickets.
@@ -197,7 +221,7 @@ opsdesk/
 │   ├── openapi.json          # Exported OpenAPI 3.1 specification
 │   └── sla_engine.schema.json
 ├── docs/                     # Architecture & Design documentation
-│   ├── adr/                  # 5 Architecture Decision Records (ADR 0001 - 0005)
+│   ├── adr/                  # 9 Architecture Decision Records (ADR 0001 - 0009)
 │   ├── ARCHITECTURE.md       # System context, component, ERD, and state machine diagrams
 │   ├── DATA_RETENTION.md     # Hot/Warm/Cold archival policies
 │   ├── DEMO_RUNBOOK.md       # Pre-demo checklist, Journey mapping, 5-minute script

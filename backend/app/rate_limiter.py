@@ -544,7 +544,7 @@ class RedisRateLimiter(RateLimiter):
 
 def get_rate_limiter() -> RateLimiter:
     """Factory function returning the configured RateLimiter implementation."""
-    backend = os.environ.get("RATE_LIMIT_BACKEND", "inmemory").lower()
+    backend = os.environ.get("RATE_LIMIT_BACKEND", "memory").lower()
     redis_url = os.environ.get("REDIS_URL")
     if backend == "redis":
         if redis_url:

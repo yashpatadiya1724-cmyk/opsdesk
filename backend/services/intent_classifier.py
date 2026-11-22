@@ -106,6 +106,12 @@ def is_pii_redaction_enabled() -> bool:
     return val not in ("false", "0", "no", "off")
 
 
+def is_cache_enabled() -> bool:
+    """Determines whether Gemini LRU caching is active (default true)."""
+    val = os.getenv("GEMINI_CACHE_ENABLED", "true").strip().lower()
+    return val not in ("false", "0", "no", "off")
+
+
 class IntentLRUCache:
     """Thread-safe LRU cache with capacity limit and TTL expiration."""
     def __init__(self, capacity: int = 1000, ttl_seconds: float = 3600.0):
@@ -242,9 +248,9 @@ def _get_executor_and_semaphore():
     """Returns the bounded ThreadPoolExecutor and Semaphore singleton per process."""
     global _executor_instance, _semaphore_instance, _max_workers_configured
     try:
-        max_workers = int(os.getenv("GEMINI_MAX_WORKERS", "4"))
+        max_workers = int(os.getenv("GEMINI_MAX_WORKERS", "5"))
     except (ValueError, TypeError):
-        max_workers = 4
+        max_workers = 5
 
     with _executor_lock:
         if _executor_instance is None or _max_workers_configured != max_workers:
@@ -324,10 +330,11 @@ def suggest_ticket_intent(subject: str, body: str) -> Tuple[str, str]:
 
     # Check LRU cache
     cache_key = hashlib.sha256(f"{redacted_subject}\n{redacted_body}".encode("utf-8")).hexdigest()
-    cached = _cache.get(cache_key)
-    if cached is not None:
-        _stats.record_cache_hit()
-        return cached[0], cached[1]
+    if is_cache_enabled():
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            _stats.record_cache_hit()
+            return cached[0], cached[1]
 
     # Verify if Gemini integration is enabled
     if not is_gemini_enabled():
@@ -437,5 +444,6 @@ def suggest_ticket_intent(subject: str, body: str) -> Tuple[str, str]:
 
     # Success: record metrics and update LRU cache
     _stats.record_success()
-    _cache.set(cache_key, (suggested, "gemini_model"))
+    if is_cache_enabled():
+        _cache.set(cache_key, (suggested, "gemini_model"))
     return suggested, "gemini_model"

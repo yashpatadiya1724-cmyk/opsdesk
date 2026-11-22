@@ -1,98 +1,516 @@
 {
-  "openapi": "3.1.0",
-  "info": {
-    "title": "OpsDesk: B2B Travel Operations Case Management API",
-    "description": "Operational case management platform tailored for high-volume B2B travel operations.",
-    "version": "1.0.0"
-  },
-  "paths": {
-    "/health": {
-      "get": {
-        "summary": "Health Check",
-        "operationId": "health_check_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ai/suggest-intent": {
-      "post": {
-        "summary": "Api Suggest Intent",
-        "description": "Suggests an operations intent category based on regex rules or fallback.",
-        "operationId": "api_suggest_intent_api_ai_suggest_intent_post",
-        "parameters": [
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IntentSuggestRequestSchema"
-              }
-            }
+  "components": {
+    "schemas": {
+      "AgencyTierUpdateSchema": {
+        "properties": {
+          "tier": {
+            "title": "Tier",
+            "type": "string"
           }
         },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IntentSuggestResponseSchema"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+        "required": [
+          "tier"
+        ],
+        "title": "AgencyTierUpdateSchema",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
           }
-        }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "IntentSuggestRequestSchema": {
+        "properties": {
+          "description": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "description"
+        ],
+        "title": "IntentSuggestRequestSchema",
+        "type": "object"
+      },
+      "IntentSuggestResponseSchema": {
+        "properties": {
+          "intent": {
+            "title": "Intent",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent",
+          "source"
+        ],
+        "title": "IntentSuggestResponseSchema",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginResponse": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "title": "LoginResponse",
+        "type": "object"
+      },
+      "MessageCreateSchema": {
+        "properties": {
+          "content": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "message_type": {
+            "description": "'PublicReply' or 'InternalNote'",
+            "enum": [
+              "PublicReply",
+              "InternalNote"
+            ],
+            "title": "Message Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_type",
+          "content"
+        ],
+        "title": "MessageCreateSchema",
+        "type": "object"
+      },
+      "SideThreadCreateSchema": {
+        "properties": {
+          "initial_message": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Initial Message",
+            "type": "string"
+          },
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Recipients",
+            "type": "array"
+          },
+          "subject": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          },
+          "supplier_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Supplier Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "supplier_name",
+          "subject",
+          "recipients",
+          "initial_message"
+        ],
+        "title": "SideThreadCreateSchema",
+        "type": "object"
+      },
+      "SideThreadMessageCreateSchema": {
+        "properties": {
+          "body": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "SideThreadMessageCreateSchema",
+        "type": "object"
+      },
+      "TicketAssignSchema": {
+        "properties": {
+          "agent_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Agent Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_id"
+        ],
+        "title": "TicketAssignSchema",
+        "type": "object"
+      },
+      "TicketCreateSchema": {
+        "properties": {
+          "agency_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agency Id"
+          },
+          "check_in_date": {
+            "format": "date-time",
+            "title": "Check In Date",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 5000,
+            "minLength": 5,
+            "title": "Description",
+            "type": "string"
+          },
+          "hotel_timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "UTC",
+            "title": "Hotel Timezone"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Refund Request",
+                  "Cancellation Inconvenience",
+                  "Date Amendment",
+                  "Bedding / Room Preference",
+                  "Voucher Resend",
+                  "Emergency Check-in Assist",
+                  "Unclassified"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent"
+          },
+          "lcd_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lcd Date"
+          },
+          "priority": {
+            "default": "Medium",
+            "enum": [
+              "Low",
+              "Medium",
+              "High",
+              "Urgent"
+            ],
+            "title": "Priority",
+            "type": "string"
+          },
+          "tboh_id": {
+            "pattern": "^TBOH-[A-Za-z0-9-]{3,30}$",
+            "title": "Tboh Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "tboh_id",
+          "check_in_date"
+        ],
+        "title": "TicketCreateSchema",
+        "type": "object"
+      },
+      "TicketEscalateSchema": {
+        "properties": {
+          "priority": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Low",
+                  "Medium",
+                  "High",
+                  "Urgent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Expected ticket version for optimistic concurrency control",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "TicketEscalateSchema",
+        "type": "object"
+      },
+      "TicketLinkSuggestionSchema": {
+        "properties": {
+          "bug_link": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Bug Link",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bug_link"
+        ],
+        "title": "TicketLinkSuggestionSchema",
+        "type": "object"
+      },
+      "TicketStatusUpdateSchema": {
+        "properties": {
+          "priority": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Low",
+                  "Medium",
+                  "High",
+                  "Urgent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "status": {
+            "enum": [
+              "New",
+              "Open",
+              "Pending",
+              "Escalated",
+              "Resolved",
+              "Closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Expected ticket version for optimistic concurrency control",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "TicketStatusUpdateSchema",
+        "type": "object"
+      },
+      "TicketTransferSchema": {
+        "properties": {
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "target_agent_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Target Agent Id",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Expected ticket version for optimistic concurrency control",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "target_agent_id",
+          "reason"
+        ],
+        "title": "TicketTransferSchema",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
       }
-    },
-    "/api/tickets": {
-      "get": {
-        "summary": "List Tickets",
-        "description": "Lists tickets with computed travel SLA countdown and Tier-2 queue scores.\nRequesters are strictly confined to their own agency.\nReturns the real total count matching query criteria prior to limit pagination.",
-        "operationId": "list_tickets_api_tickets_get",
+    }
+  },
+  "info": {
+    "description": "Operational case management platform tailored for high-volume B2B travel operations.",
+    "title": "OpsDesk: B2B Travel Operations Case Management API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/agencies/{agency_id}/tier": {
+      "patch": {
+        "description": "Updates an agency's tier (standard, gold, platinum) and immediately recomputes\nqueue_score for all active tickets belonging to that agency.",
+        "operationId": "update_agency_tier_endpoint_api_agencies__agency_id__tier_patch",
         "parameters": [
           {
-            "name": "view",
-            "in": "query",
-            "required": false,
+            "in": "path",
+            "name": "agency_id",
+            "required": true,
             "schema": {
-              "type": "string",
-              "description": "View filter: triage, my_queue, by_region, by_intent, linked",
-              "default": "triage",
-              "title": "View"
-            },
-            "description": "View filter: triage, my_queue, by_region, by_intent, linked"
+              "title": "Agency Id",
+              "type": "string"
+            }
           },
           {
-            "name": "intent",
-            "in": "query",
+            "in": "header",
+            "name": "Authorization",
             "required": false,
             "schema": {
               "anyOf": [
@@ -103,775 +521,318 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional intent category filter",
-              "title": "Intent"
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgencyTierUpdateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
             },
-            "description": "Optional intent category filter"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 500,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
+            "description": "Successful Response"
           },
           "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            }
+            },
+            "description": "Validation Error"
           }
-        }
+        },
+        "summary": "Update Agency Tier Endpoint"
       },
-      "post": {
-        "summary": "Create Ticket",
-        "description": "Creates an operations ticket atomically with:\n1. Tenant isolation (agency_id strictly resolved from DB for Requesters).\n2. Intent suggestion.\n3. Contextual TBOH linking of previous cases.\n4. Tier-1 automated routing assignment.\n5. Atomic EventOutbox row emission and AuditLog.",
-        "operationId": "create_ticket_api_tickets_post",
+      "put": {
+        "description": "Updates an agency's tier (standard, gold, platinum) and immediately recomputes\nqueue_score for all active tickets belonging to that agency.",
+        "operationId": "update_agency_tier_endpoint_api_agencies__agency_id__tier_put",
         "parameters": [
           {
-            "name": "X-User-Id",
+            "in": "path",
+            "name": "agency_id",
+            "required": true,
+            "schema": {
+              "title": "Agency Id",
+              "type": "string"
+            }
+          },
+          {
             "in": "header",
+            "name": "Authorization",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-User-Id"
             }
           }
         ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TicketCreateSchema"
+                "$ref": "#/components/schemas/AgencyTierUpdateSchema"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
-          "201": {
-            "description": "Successful Response",
+          "200": {
             "content": {
               "application/json": {
                 "schema": {}
               }
-            }
+            },
+            "description": "Successful Response"
           },
           "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            }
+            },
+            "description": "Validation Error"
           }
-        }
+        },
+        "summary": "Update Agency Tier Endpoint"
       }
     },
-    "/api/tickets/{ticket_id}": {
+    "/api/ai/stats": {
       "get": {
-        "summary": "Get Ticket Details",
-        "description": "Retrieves full ticket detail.\n- If requester belongs to another agency -> 403 Forbidden.\n- If requester belongs to same agency -> InternalNotes and side_conversations are withheld.\n- Staff members receive complete operations view.",
-        "operationId": "get_ticket_details_api_tickets__ticket_id__get",
+        "description": "Returns aggregated AI intent suggestion statistics and fallback metrics. Restricted to Lead role.",
+        "operationId": "api_get_ai_stats_api_ai_stats_get",
         "parameters": [
           {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "type": "string",
-              "title": "Ticket Id"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           },
           {
-            "name": "X-User-Id",
             "in": "header",
+            "name": "X-User-Id",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-User-Id"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
               }
-            }
+            },
+            "description": "Successful Response"
           },
           "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            }
+            },
+            "description": "Validation Error"
           }
-        }
+        },
+        "summary": "Api Get Ai Stats"
       }
     },
-    "/api/tickets/{ticket_id}/assign": {
+    "/api/ai/suggest-intent": {
       "post": {
-        "summary": "Assign Ticket",
-        "description": "Assigns an operations ticket to a designated staff member.",
-        "operationId": "assign_ticket_api_tickets__ticket_id__assign_post",
+        "description": "Suggests an operations intent category based on regex rules or fallback.",
+        "operationId": "api_suggest_intent_api_ai_suggest_intent_post",
         "parameters": [
           {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "type": "string",
-              "title": "Ticket Id"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           },
           {
-            "name": "X-User-Id",
             "in": "header",
+            "name": "X-User-Id",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-User-Id"
             }
           }
         ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TicketAssignSchema"
+                "$ref": "#/components/schemas/IntentSuggestRequestSchema"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntentSuggestResponseSchema"
+                }
               }
-            }
+            },
+            "description": "Successful Response"
           },
           "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            }
+            },
+            "description": "Validation Error"
           }
-        }
+        },
+        "summary": "Api Suggest Intent"
       }
     },
-    "/api/tickets/{ticket_id}/unassign": {
+    "/api/auth/login": {
       "post": {
-        "summary": "Unassign Ticket",
-        "description": "Unassigns ticket returning it to triage.",
-        "operationId": "unassign_ticket_api_tickets__ticket_id__unassign_post",
-        "parameters": [
-          {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Ticket Id"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tickets/{ticket_id}/status": {
-      "post": {
-        "summary": "Update Ticket Status",
-        "description": "Transitions ticket status according to ALLOWED_STATUS_TRANSITIONS graph.\nStatus transitions are restricted strictly to internal operations staff (Requesters get 403).\nReturns 409 Conflict if transition is not permitted.",
-        "operationId": "update_ticket_status_api_tickets__ticket_id__status_post",
-        "parameters": [
-          {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Ticket Id"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
+        "description": "Authenticates user with email and password, returning a JWT access token.\nEnforces dedicated failure rate limiter buckets:\n- Per lower-cased email: 5 failures / 15 minutes (900 seconds)\n- Per client IP: 20 failures / 15 minutes (900 seconds)\nRaises 401 Unauthorized if invalid credentials.",
+        "operationId": "login_api_auth_login_post",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TicketStatusUpdateSchema"
+                "$ref": "#/components/schemas/LoginRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
               }
-            }
+            },
+            "description": "Successful Response"
           },
           "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            }
-          }
-        }
-      }
-    },
-    "/api/tickets/{ticket_id}/escalate": {
-      "post": {
-        "summary": "Escalate Ticket",
-        "description": "Escalates an operations ticket:\n- Sets status to 'Escalated'\n- Reassigns ticket to configured Escalation Manager (DEFAULT_ESCALATION_MANAGER_ID)\n- Records reason in audit log.\n- Public outbox payload excludes internal free-text reason to prevent operational leakage.",
-        "operationId": "escalate_ticket_api_tickets__ticket_id__escalate_post",
-        "parameters": [
-          {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Ticket Id"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TicketEscalateSchema"
-              }
-            }
+            },
+            "description": "Validation Error"
           }
         },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tickets/{ticket_id}/transfer": {
-      "post": {
-        "summary": "Transfer Ticket",
-        "description": "Transfers ticket to a new agent while strictly preserving all side conversation recipients.\nMVP-4 Core Rule: Side thread recipients do NOT get wiped or overwritten on ticket hand-off.",
-        "operationId": "transfer_ticket_api_tickets__ticket_id__transfer_post",
-        "parameters": [
-          {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Ticket Id"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TicketTransferSchema"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tickets/{ticket_id}/messages": {
-      "post": {
-        "summary": "Post Ticket Message",
-        "description": "Appends a message or note to a ticket.\n- Requesters can only post PublicReply. Posting InternalNote yields 403 Forbidden.\n- InternalNotes emit events with visibility='internal'.\n- PublicReplies emit events with visibility='public'.",
-        "operationId": "post_ticket_message_api_tickets__ticket_id__messages_post",
-        "parameters": [
-          {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Ticket Id"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MessageCreateSchema"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tickets/{ticket_id}/side-threads": {
-      "get": {
-        "summary": "List Side Threads",
-        "description": "Lists all supplier side conversations. Restricted strictly to internal staff.",
-        "operationId": "list_side_threads_api_tickets__ticket_id__side_threads_get",
-        "parameters": [
-          {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Ticket Id"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "summary": "Create Side Thread",
-        "description": "Creates an external side conversation thread with hotel/airline suppliers.\nRestricted strictly to internal staff (Requesters get 403).",
-        "operationId": "create_side_thread_api_tickets__ticket_id__side_threads_post",
-        "parameters": [
-          {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Ticket Id"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SideThreadCreateSchema"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tickets/{ticket_id}/side-threads/{side_thread_id}/messages": {
-      "post": {
-        "summary": "Post Side Thread Message",
-        "description": "Appends an email/message to a supplier side conversation.",
-        "operationId": "post_side_thread_message_api_tickets__ticket_id__side_threads__side_thread_id__messages_post",
-        "parameters": [
-          {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Ticket Id"
-            }
-          },
-          {
-            "name": "side_thread_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Side Thread Id"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SideThreadMessageCreateSchema"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tickets/{ticket_id}/link-suggestion": {
-      "post": {
-        "summary": "Link Suggested Bug",
-        "description": "Staff-only action: Suggests / links a product defect or JIRA/system issue link (MVP-5).\nRequesters receive 403 Forbidden.",
-        "operationId": "link_suggested_bug_api_tickets__ticket_id__link_suggestion_post",
-        "parameters": [
-          {
-            "name": "ticket_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Ticket Id"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TicketLinkSuggestionSchema"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/insights/themes": {
-      "get": {
-        "summary": "Get Top Themes",
-        "description": "Insights view: Top themes this week + sample tickets (MVP-5).\nAccessible strictly to Lead and EscalationManager roles.\nComputes percentages dynamically from seed data; works on SQLite and PostgreSQL.",
-        "operationId": "get_top_themes_api_insights_themes_get",
-        "parameters": [
-          {
-            "name": "days",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 90,
-              "minimum": 1,
-              "default": 7,
-              "title": "Days"
-            }
-          },
-          {
-            "name": "X-User-Id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "title": "X-User-Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
+        "summary": "Login"
       }
     },
     "/api/export/tickets.csv": {
       "get": {
-        "summary": "Export Tickets Csv",
-        "description": "Uncapped CSV data streaming export for ops beyond 3K-row UX barrier (MVP-6).\nRestricted strictly to Lead role. Memory-safe streaming via generator yield_per.",
+        "description": "CSV data streaming export for ops beyond 3K-row UX barrier (MVP-6).\nRestricted strictly to Lead role. Memory-safe streaming via generator yield_per.\nApplies formula injection sanitization to protect operations spreadsheets.\nProtected by concurrency limiter (max CSV_EXPORT_MAX_CONCURRENCY, default 2).",
         "operationId": "export_tickets_csv_api_export_tickets_csv_get",
         "parameters": [
           {
-            "name": "status",
             "in": "query",
+            "name": "status",
             "required": false,
             "schema": {
               "anyOf": [
@@ -886,8 +847,8 @@
             }
           },
           {
-            "name": "agency_id",
             "in": "query",
+            "name": "agency_id",
             "required": false,
             "schema": {
               "anyOf": [
@@ -902,14 +863,14 @@
             }
           },
           {
-            "name": "from_date",
             "in": "query",
+            "name": "from_date",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -919,14 +880,14 @@
             }
           },
           {
-            "name": "to_date",
             "in": "query",
+            "name": "to_date",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -936,387 +897,1311 @@
             }
           },
           {
-            "name": "X-User-Id",
-            "in": "header",
+            "description": "Cursor for pagination: ID of the last seen ticket",
+            "in": "query",
+            "name": "cursor",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cursor for pagination: ID of the last seen ticket",
+              "title": "Cursor"
+            }
+          },
+          {
+            "description": "Max rows per page",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Max rows per page",
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-User-Id"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
               }
-            }
+            },
+            "description": "Successful Response"
           },
           "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            }
+            },
+            "description": "Validation Error"
           }
-        }
+        },
+        "summary": "Export Tickets Csv"
       }
-    }
-  },
-  "components": {
-    "schemas": {
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
-      "IntentSuggestRequestSchema": {
-        "properties": {
-          "title": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Title"
+    },
+    "/api/insights/themes": {
+      "get": {
+        "description": "Insights view: Top themes this week + sample tickets (MVP-5).\nAccessible strictly to Lead and EscalationManager roles.\nComputes percentages dynamically from seed data; works on SQLite and PostgreSQL.",
+        "operationId": "get_top_themes_api_insights_themes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
           },
-          "description": {
-            "type": "string",
-            "maxLength": 5000,
-            "minLength": 1,
-            "title": "Description"
-          }
-        },
-        "type": "object",
-        "required": [
-          "title",
-          "description"
-        ],
-        "title": "IntentSuggestRequestSchema"
-      },
-      "IntentSuggestResponseSchema": {
-        "properties": {
-          "intent": {
-            "type": "string",
-            "title": "Intent"
-          },
-          "source": {
-            "type": "string",
-            "title": "Source"
-          }
-        },
-        "type": "object",
-        "required": [
-          "intent",
-          "source"
-        ],
-        "title": "IntentSuggestResponseSchema"
-      },
-      "MessageCreateSchema": {
-        "properties": {
-          "message_type": {
-            "type": "string",
-            "enum": [
-              "PublicReply",
-              "InternalNote"
-            ],
-            "title": "Message Type",
-            "description": "'PublicReply' or 'InternalNote'"
-          },
-          "content": {
-            "type": "string",
-            "maxLength": 5000,
-            "minLength": 1,
-            "title": "Content"
-          }
-        },
-        "type": "object",
-        "required": [
-          "message_type",
-          "content"
-        ],
-        "title": "MessageCreateSchema"
-      },
-      "SideThreadCreateSchema": {
-        "properties": {
-          "supplier_name": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Supplier Name"
-          },
-          "subject": {
-            "type": "string",
-            "maxLength": 300,
-            "minLength": 1,
-            "title": "Subject"
-          },
-          "recipients": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 20,
-            "minItems": 1,
-            "title": "Recipients"
-          },
-          "initial_message": {
-            "type": "string",
-            "maxLength": 5000,
-            "minLength": 1,
-            "title": "Initial Message"
-          }
-        },
-        "type": "object",
-        "required": [
-          "supplier_name",
-          "subject",
-          "recipients",
-          "initial_message"
-        ],
-        "title": "SideThreadCreateSchema"
-      },
-      "SideThreadMessageCreateSchema": {
-        "properties": {
-          "body": {
-            "type": "string",
-            "maxLength": 5000,
-            "minLength": 1,
-            "title": "Body"
-          }
-        },
-        "type": "object",
-        "required": [
-          "body"
-        ],
-        "title": "SideThreadMessageCreateSchema"
-      },
-      "TicketAssignSchema": {
-        "properties": {
-          "agent_id": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Agent Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "agent_id"
-        ],
-        "title": "TicketAssignSchema"
-      },
-      "TicketCreateSchema": {
-        "properties": {
-          "title": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 3,
-            "title": "Title"
-          },
-          "description": {
-            "type": "string",
-            "maxLength": 5000,
-            "minLength": 5,
-            "title": "Description"
-          },
-          "tboh_id": {
-            "type": "string",
-            "pattern": "^TBOH-[A-Za-z0-9-]{3,30}$",
-            "title": "Tboh Id"
-          },
-          "priority": {
-            "type": "string",
-            "enum": [
-              "Low",
-              "Medium",
-              "High",
-              "Urgent"
-            ],
-            "title": "Priority",
-            "default": "Medium"
-          },
-          "check_in_date": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Check In Date"
-          },
-          "lcd_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lcd Date"
-          },
-          "intent": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "Refund Request",
-                  "Cancellation Inconvenience",
-                  "Date Amendment",
-                  "Bedding / Room Preference",
-                  "Voucher Resend",
-                  "Emergency Check-in Assist",
-                  "Unclassified"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Intent"
-          },
-          "agency_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Agency Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "title",
-          "description",
-          "tboh_id",
-          "check_in_date"
-        ],
-        "title": "TicketCreateSchema"
-      },
-      "TicketEscalateSchema": {
-        "properties": {
-          "reason": {
-            "type": "string",
-            "maxLength": 1000,
-            "minLength": 1,
-            "title": "Reason"
-          }
-        },
-        "type": "object",
-        "required": [
-          "reason"
-        ],
-        "title": "TicketEscalateSchema"
-      },
-      "TicketLinkSuggestionSchema": {
-        "properties": {
-          "bug_link": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 3,
-            "title": "Bug Link"
-          }
-        },
-        "type": "object",
-        "required": [
-          "bug_link"
-        ],
-        "title": "TicketLinkSuggestionSchema"
-      },
-      "TicketStatusUpdateSchema": {
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "New",
-              "Open",
-              "Pending",
-              "Escalated",
-              "Resolved",
-              "Closed"
-            ],
-            "title": "Status"
-          }
-        },
-        "type": "object",
-        "required": [
-          "status"
-        ],
-        "title": "TicketStatusUpdateSchema"
-      },
-      "TicketTransferSchema": {
-        "properties": {
-          "target_agent_id": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Target Agent Id"
-          },
-          "reason": {
-            "type": "string",
-            "maxLength": 1000,
-            "minLength": 1,
-            "title": "Reason"
-          }
-        },
-        "type": "object",
-        "required": [
-          "target_agent_id",
-          "reason"
-        ],
-        "title": "TicketTransferSchema"
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
               "anyOf": [
                 {
                   "type": "string"
                 },
                 {
-                  "type": "integer"
+                  "type": "null"
                 }
-              ]
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
             },
-            "type": "array",
-            "title": "Location"
+            "description": "Successful Response"
           },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
+        "summary": "Get Top Themes"
+      }
+    },
+    "/api/tickets": {
+      "get": {
+        "description": "Lists tickets with computed travel SLA countdown and Tier-2 queue scores.\nRequesters are strictly confined to their own agency.\nReturns the real total count matching query criteria prior to limit pagination.",
+        "operationId": "list_tickets_api_tickets_get",
+        "parameters": [
+          {
+            "description": "View filter: triage, my_queue, by_region, by_intent, linked",
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "triage",
+              "description": "View filter: triage, my_queue, by_region, by_intent, linked",
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional intent category filter",
+            "in": "query",
+            "name": "intent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional intent category filter",
+              "title": "Intent"
+            }
+          },
+          {
+            "description": "Optional priority filter (Low, Medium, High, Urgent)",
+            "in": "query",
+            "name": "priority",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional priority filter (Low, Medium, High, Urgent)",
+              "title": "Priority"
+            }
+          },
+          {
+            "description": "Optional status filter (New, Open, Pending, Escalated, Resolved, Closed)",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional status filter (New, Open, Pending, Escalated, Resolved, Closed)",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Keyword search across tboh_id, id, and title",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keyword search across tboh_id, id, and title",
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
         ],
-        "title": "ValidationError"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Tickets"
+      },
+      "post": {
+        "description": "Creates an operations ticket atomically with:\n1. Tenant isolation (agency_id strictly resolved from DB for Requesters).\n2. Intent suggestion.\n3. Contextual TBOH linking of previous cases.\n4. Tier-1 automated routing assignment.\n5. Atomic EventOutbox row emission and AuditLog.\n6. Idempotent request deduplication via Idempotency-Key header.",
+        "operationId": "create_ticket_api_tickets_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketCreateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Ticket"
+      }
+    },
+    "/api/tickets/{ticket_id}": {
+      "get": {
+        "description": "Retrieves full ticket detail.\n- If requester belongs to another agency -> 403 Forbidden.\n- If requester belongs to same agency -> InternalNotes and side_conversations are withheld.\n- Staff members receive complete operations view.",
+        "operationId": "get_ticket_details_api_tickets__ticket_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Ticket Details"
+      }
+    },
+    "/api/tickets/{ticket_id}/assign": {
+      "post": {
+        "description": "Assigns an operations ticket to a designated staff member atomically with race protection.",
+        "operationId": "assign_ticket_api_tickets__ticket_id__assign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketAssignSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assign Ticket"
+      }
+    },
+    "/api/tickets/{ticket_id}/escalate": {
+      "post": {
+        "description": "Escalates an operations ticket:\n- Sets status to 'Escalated'\n- Reassigns ticket to configured Escalation Manager (DEFAULT_ESCALATION_MANAGER_ID)\n- Records reason in audit log.\n- Protected with optimistic version checking.",
+        "operationId": "escalate_ticket_api_tickets__ticket_id__escalate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketEscalateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Escalate Ticket"
+      }
+    },
+    "/api/tickets/{ticket_id}/link-suggestion": {
+      "post": {
+        "description": "Staff-only action: Suggests / links a product defect or JIRA/system issue link (MVP-5).\nRequesters receive 403 Forbidden.",
+        "operationId": "link_suggested_bug_api_tickets__ticket_id__link_suggestion_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketLinkSuggestionSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Link Suggested Bug"
+      }
+    },
+    "/api/tickets/{ticket_id}/messages": {
+      "post": {
+        "description": "Appends a message or note to a ticket.\n- Requesters can only post PublicReply. Posting InternalNote yields 403 Forbidden.\n- InternalNotes emit events with visibility='internal'.\n- PublicReplies emit events with visibility='public'.",
+        "operationId": "post_ticket_message_api_tickets__ticket_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageCreateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Ticket Message"
+      }
+    },
+    "/api/tickets/{ticket_id}/side-threads": {
+      "get": {
+        "description": "Lists all supplier side conversations. Restricted strictly to internal staff.",
+        "operationId": "list_side_threads_api_tickets__ticket_id__side_threads_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Side Threads"
+      },
+      "post": {
+        "description": "Creates an external side conversation thread with hotel/airline suppliers.\nRestricted strictly to internal staff (Requesters get 403).",
+        "operationId": "create_side_thread_api_tickets__ticket_id__side_threads_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SideThreadCreateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Side Thread"
+      }
+    },
+    "/api/tickets/{ticket_id}/side-threads/{side_thread_id}/messages": {
+      "post": {
+        "description": "Appends an email/message to a supplier side conversation.",
+        "operationId": "post_side_thread_message_api_tickets__ticket_id__side_threads__side_thread_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "side_thread_id",
+            "required": true,
+            "schema": {
+              "title": "Side Thread Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SideThreadMessageCreateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Side Thread Message"
+      }
+    },
+    "/api/tickets/{ticket_id}/status": {
+      "post": {
+        "description": "Transitions ticket status according to ALLOWED_STATUS_TRANSITIONS graph.\nStatus transitions are restricted strictly to internal operations staff (Requesters get 403).\nReturns 409 Conflict if transition is not permitted or if stale version detected.",
+        "operationId": "update_ticket_status_api_tickets__ticket_id__status_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketStatusUpdateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Ticket Status"
+      }
+    },
+    "/api/tickets/{ticket_id}/transfer": {
+      "post": {
+        "description": "Transfers ticket to a new agent while strictly preserving all side conversation recipients.\nMVP-4 Core Rule: Side thread recipients do NOT get wiped or overwritten on ticket hand-off.",
+        "operationId": "transfer_ticket_api_tickets__ticket_id__transfer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketTransferSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transfer Ticket"
+      }
+    },
+    "/api/tickets/{ticket_id}/unassign": {
+      "post": {
+        "description": "Unassigns ticket returning it to triage atomically.",
+        "operationId": "unassign_ticket_api_tickets__ticket_id__unassign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unassign Ticket"
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Check"
+      }
+    },
+    "/ready": {
+      "get": {
+        "description": "Readiness probe checking database connectivity via SELECT 1 and rate limiter.",
+        "operationId": "readiness_check_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readiness Check"
       }
     }
   }

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-22T02:31:15.843Z",
+  "timestamp": "2026-11-22T02:53:50.527Z",
   "standards": [
     "wcag2a",
     "wcag2aa",
@@ -268,7 +268,7 @@
               "target": [
                 ".gap-1\\.5.shrink-0.flex > .animate-pulse.text-rose-700.bg-rose-50"
               ],
-              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.61 (foreground color: #dd8198, background color: #fff8f8, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.62 (foreground color: #dc8096, background color: #fff7f8, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
             },
             {
               "html": "<span class=\"text-content-disabled italic\">Unassigned</span>",
@@ -656,7 +656,7 @@
               "target": [
                 ".gap-1\\.5.shrink-0.flex > .animate-pulse.text-rose-700.bg-rose-50"
               ],
-              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.36 (foreground color: #671433, background color: #88858f, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.31 (foreground color: #671433, background color: #87848e, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
             },
             {
               "html": "<span class=\"text-content-disabled italic\">Unassigned</span>",
@@ -1142,7 +1142,7 @@
               "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.56 (foreground color: #94a3b8, background color: #ffffff, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
             },
             {
-              "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:01 GMT+5:30</span>",
+              "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:23 GMT+5:30</span>",
               "target": [
                 ".text-center.flex-col.items-center > .line-through.text-content-disabled.text-\\[11px\\]"
               ],
@@ -1156,7 +1156,7 @@
               "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.56 (foreground color: #94a3b8, background color: #ffffff, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
             },
             {
-              "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:01 GMT+5:30</span>",
+              "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:23 GMT+5:30</span>",
               "target": [
                 ".items-end > .line-through.text-content-disabled.text-\\[11px\\]"
               ],
@@ -1215,7 +1215,7 @@
               "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.75 (foreground color: #64748b, background color: #0f172a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
             },
             {
-              "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:01 GMT+5:30</span>",
+              "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:23 GMT+5:30</span>",
               "target": [
                 ".text-center.flex-col.items-center > .line-through.text-content-disabled.text-\\[11px\\]"
               ],
@@ -1229,7 +1229,7 @@
               "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.75 (foreground color: #64748b, background color: #0f172a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
             },
             {
-              "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:01 GMT+5:30</span>",
+              "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:23 GMT+5:30</span>",
               "target": [
                 ".items-end > .line-through.text-content-disabled.text-\\[11px\\]"
               ],
@@ -1471,7 +1471,7 @@
           "target": [
             ".gap-1\\.5.shrink-0.flex > .animate-pulse.text-rose-700.bg-rose-50"
           ],
-          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.61 (foreground color: #dd8198, background color: #fff8f8, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.62 (foreground color: #dc8096, background color: #fff7f8, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
           "html": "<span class=\"text-content-disabled italic\">Unassigned</span>",
@@ -1845,7 +1845,7 @@
           "target": [
             ".gap-1\\.5.shrink-0.flex > .animate-pulse.text-rose-700.bg-rose-50"
           ],
-          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.36 (foreground color: #671433, background color: #88858f, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.31 (foreground color: #671433, background color: #87848e, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
           "html": "<span class=\"text-content-disabled italic\">Unassigned</span>",
@@ -2263,7 +2263,7 @@
           "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.56 (foreground color: #94a3b8, background color: #ffffff, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
-          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:01 GMT+5:30</span>",
+          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:23 GMT+5:30</span>",
           "target": [
             ".text-center.flex-col.items-center > .line-through.text-content-disabled.text-\\[11px\\]"
           ],
@@ -2277,7 +2277,7 @@
           "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.56 (foreground color: #94a3b8, background color: #ffffff, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
-          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:01 GMT+5:30</span>",
+          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:23 GMT+5:30</span>",
           "target": [
             ".items-end > .line-through.text-content-disabled.text-\\[11px\\]"
           ],
@@ -2322,7 +2322,7 @@
           "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.75 (foreground color: #64748b, background color: #0f172a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
-          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:01 GMT+5:30</span>",
+          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:23 GMT+5:30</span>",
           "target": [
             ".text-center.flex-col.items-center > .line-through.text-content-disabled.text-\\[11px\\]"
           ],
@@ -2336,7 +2336,7 @@
           "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.75 (foreground color: #64748b, background color: #0f172a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
-          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:01 GMT+5:30</span>",
+          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:23 GMT+5:30</span>",
           "target": [
             ".items-end > .line-through.text-content-disabled.text-\\[11px\\]"
           ],
@@ -2537,7 +2537,7 @@
           "target": [
             ".gap-1\\.5.shrink-0.flex > .animate-pulse.text-rose-700.bg-rose-50"
           ],
-          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.61 (foreground color: #dd8198, background color: #fff8f8, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.62 (foreground color: #dc8096, background color: #fff7f8, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
           "html": "<span class=\"text-content-disabled italic\">Unassigned</span>",
@@ -2908,7 +2908,7 @@
           "target": [
             ".gap-1\\.5.shrink-0.flex > .animate-pulse.text-rose-700.bg-rose-50"
           ],
-          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.36 (foreground color: #671433, background color: #88858f, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.31 (foreground color: #671433, background color: #87848e, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
           "html": "<span class=\"text-content-disabled italic\">Unassigned</span>",
@@ -3317,7 +3317,7 @@
           "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.56 (foreground color: #94a3b8, background color: #ffffff, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
-          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:01 GMT+5:30</span>",
+          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:23 GMT+5:30</span>",
           "target": [
             ".text-center.flex-col.items-center > .line-through.text-content-disabled.text-\\[11px\\]"
           ],
@@ -3331,7 +3331,7 @@
           "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.56 (foreground color: #94a3b8, background color: #ffffff, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
-          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:01 GMT+5:30</span>",
+          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:23 GMT+5:30</span>",
           "target": [
             ".items-end > .line-through.text-content-disabled.text-\\[11px\\]"
           ],
@@ -3373,7 +3373,7 @@
           "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.75 (foreground color: #64748b, background color: #0f172a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
-          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:01 GMT+5:30</span>",
+          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 6, 08:23 GMT+5:30</span>",
           "target": [
             ".text-center.flex-col.items-center > .line-through.text-content-disabled.text-\\[11px\\]"
           ],
@@ -3387,7 +3387,7 @@
           "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.75 (foreground color: #64748b, background color: #0f172a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
         },
         {
-          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:01 GMT+5:30</span>",
+          "html": "<span class=\"text-[11px] font-mono-numbers text-content-disabled line-through\">Nov 8, 08:23 GMT+5:30</span>",
           "target": [
             ".items-end > .line-through.text-content-disabled.text-\\[11px\\]"
           ],

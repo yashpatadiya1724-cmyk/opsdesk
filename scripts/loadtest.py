@@ -16,7 +16,7 @@ import argparse
 import sqlite3
 import tempfile
 import threading
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor
 
@@ -382,7 +382,7 @@ async def main():
     parser.add_argument("--workers", type=int, default=None, help="Number of worker tasks (defaults to concurrency)")
     parser.add_argument("--json", dest="json_path", default=None, help="Path to write JSON results")
     parser.add_argument("--assert-p95-ms", type=float, default=None, help="Assert p95 latency <= threshold")
-    parser.add_argument("--assert-error-rate", type=float, default=None, help="Assert error rate <= threshold (e.g. 0.01 for 1%)")
+    parser.add_argument("--assert-error-rate", type=float, default=None, help="Assert error rate <= threshold (e.g. 0.01 for 1 percent)")
     args = parser.parse_args()
 
     num_workers = args.workers if args.workers is not None else args.concurrency
