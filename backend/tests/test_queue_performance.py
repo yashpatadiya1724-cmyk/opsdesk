@@ -574,6 +574,11 @@ def test_dynamic_queue_score_zero_writes_on_get(client: TestClient, db_session: 
 
         monkeypatch.setattr("backend.app.main.datetime", MockDateTimeT1)
 
+        from backend.services.routing_engine import refresh_stale_queue_scores
+        # Score refresher background task runs at T1 to refresh tickets crossing boundaries
+        refresh_stale_queue_scores(db_session, now=t1)
+        executed_statements.clear()
+
         resp_t1 = client.get("/api/tickets?view=triage&search=TBOH-DYN-", headers={"X-User-Id": "USR-101"})
         assert resp_t1.status_code == 200
         t1_tickets_list = [t for t in resp_t1.json()["tickets"] if t["id"] in ["TCK-DYN-A", "TCK-DYN-B"]]

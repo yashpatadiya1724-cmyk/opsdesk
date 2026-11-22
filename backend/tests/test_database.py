@@ -250,6 +250,43 @@ def test_alembic_revision_0003_structure_and_mock_execution():
         assert mock_batch.drop_column.called
 
 
+def test_alembic_revision_0004_structure_and_mock_execution():
+    """Verify 0004_stored_queue_score_and_trigram.py revision exports valid upgrade and downgrade."""
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    rev_path = os.path.join(root_dir, "backend", "alembic", "versions", "0004_stored_queue_score_and_trigram.py")
+    assert os.path.isfile(rev_path), f"revision 0004 not found at {rev_path}"
+
+    rev_module = importlib.import_module("backend.alembic.versions.0004_stored_queue_score_and_trigram")
+    assert rev_module.revision == "0004_stored_queue_score_trigram"
+    assert rev_module.down_revision == "0003_remove_stored_queue_score"
+    assert callable(rev_module.upgrade)
+    assert callable(rev_module.downgrade)
+
+    mock_op = MagicMock()
+    mock_batch = MagicMock()
+    mock_op.batch_alter_table.return_value.__enter__.return_value = mock_batch
+    mock_bind = MagicMock()
+    mock_bind.dialect.name = "postgresql"
+    mock_op.get_bind.return_value = mock_bind
+
+    with patch.object(rev_module, "op", mock_op), patch("sqlalchemy.inspect") as mock_inspect:
+        mock_insp_obj = MagicMock()
+        mock_insp_obj.get_columns.return_value = []
+        mock_insp_obj.get_indexes.return_value = []
+        mock_inspect.return_value = mock_insp_obj
+
+        rev_module.upgrade()
+        assert mock_op.batch_alter_table.called
+        assert mock_batch.add_column.called
+        assert mock_op.execute.called
+
+        mock_insp_obj.get_columns.return_value = [{"name": "queue_score"}, {"name": "score_computed_at"}]
+        mock_insp_obj.get_indexes.return_value = [{"name": "ix_tickets_status_assigned_score"}, {"name": "ix_tickets_queue_score"}]
+
+        rev_module.downgrade()
+        assert mock_batch.drop_column.called
+
+
 def test_alembic_cli_upgrade_downgrade_sqlite():
     """Run alembic upgrade head and downgrade base against isolated temp DB."""
     if importlib.util.find_spec("alembic") is None:
