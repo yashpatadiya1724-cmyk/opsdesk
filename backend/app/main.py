@@ -42,7 +42,7 @@ from backend.services.routing_engine import (
     compute_ticket_urgency_fields, refresh_stale_queue_scores,
     get_sql_queue_score_expr, compute_ticket_queue_score
 )
-from backend.services.intent_classifier import suggest_ticket_intent
+from backend.services.intent_classifier import suggest_ticket_intent, get_ai_stats
 
 import os
 import time
@@ -419,14 +419,42 @@ def readiness_check(db: Session = Depends(get_db)):
         )
 
 
+RATE_LIMIT_AI_SUGGEST_USER_PER_MINUTE = int(os.environ.get("RATE_LIMIT_AI_SUGGEST_USER_PER_MINUTE", "20"))
+
+
 @app.post("/api/ai/suggest-intent", response_model=IntentSuggestResponseSchema)
 def api_suggest_intent(
     payload: IntentSuggestRequestSchema,
     current_user: User = Depends(get_current_user)
 ):
     """Suggests an operations intent category based on regex rules or fallback."""
+    try:
+        user_ai_limit = int(os.environ.get("RATE_LIMIT_AI_SUGGEST_USER_PER_MINUTE", str(RATE_LIMIT_AI_SUGGEST_USER_PER_MINUTE)))
+    except (ValueError, TypeError):
+        user_ai_limit = 20
+
+    if _rate_limiter.is_rate_limited(f"ai_suggest:user:{current_user.id}", user_ai_limit, 60.0):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded: too many AI intent suggestions requested",
+            headers={"Retry-After": "60"}
+        )
+
     intent, source = suggest_ticket_intent(payload.title, payload.description)
     return {"intent": intent, "source": source}
+
+
+@app.get("/api/ai/stats")
+def api_get_ai_stats(
+    current_user: User = Depends(get_current_user)
+):
+    """Returns aggregated AI intent suggestion statistics and fallback metrics. Restricted to Lead role."""
+    if current_user.role != "Lead":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: AI stats view is restricted to Lead role"
+        )
+    return get_ai_stats()
 
 
 # ============================================================================

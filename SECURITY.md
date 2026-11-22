@@ -45,3 +45,30 @@ OpsDesk is an open-source hackathon prototype. Vulnerability reporting and triag
    - Description of the vulnerability and affected endpoint/component.
    - Proof of Concept (PoC) or reproducible steps.
    - Potential impact on tenant isolation or data integrity.
+
+---
+
+## 5. Gemini AI Integration & Data Egress Policy
+
+When OpsDesk invokes the external Google Gemini API for ticket intent classification fallback, strict egress controls and data hygiene guarantees are applied:
+
+### Exact Data Transmitted Outside the System
+- **Only Sanitized Subject & Body:** Only the ticket's title and description are transmitted, encapsulated inside explicit `<user_message>` boundary delimiters.
+- **Classification Taxonomy Schema:** The static list of allowable intent category names and expected JSON schema (`{"suggested_intent": "<CategoryName>", "confidence": <0.0-1.0>}`).
+
+### Data NEVER Transmitted (Strict Zero-Exposure Guarantees)
+- **Zero Personally Identifiable Information (PII):** All text is pre-processed through automated regex sanitization:
+  - Email addresses are scrubbed and replaced with `[EMAIL]`.
+  - Domestic and international phone numbers are replaced with `[PHONE]`.
+  - External and internal URLs are replaced with `[URL]`.
+  - Sensitive 6+ digit numbers (e.g. credit cards, national IDs, bank accounts) are replaced with `[REDACTED_NUM]`.
+  - Booking, PNR, confirmation, and reservation reference tokens are replaced with `[BOOKING_REF]`.
+  - Passenger, guest, and customer names following prefixes (`guest`, `Mr.`, `Mrs.`, `Ms.`, `Dr.`) are replaced with `[NAME]`.
+- **Zero Passwords or Credentials:** No database credentials, session tokens, JWTs, API secrets, or passwords ever leave the host system.
+- **Zero Staff or Supplier Metadata:** Internal notes, supplier side-thread messages, triage urgency scores, agency contracts, and staff identities are never included in prompts.
+
+### Prompt Injection and Concurrency Defenses
+- **Boundary Isolation:** User text is framed inside XML tags `<user_message>` with explicit system instructions to ignore prompt injection, role-reversal, or override attempts.
+- **Bounded Thread Pool & Concurrency Semaphore:** Outbound API calls run within a bounded `ThreadPoolExecutor` (default 4 workers) governed by a process semaphore and strict 3.0s timeout to prevent thread exhaustion.
+- **In-Memory Cryptographic LRU Cache:** Ticket contents are hashed (`SHA-256`) and cached for 1 hour (capacity 1,000 entries), avoiding unnecessary egress calls for identical requests.
+
