@@ -85,6 +85,52 @@ class BenchmarkRunner:
             "locked_errors": locked_errors
         }
 
+    async def scenario_duration_load(
+        self,
+        duration_seconds: float,
+        concurrency: int = 10,
+        workers: int = 10
+    ) -> Dict[str, Any]:
+        """Runs continuous triage queue requests for specified duration."""
+        latencies: List[float] = []
+        statuses: Dict[int, int] = {}
+        locked_errors = 0
+        sem = asyncio.Semaphore(concurrency)
+        user_ids = ["USR-101", "USR-102", "USR-103", "USR-104"]
+        end_time = time.monotonic() + duration_seconds
+
+        async def worker(worker_idx: int):
+            nonlocal locked_errors
+            user_id = user_ids[worker_idx % len(user_ids)]
+            async with httpx.AsyncClient(base_url=self.base_url, timeout=30.0) as client:
+                while time.monotonic() < end_time:
+                    async with sem:
+                        t0 = time.perf_counter()
+                        try:
+                            resp = await client.get("/api/tickets?view=triage", headers={"X-User-Id": user_id})
+                            elapsed = (time.perf_counter() - t0) * 1000.0
+                            latencies.append(elapsed)
+                            statuses[resp.status_code] = statuses.get(resp.status_code, 0) + 1
+                            if "database is locked" in resp.text:
+                                locked_errors += 1
+                        except Exception as e:
+                            elapsed = (time.perf_counter() - t0) * 1000.0
+                            latencies.append(elapsed)
+                            statuses[599] = statuses.get(599, 0) + 1
+                            if "locked" in str(e).lower():
+                                locked_errors += 1
+
+        tasks = [asyncio.create_task(worker(i)) for i in range(workers)]
+        await asyncio.gather(*tasks)
+
+        return {
+            "name": f"Duration Load ({duration_seconds}s, concurrency={concurrency})",
+            "total": len(latencies),
+            "statuses": statuses,
+            "latencies": latencies,
+            "locked_errors": locked_errors
+        }
+
     async def scenario_mixed_read_write(self, iterations: int = 30, concurrency: int = 10) -> Dict[str, Any]:
         """Scenario 2: Concurrent ticket creations, claims/assignments, and queue triage reads."""
         latencies: List[float] = []
@@ -309,14 +355,42 @@ def compute_repeated_scenario_metrics(runs: List[Dict[str, Any]]) -> Dict[str, A
     }
 
 
+def seed_tickets_if_requested(tickets_target: int, db_url: Optional[str] = None):
+    url = db_url or os.getenv("DATABASE_URL")
+    if not url:
+        return
+    try:
+        from sqlalchemy import create_engine
+        engine = create_engine(url)
+        with engine.connect() as conn:
+            if url.startswith("postgresql") or url.startswith("postgres"):
+                from scripts.bench_scale import fast_seed_postgres
+                fast_seed_postgres(conn, tickets_target)
+    except Exception as exc:
+        print(f"Notice: Seeding {tickets_target} tickets skipped or encountered notice: {exc}")
+
+
 async def main():
-    parser = argparse.ArgumentParser(description="Run OpsDesk synthetic load test with N repeats")
-    parser.add_argument("--base-url", default="http://127.0.0.1:8000", help="Base URL of OpsDesk API")
-    parser.add_argument("--repeat", type=int, default=5, help="Number of benchmark iterations (default: 5)")
+    import json
+    parser = argparse.ArgumentParser(description="Run OpsDesk synthetic load test with N repeats or continuous duration")
+    parser.add_argument("--base-url", default=os.getenv("API_BASE_URL", "http://127.0.0.1:8000"), help="Base URL of OpsDesk API")
+    parser.add_argument("--repeat", type=int, default=5, help="Number of benchmark iterations when duration not set (default: 5)")
     parser.add_argument("--db-path", default=None, help="Path to database currently backing server")
+    parser.add_argument("--tickets", type=int, default=None, help="Target ticket count in DB before running load test")
+    parser.add_argument("--duration", type=float, default=None, help="Duration in seconds to run load test continuously")
+    parser.add_argument("--concurrency", type=int, default=10, help="Concurrency limit for requests (default: 10)")
+    parser.add_argument("--workers", type=int, default=None, help="Number of worker tasks (defaults to concurrency)")
+    parser.add_argument("--json", dest="json_path", default=None, help="Path to write JSON results")
+    parser.add_argument("--assert-p95-ms", type=float, default=None, help="Assert p95 latency <= threshold")
+    parser.add_argument("--assert-error-rate", type=float, default=None, help="Assert error rate <= threshold (e.g. 0.01 for 1%)")
     args = parser.parse_args()
 
+    num_workers = args.workers if args.workers is not None else args.concurrency
     runner = BenchmarkRunner(base_url=args.base_url)
+
+    # Seed if requested
+    if args.tickets:
+        seed_tickets_if_requested(args.tickets, db_url=args.db_path)
 
     # Verify server connectivity
     async with httpx.AsyncClient(base_url=args.base_url, timeout=5.0) as client:
@@ -334,13 +408,84 @@ async def main():
     rate_limit_env = os.environ.get("RATE_LIMIT_PER_MINUTE", "120 (default)")
     db_display = args.db_path or os.environ.get("DATABASE_URL", "sqlite:///./opsdesk.db")
 
+    # If duration-based load test was requested
+    if args.duration is not None and args.duration > 0:
+        print("=" * 80)
+        print(f"OPSDESK DURATION LOAD TEST ({args.duration}s, concurrency={args.concurrency}, workers={num_workers})")
+        print(f"Target URL:                 {args.base_url}")
+        print(f"Database Path / URL:        {db_display}")
+        print(f"RATE_LIMIT_PER_MINUTE Env:  {rate_limit_env}")
+        print("=" * 80)
+
+        res = await runner.scenario_duration_load(
+            duration_seconds=args.duration,
+            concurrency=args.concurrency,
+            workers=num_workers
+        )
+
+        lats = res["latencies"]
+        total = res["total"]
+        statuses = res["statuses"]
+        p50 = percentile(lats, 50)
+        p95 = percentile(lats, 95)
+        p99 = percentile(lats, 99)
+        min_lat = min(lats) if lats else 0.0
+        max_lat = max(lats) if lats else 0.0
+
+        errors = sum(count for code, count in statuses.items() if code >= 400)
+        error_rate = (errors / total) if total > 0 else 0.0
+        rps = (total / args.duration) if args.duration > 0 else 0.0
+
+        print(f"\n--- Results Summary ---")
+        print(f"Total Requests:         {total} ({rps:.1f} req/s)")
+        print(f"Status Breakdown:       {statuses}")
+        print(f"Error Rate:             {error_rate * 100:.2f}% ({errors} errors)")
+        print(f"DB 'locked' errors:     {res['locked_errors']}")
+        print(f"p50 Latency:            {p50:.2f} ms")
+        print(f"p95 Latency:            {p95:.2f} ms")
+        print(f"p99 Latency:            {p99:.2f} ms")
+        print(f"Min / Max:              {min_lat:.2f} ms / {max_lat:.2f} ms")
+
+        metrics_out = {
+            "total_requests": total,
+            "requests_per_second": rps,
+            "error_rate": error_rate,
+            "p50_ms": p50,
+            "p95_ms": p95,
+            "p99_ms": p99,
+            "min_ms": min_lat,
+            "max_ms": max_lat,
+            "duration_seconds": args.duration,
+            "concurrency": args.concurrency,
+            "workers": num_workers,
+            "statuses": statuses
+        }
+
+        if args.json_path:
+            os.makedirs(os.path.dirname(args.json_path) or ".", exist_ok=True)
+            with open(args.json_path, "w", encoding="utf-8") as f:
+                json.dump(metrics_out, f, indent=2)
+            print(f"Wrote JSON metrics to {args.json_path}")
+
+        failed = False
+        if args.assert_p95_ms is not None and p95 > args.assert_p95_ms:
+            print(f"ASSERTION FAILED: p95 latency {p95:.2f}ms exceeds target {args.assert_p95_ms}ms")
+            failed = True
+        if args.assert_error_rate is not None and error_rate > args.assert_error_rate:
+            print(f"ASSERTION FAILED: error rate {error_rate * 100:.2f}% exceeds target {args.assert_error_rate * 100:.2f}%")
+            failed = True
+
+        if failed:
+            sys.exit(1)
+        return
+
+    # Standard repeated scenario mode
     print("=" * 80)
-    print("OPSDESK MULTI-RUN LOAD & CONCURRENCY BENCHMARK (N=5)")
+    print(f"OPSDESK MULTI-RUN LOAD & CONCURRENCY BENCHMARK (N={args.repeat})")
     print(f"Target URL:                 {args.base_url}")
     print(f"Database Path / URL:        {db_display}")
     print(f"RATE_LIMIT_PER_MINUTE Env:  {rate_limit_env}")
     print(f"Iterations (N):             {args.repeat}")
-    print("Machine:                    Local Windows development machine (not production SLA)")
     print("=" * 80)
 
     # 1. Warmup round (isolated from metrics)
@@ -354,8 +499,8 @@ async def main():
 
     for r_idx in range(args.repeat):
         print(f"\n--- Iteration {r_idx + 1} / {args.repeat} ---")
-        s1 = await runner.scenario_read_heavy(total_requests=150, concurrency=15)
-        s2 = await runner.scenario_mixed_read_write(iterations=30, concurrency=10)
+        s1 = await runner.scenario_read_heavy(total_requests=150, concurrency=args.concurrency)
+        s2 = await runner.scenario_mixed_read_write(iterations=30, concurrency=args.concurrency)
         s3 = await runner.scenario_export_and_reads(export_count=6, read_count=40)
         s1_runs.append(s1)
         s2_runs.append(s2)
@@ -367,36 +512,34 @@ async def main():
     m3 = compute_repeated_scenario_metrics(s3_runs)
 
     print("\n" + "=" * 80)
-    print("REPEATED BENCHMARK AGGREGATE RESULTS (N=5)")
+    print(f"REPEATED BENCHMARK AGGREGATE RESULTS (N={args.repeat})")
     print("=" * 80)
 
-    print("\n--- Scenario 1: Read-Heavy Triage (150 reqs, concurrency=15) ---")
+    print(f"\n--- Scenario 1: Read-Heavy Triage (150 reqs, concurrency={args.concurrency}) ---")
     print(f"Status Breakdown:       {m1['statuses']}")
     print(f"DB 'locked' errors:     {m1['total_locked_errors']}")
-    print(f"Median p50 Latency:     {m1['median_p50']:.2f} ms (p50 range: {m1['p50_min_max'][0]:.2f}ms - {m1['p50_min_max'][1]:.2f}ms)")
+    print(f"Median p50 Latency:     {m1['median_p50']:.2f} ms")
     print(f"Median p95 Latency:     {m1['median_p95']:.2f} ms")
     print(f"Median p99 Latency:     {m1['median_p99']:.2f} ms")
-    print(f"Global min / max:       {m1['min_lat']:.2f} ms / {m1['max_lat']:.2f} ms")
 
-    print("\n--- Scenario 2: Mixed Read/Write Concurrency (30 creates + 30 assigns + 30 reads) ---")
+    print(f"\n--- Scenario 2: Mixed Read/Write Concurrency ---")
     print(f"Status Breakdown:       {m2['statuses']}")
     print(f"DB 'locked' errors:     {m2['total_locked_errors']}")
-    print(f"Median p50 Latency:     {m2['median_p50']:.2f} ms (p50 range: {m2['p50_min_max'][0]:.2f}ms - {m2['p50_min_max'][1]:.2f}ms)")
+    print(f"Median p50 Latency:     {m2['median_p50']:.2f} ms")
     print(f"Median p95 Latency:     {m2['median_p95']:.2f} ms")
-    print(f"Median p99 Latency:     {m2['median_p99']:.2f} ms")
-    print(f"Global min / max:       {m2['min_lat']:.2f} ms / {m2['max_lat']:.2f} ms")
 
-    print("\n--- Scenario 3: Concurrent CSV Exports + Queue Reads (6 exports + 40 reads) ---")
+    print(f"\n--- Scenario 3: Concurrent CSV Exports + Queue Reads ---")
     print(f"Status Breakdown:       {m3['statuses']}")
     print(f"DB 'locked' errors:     {m3['total_locked_errors']}")
-    print(f"Median p50 Latency:     {m3['median_p50']:.2f} ms (p50 range: {m3['p50_min_max'][0]:.2f}ms - {m3['p50_min_max'][1]:.2f}ms)")
-    print(f"Median p95 Latency:     {m3['median_p95']:.2f} ms")
-    print(f"Median p99 Latency:     {m3['median_p99']:.2f} ms")
-    print(f"Global min / max:       {m3['min_lat']:.2f} ms / {m3['max_lat']:.2f} ms")
-    print("NOTE: Baseline (origin/feat/m3-docs) did not have the CSV export concurrency limiter, so Scenario 3 is not directly comparable.")
+
+    if args.json_path:
+        os.makedirs(os.path.dirname(args.json_path) or ".", exist_ok=True)
+        with open(args.json_path, "w", encoding="utf-8") as f:
+            json.dump({"s1": m1, "s2": m2, "s3": m3}, f, indent=2)
 
     # Run standalone SQLite contention benchmark
-    run_sqlite_contention_benchmark(num_threads=8, writes_per_thread=25)
+    if not (args.db_path and "postgres" in args.db_path):
+        run_sqlite_contention_benchmark(num_threads=8, writes_per_thread=25)
 
 
 if __name__ == "__main__":

@@ -19,7 +19,13 @@ Write-Host "Initial MTime (UTC): $initialMTime"
 Write-Host "============================================================"
 
 Write-Host "`nRunning Pytest Suite against isolated test database...`n"
-python -m pytest -v
+$pyExe = "python"
+if (Test-Path "$PSScriptRoot\..\..\opsdesk\.venv\Scripts\python.exe") {
+    $pyExe = "$PSScriptRoot\..\..\opsdesk\.venv\Scripts\python.exe"
+} elseif (Test-Path "C:\Users\yashp\projects\opsdesk\.venv\Scripts\python.exe") {
+    $pyExe = "C:\Users\yashp\projects\opsdesk\.venv\Scripts\python.exe"
+}
+& $pyExe -m pytest -v
 $pytestExitCode = $LASTEXITCODE
 
 $postHash = (Get-FileHash -Path $dbPath -Algorithm SHA256).Hash
