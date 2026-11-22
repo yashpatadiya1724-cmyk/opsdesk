@@ -249,14 +249,11 @@ export function TicketInsightRail({
               const isHovered = hoveredLinkedId === id;
 
               return (
-                <div
-                  key={id}
-                  className="relative"
-                  onMouseEnter={() => setHoveredLinkedId(id)}
-                  onMouseLeave={() => setHoveredLinkedId(null)}
-                >
+                <div key={id} className="relative">
                   <Link
                     href={`/ticket/${id}`}
+                    onMouseEnter={() => setHoveredLinkedId(id)}
+                    onMouseLeave={() => setHoveredLinkedId(null)}
                     className="flex items-center justify-between p-2.5 rounded-input bg-surface-subtle hover:bg-brand-50/80 border border-border hover:border-brand-300 text-table font-mono-numbers font-medium text-brand-700 transition-subtle group"
                   >
                     <div className="flex items-center gap-2">

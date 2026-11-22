@@ -127,10 +127,11 @@ export function MobileFilterSheet({
 
         {/* Search */}
         <div>
-          <label className="text-caption font-medium text-content-secondary mb-1 block">
+          <label htmlFor="mobile-filter-search" className="text-caption font-medium text-content-secondary mb-1 block">
             Search
           </label>
           <Input
+            id="mobile-filter-search"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search TBOH, TCK-ID, keyword..."
@@ -151,10 +152,11 @@ export function MobileFilterSheet({
 
         {/* Intent */}
         <div>
-          <label className="text-caption font-medium text-content-secondary mb-1 block">
+          <label htmlFor="mobile-filter-intent" className="text-caption font-medium text-content-secondary mb-1 block">
             Intent Category
           </label>
           <Select
+            id="mobile-filter-intent"
             value={intentFilter}
             onChange={(e) => onIntentChange(e.target.value)}
             options={intentOptions}
@@ -163,10 +165,11 @@ export function MobileFilterSheet({
 
         {/* Priority */}
         <div>
-          <label className="text-caption font-medium text-content-secondary mb-1 block">
+          <label htmlFor="mobile-filter-priority" className="text-caption font-medium text-content-secondary mb-1 block">
             Priority
           </label>
           <Select
+            id="mobile-filter-priority"
             value={priorityFilter}
             onChange={(e) => onPriorityChange(e.target.value)}
             options={priorityOptions}
@@ -175,10 +178,11 @@ export function MobileFilterSheet({
 
         {/* Status */}
         <div>
-          <label className="text-caption font-medium text-content-secondary mb-1 block">
+          <label htmlFor="mobile-filter-status" className="text-caption font-medium text-content-secondary mb-1 block">
             Status
           </label>
           <Select
+            id="mobile-filter-status"
             value={statusFilter}
             onChange={(e) => onStatusChange(e.target.value)}
             options={statusOptions}

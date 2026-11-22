@@ -111,7 +111,10 @@ export function MobileTicketCard({
     showToast(`Copied ${ticket.tboh_id} to clipboard`, "info");
   };
 
-  const handleCardClick = () => {
+  const handleCardClick = (e?: React.MouseEvent) => {
+    if (e && (e.target as HTMLElement).closest('[data-no-card-click]')) {
+      return;
+    }
     if (onSelectTicket) {
       onSelectTicket(ticket.id);
     } else {
@@ -165,7 +168,7 @@ export function MobileTicketCard({
           <SlaBadge sla={ticket.sla} size="sm" isEscalated={ticket.status === "Escalated"} />
 
           {/* Mobile "..." Quick Actions Popover Menu */}
-          <div onClick={(e) => e.stopPropagation()}>
+          <div data-no-card-click>
             <Popover
               position="bottom-right"
               trigger={

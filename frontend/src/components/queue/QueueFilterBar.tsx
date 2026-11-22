@@ -102,6 +102,7 @@ export function QueueFilterBar({
         {/* Intent Select: compact 36px */}
         <div className="lg:col-span-3">
           <Select
+            aria-label="Filter by intent"
             value={intentFilter}
             onChange={(e) => onIntentChange(e.target.value)}
             options={intentOptions}
@@ -112,6 +113,7 @@ export function QueueFilterBar({
         {/* Priority Select: compact 36px */}
         <div className="lg:col-span-2">
           <Select
+            aria-label="Filter by priority"
             value={priorityFilter}
             onChange={(e) => onPriorityChange(e.target.value)}
             options={priorityOptions}
@@ -122,6 +124,7 @@ export function QueueFilterBar({
         {/* Status Select: compact 36px */}
         <div className="lg:col-span-2">
           <Select
+            aria-label="Filter by status"
             value={statusFilter}
             onChange={(e) => onStatusChange(e.target.value)}
             options={statusOptions}

@@ -210,7 +210,12 @@ export function TicketConversation({
           /* TAB 3 & 4: Public Reply or Internal Note Stream + Composer */
           <div className="p-5 space-y-6">
             {/* Messages Stream */}
-            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+            <div
+              role="region"
+              tabIndex={0}
+              aria-label="Messages stream"
+              className="space-y-4 max-h-[500px] overflow-y-auto pr-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            >
               {visibleMessages.length > 0 ? (
                 visibleMessages.map((msg) => {
                   const isInternal = msg.message_type === "InternalNote";

@@ -113,7 +113,8 @@ export function QueueKpiStrip({
       {/* Stacked SLA Split Bar */}
       <div
         className="w-full h-3.5 rounded-full bg-surface-subtle overflow-hidden flex items-center p-0.5 border border-border"
-        onMouseLeave={() => setHoveredKey(null)}
+        role="presentation"
+        aria-hidden="true"
       >
         {segments.map((seg) => {
           if (seg.barCount <= 0) return null;
@@ -122,17 +123,11 @@ export function QueueKpiStrip({
           const isSelected = activeFilter === seg.key;
 
           return (
-            <button
+            <span
               key={seg.key}
-              type="button"
-              onClick={() => handleSegmentClick(seg.key)}
-              onMouseEnter={() => setHoveredKey(seg.key)}
-              onFocus={() => setHoveredKey(seg.key)}
-              onBlur={() => setHoveredKey(null)}
               style={{ width: `${Math.max(4, seg.pct)}%` }}
-              aria-label={`Filter by ${seg.label}: ${seg.count} cases (${Math.round(seg.pct)}%)`}
               className={cn(
-                "h-full rounded-full transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500",
+                "h-full rounded-full transition-all duration-150",
                 seg.color,
                 isHovered && "scale-y-125 z-10 brightness-110",
                 isDimmed && "opacity-40",

@@ -79,6 +79,7 @@ export function Sidebar({ className, onToggleCollapse }: SidebarProps) {
 
   return (
     <div
+      role="presentation"
       className={cn(
         "relative shrink-0 select-none my-3 transition-all duration-200",
         collapsed ? "w-16" : "w-[232px]",

@@ -34,28 +34,8 @@ export function KpiCard({
 }: KpiCardProps) {
   const isClickable = Boolean(onClick);
 
-  return (
-    <div
-      onClick={onClick}
-      role={isClickable ? "button" : undefined}
-      tabIndex={isClickable ? 0 : undefined}
-      onKeyDown={
-        isClickable
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onClick?.();
-              }
-            }
-          : undefined
-      }
-      className={cn(
-        "group relative bg-surface border border-border rounded-card p-4 shadow-xs flex flex-col justify-between transition-all duration-120",
-        isClickable && "cursor-pointer hover:border-brand-500/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
-        !isClickable && "hover:border-border-strong",
-        className
-      )}
-    >
+  const cardContent = (
+    <>
       {/* Top Header: Label + Optional Icon / View Arrow */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="text-caption font-medium text-content-secondary truncate">
@@ -115,6 +95,32 @@ export function KpiCard({
           )}
         </div>
       )}
+    </>
+  );
+
+  if (isClickable) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "group relative bg-surface border border-border rounded-card p-4 shadow-xs flex flex-col justify-between transition-all duration-120 text-left w-full cursor-pointer hover:border-brand-500/50 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
+          className
+        )}
+      >
+        {cardContent}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "group relative bg-surface border border-border rounded-card p-4 shadow-xs flex flex-col justify-between transition-all duration-120 hover:border-border-strong",
+        className
+      )}
+    >
+      {cardContent}
     </div>
   );
 }

@@ -80,7 +80,8 @@ export function HealthBar({
       {/* Stacked SLA Split Bar */}
       <div
         className="w-full h-3 rounded-full bg-surface-subtle overflow-hidden flex items-center p-0.5 border border-border"
-        onMouseLeave={() => setHoveredKey(null)}
+        role="presentation"
+        aria-hidden="true"
       >
         {segments.map((seg) => {
           if (seg.pct <= 0) return null;
@@ -89,17 +90,11 @@ export function HealthBar({
           const isSelected = selectedStatus === seg.key;
 
           return (
-            <button
+            <span
               key={seg.key}
-              type="button"
-              onClick={() => onFilterClick?.(isSelected ? "ALL" : seg.key)}
-              onMouseEnter={() => setHoveredKey(seg.key)}
-              onFocus={() => setHoveredKey(seg.key)}
-              onBlur={() => setHoveredKey(null)}
               style={{ width: `${seg.pct}%` }}
-              aria-label={`Filter by ${seg.label}: ${seg.count} tickets (${Math.round(seg.pct)}%)`}
               className={cn(
-                "h-full rounded-full transition-all duration-120 cursor-pointer focus:outline-none focus:ring-2 focus:ring-focus-ring",
+                "h-full rounded-full transition-all duration-120",
                 seg.color,
                 isHovered && "scale-y-125 z-10 brightness-110",
                 isDimmed && "opacity-40",
@@ -124,7 +119,7 @@ export function HealthBar({
               onMouseEnter={() => setHoveredKey(seg.key)}
               onMouseLeave={() => setHoveredKey(null)}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-subtle cursor-pointer border border-transparent font-medium",
+                "inline-flex items-center gap-1.5 px-2.5 py-1 min-h-[24px] rounded-full transition-subtle cursor-pointer border border-transparent font-medium",
                 isSelected ? "border-border-strong bg-surface shadow-xs" : "hover:bg-surface-subtle",
                 isHovered && "bg-surface shadow-xs"
               )}

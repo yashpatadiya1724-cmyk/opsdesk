@@ -90,6 +90,7 @@ export function SlaRing({
 
   const ringElement = (
     <div
+      role="img"
       className={cn(
         "inline-flex items-center justify-center shrink-0 cursor-pointer",
         isBreached && "animate-sla-breach hover:[animation-play-state:paused]",

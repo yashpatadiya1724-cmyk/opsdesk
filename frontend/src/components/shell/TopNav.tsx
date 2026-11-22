@@ -313,12 +313,12 @@ export function TopNav() {
           <div
             className="relative"
             ref={dropdownRef}
-            onMouseEnter={handleMouseEnterRole}
-            onMouseLeave={handleMouseLeaveRole}
           >
             <button
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              onMouseEnter={handleMouseEnterRole}
+              onMouseLeave={handleMouseLeaveRole}
               aria-haspopup="listbox"
               aria-expanded={isDropdownOpen}
               aria-label={`Active user persona: ${currentUser.name} (${currentUser.role})`}

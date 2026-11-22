@@ -51,6 +51,7 @@ export function Tooltip({
 
   return (
     <div
+      role="presentation"
       className="relative inline-flex items-center"
       onMouseEnter={showTooltip}
       onMouseLeave={hideTooltip}

@@ -335,13 +335,15 @@ export function QueueTable({
                               </div>
                             }
                           >
-                            <span
-                              className="opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity text-brand-600 hover:text-brand-700 cursor-help"
+                            <button
+                              type="button"
+                              aria-label="Routing reason"
+                              className="opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity text-brand-600 hover:text-brand-700 cursor-help bg-transparent border-0 p-0 inline-flex items-center"
                               onClick={(e) => e.stopPropagation()}
                               title="Routing reason"
                             >
                               <HelpCircle className="w-3 h-3" />
-                            </span>
+                            </button>
                           </Tooltip>
                         )}
                       </div>
@@ -403,13 +405,15 @@ export function QueueTable({
                                 </div>
                               }
                             >
-                              <span
+                              <button
+                                type="button"
+                                aria-label={`${linkedCount} sibling cases`}
                                 className="inline-flex items-center gap-0.5 text-[10px] text-brand-700 font-mono-numbers bg-brand-50 border border-brand-200 px-1 rounded shrink-0 cursor-pointer"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Link2 className="w-2.5 h-2.5 text-brand-600" />
                                 <span>{linkedCount}</span>
-                              </span>
+                              </button>
                             </Tooltip>
                           )}
                         </div>
@@ -443,7 +447,7 @@ export function QueueTable({
                               onIntentFilter(t.intent);
                             }
                           }}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-chip text-[11px] font-medium bg-brand-50 text-brand-700 hover:bg-brand-100 hover:text-brand-800 transition-colors border border-brand-200/60 truncate max-w-[100px] cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2 min-h-[24px] rounded-chip text-[11px] font-medium bg-brand-50 text-brand-700 hover:bg-brand-100 hover:text-brand-800 transition-colors border border-brand-200/60 truncate max-w-[100px] cursor-pointer"
                           aria-label={`Filter by intent: ${t.intent || "General"}`}
                         >
                           <Tag className="w-2.5 h-2.5 shrink-0 text-brand-600" />
@@ -462,7 +466,7 @@ export function QueueTable({
                             onPriorityFilter(t.priority);
                           }
                         }}
-                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                        className="cursor-pointer hover:opacity-80 transition-opacity min-h-[24px] min-w-[24px] inline-flex items-center justify-center"
                         aria-label={`Filter by priority: ${t.priority}`}
                       >
                         <PriorityMark priority={t.priority} />

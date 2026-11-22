@@ -10,6 +10,13 @@ export interface PopoverProps {
   className?: string;
 }
 
+interface TriggerProps {
+  ref?: React.Ref<HTMLElement>;
+  onClick?: React.MouseEventHandler;
+  "aria-haspopup"?: string;
+  "aria-expanded"?: boolean;
+}
+
 export function Popover({
   trigger,
   children,
@@ -18,12 +25,18 @@ export function Popover({
 }: PopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -31,6 +44,7 @@ export function Popover({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setIsOpen(false);
+        triggerRef.current?.focus();
       }
     };
 
@@ -49,13 +63,47 @@ export function Popover({
     "top-left": "bottom-full left-0 mb-2",
   };
 
+  const handleToggle = () => {
+    setIsOpen((prev) => !prev);
+  };
+
+  const renderedTrigger = React.isValidElement<TriggerProps>(trigger) ? (
+    React.cloneElement(trigger, {
+      ref: (node: HTMLElement | null) => {
+        triggerRef.current = node;
+        const origRef = (trigger as React.RefAttributes<HTMLElement>).ref;
+        if (typeof origRef === "function") {
+          origRef(node);
+        } else if (origRef && typeof origRef === "object" && "current" in origRef) {
+          (origRef as React.MutableRefObject<HTMLElement | null>).current = node;
+        }
+      },
+      onClick: (e: React.MouseEvent) => {
+        trigger.props.onClick?.(e);
+        handleToggle();
+      },
+      "aria-haspopup": "dialog",
+      "aria-expanded": isOpen,
+    })
+  ) : (
+    <button
+      ref={triggerRef as React.RefObject<HTMLButtonElement | null>}
+      type="button"
+      onClick={handleToggle}
+      aria-haspopup="dialog"
+      aria-expanded={isOpen}
+      className="inline-block cursor-pointer bg-transparent border-0 p-0 text-inherit"
+    >
+      {trigger}
+    </button>
+  );
+
   return (
-    <div className="relative inline-block" ref={popoverRef}>
-      <div onClick={() => setIsOpen((prev) => !prev)} className="inline-block cursor-pointer">
-        {trigger}
-      </div>
+    <div className="relative inline-block">
+      {renderedTrigger}
       {isOpen && (
         <div
+          ref={popoverRef}
           role="dialog"
           aria-modal="false"
           className={cn(

@@ -92,63 +92,61 @@ export function ThemesBarChart({
           return (
             <div
               key={theme.theme}
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelectTheme(theme)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onSelectTheme(theme);
-                }
-              }}
+              role="presentation"
               onMouseEnter={() => setHoveredTheme(theme.theme)}
               onMouseLeave={() => setHoveredTheme(null)}
               className={cn(
-                "p-5 transition-subtle cursor-pointer group relative outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
+                "p-5 transition-subtle group relative",
                 isHovered ? "bg-surface-subtle/80" : "hover:bg-surface-subtle/50"
               )}
-              aria-label={`Inspect ${theme.theme} (${theme.count} cases)`}
             >
-              {/* Row Top: Theme Title, Category Badge, Count & % */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-6 h-6 rounded-full bg-surface text-content-secondary text-caption font-semibold flex items-center justify-center shrink-0 border border-border group-hover:border-brand-500 group-hover:text-brand-orange dark:group-hover:text-brand-orange-text transition-subtle font-mono-numbers shadow-xs">
-                    {index + 1}
-                  </span>
-                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                    <h3 className="text-table font-semibold text-content-primary group-hover:text-brand-orange dark:group-hover:text-brand-orange-text transition-subtle truncate">
-                      {theme.theme}
-                    </h3>
-                    <span
-                      className={cn(
-                        "text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0",
-                        meta.badgeBg,
-                        meta.badgeText
-                      )}
-                    >
-                      {meta.category}
+              <button
+                type="button"
+                onClick={() => onSelectTheme(theme)}
+                className="w-full text-left outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas rounded-lg cursor-pointer"
+                aria-label={`Inspect ${theme.theme} (${theme.count} cases)`}
+              >
+                {/* Row Top: Theme Title, Category Badge, Count & % */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-6 h-6 rounded-full bg-surface text-content-secondary text-caption font-semibold flex items-center justify-center shrink-0 border border-border group-hover:border-brand-500 group-hover:text-brand-orange dark:group-hover:text-brand-orange-text transition-subtle font-mono-numbers shadow-xs">
+                      {index + 1}
                     </span>
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      <h3 className="text-table font-semibold text-content-primary group-hover:text-brand-orange dark:group-hover:text-brand-orange-text transition-subtle truncate">
+                        {theme.theme}
+                      </h3>
+                      <span
+                        className={cn(
+                          "text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0",
+                          meta.badgeBg,
+                          meta.badgeText
+                        )}
+                      >
+                        {meta.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-caption shrink-0">
+                    <span className="font-semibold text-content-primary font-mono-numbers">
+                      {theme.count.toLocaleString()} cases
+                    </span>
+                    <span className="font-mono-numbers font-semibold px-2 py-0.5 rounded border shadow-xs text-[12px] text-brand-700 dark:text-brand-orange-text bg-brand-50 dark:bg-brand-50/20 border-brand-200 dark:border-brand-500/30">
+                      {theme.percentage}%
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-content-tertiary group-hover:text-brand-orange dark:group-hover:text-brand-orange-text group-hover:translate-x-0.5 transition-subtle" />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 text-caption shrink-0">
-                  <span className="font-semibold text-content-primary font-mono-numbers">
-                    {theme.count.toLocaleString()} cases
-                  </span>
-                  <span className="font-mono-numbers font-semibold px-2 py-0.5 rounded border shadow-xs text-[12px] text-brand-700 dark:text-brand-orange-text bg-brand-50 dark:bg-brand-50/20 border-brand-200 dark:border-brand-500/30">
-                    {theme.percentage}%
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-content-tertiary group-hover:text-brand-orange dark:group-hover:text-brand-orange-text group-hover:translate-x-0.5 transition-subtle" />
+                {/* Horizontal Brand Orange Bar */}
+                <div className="w-full bg-surface-subtle rounded-full h-3 overflow-hidden border border-border/70 my-2">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 ease-out bg-brand-orange"
+                    style={{ width: `${relativeWidth}%` }}
+                  />
                 </div>
-              </div>
-
-              {/* Horizontal Brand Orange Bar */}
-              <div className="w-full bg-surface-subtle rounded-full h-3 overflow-hidden border border-border/70 my-2">
-                <div
-                  className="h-full rounded-full transition-all duration-500 ease-out bg-brand-orange"
-                  style={{ width: `${relativeWidth}%` }}
-                />
-              </div>
+              </button>
 
               {/* Bottom Row: Sample tickets with hover popover preview */}
               <div className="flex items-center justify-between gap-4 mt-2">
@@ -162,7 +160,6 @@ export function ThemesBarChart({
                         <Link
                           key={tId}
                           href={`/ticket/${tId}`}
-                          onClick={(e) => e.stopPropagation()}
                           className="font-mono font-mono-numbers text-[11px] px-2 py-0.5 rounded-input bg-surface border border-border text-brand-700 dark:text-brand-orange-text hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-50/20 transition-subtle shadow-xs inline-flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                         >
                           <span>{tId}</span>
@@ -182,17 +179,21 @@ export function ThemesBarChart({
                   </span>
                 )}
 
-                <span className="text-[11px] text-content-tertiary hidden sm:inline-block group-hover:text-brand-orange dark:group-hover:text-brand-orange-text transition-colors">
+                <button
+                  type="button"
+                  onClick={() => onSelectTheme(theme)}
+                  className="text-[11px] text-content-tertiary hidden sm:inline-block hover:text-brand-orange dark:hover:text-brand-orange-text transition-colors focus-visible:outline-none focus-visible:underline cursor-pointer"
+                >
                   Click to open details drawer →
-                </span>
+                </button>
               </div>
 
               {/* Hover Popover showing up to 3 sample tickets linking to /ticket/[id] */}
               {isHovered && sampleTickets.length > 0 && (
                 <div
                   role="tooltip"
+                  data-no-row-click
                   className="absolute z-30 left-6 right-6 -bottom-2 translate-y-full bg-surface border border-border-strong rounded-card shadow-lg p-3 space-y-2 pointer-events-auto animate-in fade-in zoom-in-95 duration-100 max-w-md"
-                  onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between border-b border-border pb-1.5">
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-content-tertiary">
