@@ -263,7 +263,7 @@ test.describe('Keyboard Interaction Flows', () => {
     expect(page.url()).toContain('/ticket/TCK-');
   });
 
-  test('Escape key closes mobile filter sheet', async ({ page }) => {
+  test('Escape key closes mobile filter sheet and returns focus to trigger button', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.addInitScript(() => {
       window.localStorage.setItem('opsdesk_user_id', 'USR-104');
@@ -282,8 +282,9 @@ test.describe('Keyboard Interaction Flows', () => {
     // Press Escape
     await page.keyboard.press('Escape');
 
-    // Verify filter sheet dialog is closed
+    // Verify filter sheet dialog is closed and focus returns to filtersBtn
     await expect(sheetDialog).not.toBeVisible({ timeout: 5000 });
+    await expect(filtersBtn).toBeFocused({ timeout: 5000 });
   });
 
   test('Escape key closes Popover menu and returns focus to trigger button', async ({ page }) => {

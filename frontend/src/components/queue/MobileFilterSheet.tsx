@@ -38,18 +38,30 @@ export function MobileFilterSheet({
   hasActiveFilters,
   onClearFilters,
 }: MobileFilterSheetProps) {
-  // Lock body scroll when open
+  const previousActiveElementRef = React.useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      previousActiveElementRef.current = document.activeElement as HTMLElement | null;
+    }
+  }, [isOpen]);
+
+  // Lock body scroll when open and handle Escape key with focus restoration
   useEffect(() => {
     if (!isOpen) return;
     const origOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        previousActiveElementRef.current?.focus();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       document.body.style.overflow = origOverflow;
       window.removeEventListener("keydown", handleKeyDown);
+      previousActiveElementRef.current?.focus();
     };
   }, [isOpen, onClose]);
 
