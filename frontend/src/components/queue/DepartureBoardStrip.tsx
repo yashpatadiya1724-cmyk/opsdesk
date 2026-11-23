@@ -109,12 +109,12 @@ export function DepartureBoardStrip({
             <Plane className="w-3.5 h-3.5 rotate-45 text-departure-amber" />
             DISPATCH DEPARTURE BOARD
           </span>
-          <span className="hidden sm:inline-block text-[#3B647E]">|</span>
-          <span className="hidden sm:inline-block text-[10px] text-[#63879F]">
+          <span className="hidden sm:inline-block text-slate-500 dark:text-[#3B647E]">|</span>
+          <span className="hidden sm:inline-block text-[10px] text-slate-600 dark:text-[#63879F]">
             TOP 5 URGENT CHECK-INS
           </span>
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-[#93B5CB]">
+        <div className="flex items-center gap-2 text-[10px] text-slate-600 dark:text-[#93B5CB]">
           <span>OPS MISSION CONTROL</span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
         </div>

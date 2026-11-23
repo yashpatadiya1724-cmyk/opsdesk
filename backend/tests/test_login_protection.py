@@ -206,8 +206,8 @@ def test_login_real_uvicorn_server_15_wrong_passwords_subprocess(auth_user):
             "warning"
         ],
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
     )
 
     try:

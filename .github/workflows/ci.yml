@@ -177,6 +177,7 @@ jobs:
           DATABASE_URL: postgresql+psycopg://opsdesk:opsdesk_password@localhost:5432/opsdesk
           REDIS_URL: redis://localhost:6379/0
           APP_ENV: production
+          AUTH_MODE: jwt
           JWT_SECRET_KEY: test_secret_key_ci_smoke_testing_purpose_only_12345
           SCORE_REFRESHER_ENABLED: "false"
         run: |
