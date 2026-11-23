@@ -180,17 +180,30 @@ def test_login_ip_failure_bucket_triggers_at_20_failures(client: TestClient, db_
 
 
 @pytest.mark.slow
-def test_login_real_uvicorn_server_15_wrong_passwords_subprocess(auth_user):
+def test_login_real_uvicorn_server_15_wrong_passwords_subprocess(tmp_path):
     """
     2.1 Tests with a real uvicorn server in a subprocess:
     15 wrong passwords -> 429 from the 6th.
     """
     port = get_free_port()
+    db_file = tmp_path / "uvicorn_login_test.db"
+    db_url = f"sqlite:///{db_file.as_posix()}"
+
+    # Initialize schema on the temp db
+    from sqlalchemy import create_engine
+    from backend.app.database import ensure_schema_migrations
+    temp_engine = create_engine(db_url)
+    ensure_schema_migrations(temp_engine)
+    temp_engine.dispose()
+
     env = os.environ.copy()
+    env.pop("PYTEST_CURRENT_TEST", None)
     env["PYTHONPATH"] = "."
+    env["DATABASE_URL"] = db_url
     env["AUTH_MODE"] = "jwt"
     env["JWT_SECRET"] = "a_very_secure_test_jwt_secret_key_at_least_32_chars!"
     env["RATE_LIMIT_BACKEND"] = "inmemory"
+    env["SCORE_REFRESHER_ENABLED"] = "false"
 
     proc = subprocess.Popen(
         [
