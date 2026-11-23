@@ -37,10 +37,19 @@ def is_postgres_url(url: str) -> bool:
 
 def fast_seed_postgres(conn, target_count: int) -> int:
     """Fast seed using generate_series on PostgreSQL."""
-    # Ensure agency exists
+    # Ensure agency and test benchmark users exist
     conn.execute(text("""
         INSERT INTO agencies (id, name, country_code, tier)
         VALUES ('AGY-BENCH', 'Benchmark Agency', 'AE', 'platinum')
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO users (id, name, email, role, region, agency_id, hashed_password)
+        VALUES 
+            ('USR-101', 'Aisha Khan', 'aisha.khan@travelcorp.com', 'Agent', 'APAC', 'AGY-BENCH', 'placeholder_hash_123'),
+            ('USR-102', 'Bob Smith', 'bob.smith@travelcorp.com', 'Agent', 'EMEA', 'AGY-BENCH', 'placeholder_hash_123'),
+            ('USR-103', 'Vikram Lead', 'vikram@travelcorp.com', 'EscalationManager', 'GLOBAL', 'AGY-BENCH', 'placeholder_hash_123'),
+            ('USR-104', 'Carlos Lead', 'lead@travelcorp.com', 'Lead', 'GLOBAL', 'AGY-BENCH', 'placeholder_hash_123'),
+            ('USR-201', 'Maya Requester', 'maya@travelcorp.com', 'Requester', 'APAC', 'AGY-BENCH', 'placeholder_hash_123')
         ON CONFLICT (id) DO NOTHING;
     """))
     conn.commit()
@@ -100,9 +109,9 @@ def fast_seed_postgres(conn, target_count: int) -> int:
                 1,
                 NOW() - ((s % 500) || ' minutes')::interval,
                 NOW() - ((s % 500) || ' minutes')::interval
-            FROM generate_series(:start_idx, :end_idx) s
+            FROM generate_series(CAST(:start_idx AS integer), CAST(:end_idx AS integer)) s
             ON CONFLICT (id) DO NOTHING;
-        """), {"start_idx": start_idx, "end_idx": end_idx})
+        """), {"start_idx": int(start_idx), "end_idx": int(end_idx)})
         conn.commit()
         conn.execute(text("ANALYZE tickets;"))
         conn.commit()
