@@ -96,7 +96,7 @@ export function DepartureBoardStrip({
   return (
     <div
       className={cn(
-        "bg-[#07151D] border border-[#16384C] rounded-[24px] p-4 text-[#A8C7DC] shadow-md font-mono-numbers flex flex-col gap-3 select-none",
+        "bg-[#07151D] border border-[#16384C] rounded-[24px] p-4 text-[#A8C7DC] shadow-md font-mono-numbers flex flex-col gap-3 select-none overflow-hidden",
         className
       )}
       aria-label="Dispatch Departure Board"
@@ -114,7 +114,7 @@ export function DepartureBoardStrip({
             TOP 5 URGENT CHECK-INS
           </span>
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-[#A0C4DC]">
+        <div className="hidden sm:flex items-center gap-2 text-[10px] text-[#A0C4DC]">
           <span>OPS MISSION CONTROL</span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
         </div>
