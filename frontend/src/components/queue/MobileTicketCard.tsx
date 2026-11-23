@@ -150,8 +150,8 @@ export function MobileTicketCard({
             {ticket.tboh_id}
           </span>
           {linkedCount > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-brand-700 bg-brand-50 border border-brand-200 px-1 rounded shrink-0">
-              <Link2 className="w-2.5 h-2.5 text-brand-600" />
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-brand-700 dark:text-amber-200 bg-brand-50 dark:bg-amber-950/40 border border-brand-200 dark:border-amber-800 px-1 rounded shrink-0">
+              <Link2 className="w-2.5 h-2.5 text-brand-600 dark:text-amber-400" aria-hidden="true" />
               <span>{linkedCount}</span>
             </span>
           )}
@@ -159,8 +159,8 @@ export function MobileTicketCard({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {isRank1Emergency && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-1 py-0.2 rounded leading-none shrink-0 animate-pulse">
-              <AlertTriangle className="w-2.5 h-2.5 text-rose-600 shrink-0" />
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-900 bg-rose-100 border border-rose-300 dark:text-rose-100 dark:bg-rose-950/80 px-1 py-0.2 rounded leading-none shrink-0">
+              <AlertTriangle className="w-2.5 h-2.5 text-rose-800 dark:text-rose-200 shrink-0" aria-hidden="true" />
               &lt; 4h
             </span>
           )}

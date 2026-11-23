@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime as _DateTime, ForeignKey, Text, Integer, Index, TypeDecorator, Float
+from sqlalchemy import Column, String, Boolean, DateTime as _DateTime, ForeignKey, Text, Integer, Index, TypeDecorator, Float, event
 from sqlalchemy.orm import relationship
 from backend.app.database import Base
 
@@ -83,7 +83,7 @@ class Ticket(Base):
     assigned_to = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     routing_reason = Column(Text, nullable=True)
     suggested_bug_link = Column(String(200), nullable=True)
-    queue_score = Column(Float, nullable=True, index=True)
+    queue_score = Column(Float, nullable=False, default=0.0, server_default="0.0", index=True)
     score_computed_at = Column(DateTime, nullable=True)
     version = Column(Integer, default=1, nullable=False)  # Optimistic concurrency lock control
     created_at = Column(DateTime, default=utcnow, index=True)
@@ -93,7 +93,6 @@ class Ticket(Base):
         Index("ix_tickets_status_assigned", "status", "assigned_to"),
         Index("ix_tickets_assigned_status", "assigned_to", "status"),
         Index("ix_tickets_agency_status", "agency_id", "status"),
-        Index("ix_tickets_status_assigned_score", "status", "assigned_to", "queue_score"),
     )
 
     agency = relationship("Agency", back_populates="tickets")
@@ -103,6 +102,21 @@ class Ticket(Base):
     side_conversations = relationship("SideConversation", back_populates="ticket", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="ticket", cascade="all, delete-orphan")
     outbox_events = relationship("EventOutbox", back_populates="ticket", cascade="all, delete-orphan")
+
+
+@event.listens_for(Ticket, "init")
+def receive_ticket_init(target, args, kwargs):
+    """Ensures queue_score is never None upon model instantiation."""
+    if kwargs.get("queue_score") is None:
+        pw = kwargs.get("priority_weight", 200.0)
+        target.queue_score = float(pw) if pw is not None else 0.0
+
+
+@event.listens_for(Ticket, "before_insert")
+def set_ticket_queue_score_before_insert(mapper, connection, target):
+    """Guarantees queue_score is not None before inserting into SQL."""
+    if target.queue_score is None:
+        target.queue_score = float(target.priority_weight) if target.priority_weight is not None else 0.0
 
 
 class EventOutbox(Base):

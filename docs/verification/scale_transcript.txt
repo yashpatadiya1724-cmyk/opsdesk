@@ -1,28 +1,61 @@
 ================================================================================
 OPSDESK POSTGRESQL 16 TRIAGE SCALABILITY BENCHMARK TRANSCRIPT
-Generated: 2026-11-22T03:02:00.060963+00:00
-Status: Dry-run / Template (PostgreSQL service not connected in this environment)
-Target SLA: < 50ms at 124k active unassigned tickets (CI threshold: < 100ms at 100k)
+Status: MEASURED
+Date: 2026-11-22T20:22:50.846307+00:00
+Machine: Windows 10 (12 CPU cores)
+Command: scripts/bench_scale.py --db-url postgresql+psycopg://opsdesk:opsdesk_password@127.0.0.1:5433/opsdesk_scale --output docs/verification/scale_transcript.txt
+PostgreSQL Version: PostgreSQL 16.1, compiled by Visual C++ build 1937, 64-bit
+Start: 2026-11-22T20:22:50.846307+00:00
+End:   2026-11-22T20:23:24.428561+00:00
 ================================================================================
 
-Configuration:
-  Composite Index: ix_tickets_status_assigned_score (status, assigned_to, queue_score DESC)
-  Query Pattern:   SELECT ... WHERE status IN (...) AND assigned_to IS NULL ORDER BY queue_score DESC, effective_deadline_at ASC, id ASC LIMIT 50
+--- Scale 50,000 rows (Total DB: 50,000) ---
+Execution Time: 0.038 ms
+Seq Scan: NONE (PASS)
+Sort: NONE (PASS)
 
-Synthetic / Expected Plan (Indexed Stored queue_score Cache):
-  Limit (cost=0.42..12.50 rows=50 width=85) (actual time=0.038..0.125 rows=50 loops=1)
-    Buffers: shared hit=18
-    -> Index Scan using ix_tickets_status_assigned_score on tickets (cost=0.42..24512.18 rows=98000 width=85) (actual time=0.036..0.118 rows=50 loops=1)
-         Index Cond: (status = ANY ('{New,Open,Pending,Escalated}'::text[]) AND (assigned_to IS NULL))
-         Buffers: shared hit=18
-  Planning Time: 0.145 ms
-  Execution Time: 0.162 ms
+Limit  (cost=0.29..10.72 rows=50 width=208) (actual time=0.005..0.029 rows=50 loops=1)
+  Buffers: shared hit=52
+  ->  Index Scan using ix_tickets_triage on tickets  (cost=0.29..8364.24 rows=40090 width=208) (actual time=0.005..0.026 rows=50 loops=1)
+        Buffers: shared hit=52
+Planning:
+  Buffers: shared hit=22
+Planning Time: 0.224 ms
+Execution Time: 0.038 ms
 
-Summary Across Datasets:
-  - 50,000 rows:   ~0.15 ms execution time (18 buffer hits)
-  - 100,000 rows:  ~0.18 ms execution time (22 buffer hits)
-  - 200,000 rows:  ~0.25 ms execution time (28 buffer hits)
-  - 400,000 rows:  ~0.32 ms execution time (34 buffer hits)
+--- Scale 200,000 rows (Total DB: 200,000) ---
+Execution Time: 0.098 ms
+Seq Scan: NONE (PASS)
+Sort: NONE (PASS)
 
-Result: PASS (Triage latency << 50ms target)
+Limit  (cost=0.42..10.94 rows=50 width=210) (actual time=0.011..0.081 rows=50 loops=1)
+  Buffers: shared hit=53
+  ->  Index Scan using ix_tickets_triage on tickets  (cost=0.42..33688.64 rows=160120 width=210) (actual time=0.009..0.076 rows=50 loops=1)
+        Buffers: shared hit=53
+Planning:
+  Buffers: shared hit=10
+Planning Time: 0.365 ms
+Execution Time: 0.098 ms
+
+--- Scale 400,000 rows (Total DB: 400,000) ---
+Execution Time: 0.322 ms
+Seq Scan: NONE (PASS)
+Sort: NONE (PASS)
+
+Limit  (cost=0.42..10.53 rows=50 width=210) (actual time=0.025..0.312 rows=50 loops=1)
+  Buffers: shared hit=4 read=49
+  ->  Index Scan using ix_tickets_triage on tickets  (cost=0.42..64408.84 rows=318467 width=210) (actual time=0.025..0.308 rows=50 loops=1)
+        Buffers: shared hit=4 read=49
+Planning:
+  Buffers: shared hit=10
+Planning Time: 0.210 ms
+Execution Time: 0.322 ms
+
+Summary Table:
+Rows Target | Total DB Rows | Execution Time (ms) | Seq Scan | Sort | Target Met (< 50ms)
+------------|---------------|---------------------|----------|------|--------------------
+50000       | 50000         | 0.038               | NO       | NO   | YES
+200000      | 200000        | 0.098               | NO       | NO   | YES
+400000      | 400000        | 0.322               | NO       | NO   | YES
+
 ================================================================================

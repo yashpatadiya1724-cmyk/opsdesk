@@ -254,7 +254,7 @@ export function TicketInsightRail({
                     href={`/ticket/${id}`}
                     onMouseEnter={() => setHoveredLinkedId(id)}
                     onMouseLeave={() => setHoveredLinkedId(null)}
-                    className="flex items-center justify-between p-2.5 rounded-input bg-surface-subtle hover:bg-brand-50/80 border border-border hover:border-brand-300 text-table font-mono-numbers font-medium text-brand-700 transition-subtle group"
+                    className="flex items-center justify-between p-2.5 rounded-input bg-surface-subtle hover:bg-brand-50/80 border border-border hover:border-brand-300 text-table font-mono-numbers font-medium text-brand-700 dark:text-amber-200 transition-subtle group"
                   >
                     <div className="flex items-center gap-2">
                       <span>{id}</span>
@@ -329,7 +329,7 @@ export function TicketInsightRail({
 
           <div className="flex items-center justify-between pt-1.5 font-semibold text-content-primary">
             <span>Total Queue Score</span>
-            <span className="font-mono-numbers text-base font-bold text-brand-700">
+            <span className="font-mono-numbers text-base font-bold text-brand-700 dark:text-amber-200">
               {totalScore} / 100
             </span>
           </div>
@@ -348,13 +348,13 @@ export function TicketInsightRail({
       <Card padding="md">
         <div className="flex items-center justify-between mb-3">
           <span className="text-caption font-semibold text-content-primary uppercase tracking-wider flex items-center gap-1.5">
-            <Bug className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+            <Bug className="w-3.5 h-3.5 text-brand-600 dark:text-brand-orange" />
             Product Defect
           </span>
           <button
             type="button"
             onClick={onOpenBugModal}
-            className="text-caption text-brand-600 dark:text-brand-400 hover:text-brand-700 font-semibold cursor-pointer transition-subtle"
+            className="text-caption text-brand-700 dark:text-amber-200 hover:text-brand-800 dark:hover:text-amber-100 font-semibold cursor-pointer transition-subtle"
           >
             {ticket.suggested_bug_link ? "Edit Defect" : "Attach Defect"}
           </button>
@@ -365,10 +365,10 @@ export function TicketInsightRail({
             href={ticket.suggested_bug_link}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-between gap-2 text-caption font-mono-numbers text-brand-700 dark:text-brand-300 hover:underline break-all bg-brand-50 dark:bg-brand-950/40 p-2.5 rounded-input border border-brand-200 dark:border-brand-800 w-full transition-subtle group"
+            className="inline-flex items-center justify-between gap-2 text-caption font-mono-numbers text-brand-700 dark:text-amber-200 hover:underline break-all bg-brand-50 dark:bg-amber-950/40 p-2.5 rounded-input border border-brand-200 dark:border-amber-800 w-full transition-subtle group"
           >
             <span className="truncate">{ticket.suggested_bug_link}</span>
-            <ExternalLink className="w-3.5 h-3.5 shrink-0 text-brand-600 dark:text-brand-400 group-hover:translate-x-0.5 transition-subtle" />
+            <ExternalLink className="w-3.5 h-3.5 shrink-0 text-brand-600 dark:text-brand-orange group-hover:translate-x-0.5 transition-subtle" />
           </a>
         ) : (
           <div className="text-caption text-content-tertiary italic p-2 bg-surface-subtle rounded-input border border-dashed border-border text-center">

@@ -237,7 +237,7 @@ export function QueuePreviewDrawer({
               <PriorityMark priority={ticket.priority} />
               <StatusChip status={ticket.status} />
               {ticket.intent && (
-                <span className="text-[11px] font-medium text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-chip">
+                <span className="text-[11px] font-medium text-brand-700 dark:text-amber-200 bg-brand-50 dark:bg-amber-950/40 border border-brand-200 dark:border-amber-800 px-2 py-0.5 rounded-chip">
                   {ticket.intent}
                 </span>
               )}
@@ -366,7 +366,7 @@ export function QueuePreviewDrawer({
                     key={id}
                     type="button"
                     onClick={() => router.push(`/ticket/${id}`)}
-                    className="font-mono-numbers text-[12px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2 py-1 rounded-chip transition-colors cursor-pointer"
+                    className="font-mono-numbers text-[12px] font-semibold text-brand-700 dark:text-amber-200 bg-brand-50 dark:bg-amber-950/40 hover:bg-brand-100 dark:hover:bg-amber-900/40 border border-brand-200 dark:border-amber-800 px-2 py-1 rounded-chip transition-colors cursor-pointer"
                   >
                     {id} →
                   </button>

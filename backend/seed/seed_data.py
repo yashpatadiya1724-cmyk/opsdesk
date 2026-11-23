@@ -289,6 +289,7 @@ def seed_database(db: Session, engine_bind=None, total_tickets: int = 5000, drop
     db.add_all([
         SideConversationRecipient(id="SCR-001", side_conversation_id="SC-001", email="reservations@vendor.example.com"),
         SideConversationRecipient(id="SCR-002", side_conversation_id="SC-001", email="duty.mgr@vendor.example.com"),
+        SideConversationRecipient(id="SCR-003", side_conversation_id="SC-001", email="operations@vendor.example.com"),
         SideConversationMessage(
             id="SCM-001",
             side_conversation_id="SC-001",

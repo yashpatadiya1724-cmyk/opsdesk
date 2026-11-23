@@ -203,9 +203,9 @@ test.describe('WCAG 2.2 AA Accessibility Audits', () => {
             incompleteCount: results.incomplete.length,
           });
 
-          // Fail on serious/critical violations; list ALL violations found including color-contrast in axe_report.json
-          const structuralViolations = results.violations.filter(
-            (v) => (v.impact === 'critical' || v.impact === 'serious') && v.id !== 'color-contrast'
+          // Strict WCAG AA: zero critical and zero serious violations across all scans with NO exclusions or allowlists
+          const severeViolations = results.violations.filter(
+            (v) => v.impact === 'critical' || v.impact === 'serious'
           );
 
           if (results.violations.length === 0) {
@@ -215,8 +215,8 @@ test.describe('WCAG 2.2 AA Accessibility Audits', () => {
           }
 
           expect(
-            structuralViolations,
-            `Expected 0 critical/serious structural violations on ${pagePath} (${theme}, ${vp.type}), found: ${JSON.stringify(structuralViolations, null, 2)}`
+            severeViolations,
+            `Expected 0 critical/serious violations on ${pagePath} (${theme}, ${vp.type}), found: ${JSON.stringify(severeViolations, null, 2)}`
           ).toEqual([]);
         });
       }

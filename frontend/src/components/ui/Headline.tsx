@@ -45,9 +45,9 @@ export function PageHeadline({
         {badge && <div className="shrink-0">{badge}</div>}
       </div>
       {subtitle && (
-        <p className="text-caption text-content-tertiary max-w-2xl">
+        <div className="text-caption text-content-tertiary max-w-2xl">
           {subtitle}
-        </p>
+        </div>
       )}
     </div>
   );

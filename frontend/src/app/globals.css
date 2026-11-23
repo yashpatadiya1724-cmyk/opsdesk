@@ -26,33 +26,33 @@
 
   /* Typography Tokens — Light Mode */
   --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --text-tertiary: #64748B;
-  --text-disabled: #94A3B8;
-  --text-muted: #94A3B8;
+  --text-secondary: #334155;
+  --text-tertiary: #475569;
+  --text-disabled: #5E6D80;
+  --text-muted: #475569;
 
   /* Brand / Orange Accent Tokens — Light Mode (Udaan Palette) */
-  --brand-orange: #EA580C;
+  --brand-orange: #C2410C;
   --brand-orange-fill: #EA580C;
   --brand-orange-text: #C2410C;
   --brand-orange-navy: #0F172A;
   --brand-50: #FFF7ED;
   --brand-100: #FFEDD5;
-  --brand-500: #EA580C;
-  --brand-600: #EA580C;
-  --brand-700: #C2410C;
+  --brand-500: #C2410C;
+  --brand-600: #C2410C;
+  --brand-700: #9A3412;
   --orange-tint: rgba(234, 88, 12, 0.08);
 
   /* SLA Semantic Tokens — Light Mode (Never color alone) */
   --sla-normal-text: #15803D;
   --sla-normal-bg: #DCFCE7;
-  --sla-at-risk-text: #A16207;
+  --sla-at-risk-text: #854D0E;
   --sla-at-risk-bg: #FEF9C3;
   --sla-breached-text: #B91C1C;
   --sla-breached-bg: #FEE2E2;
   --sla-escalated-text: #6D28D9;
   --sla-escalated-bg: #EDE9FE;
-  --sla-stopped-text: #64748B;
+  --sla-stopped-text: #475569;
   --sla-stopped-bg: #F1F5F9;
 
   /* Region Tokens (Muted Hues) */
@@ -86,7 +86,7 @@
   --status-escalated-bg: #EDE9FE;
   --status-resolved-text: #15803D;
   --status-resolved-bg: #DCFCE7;
-  --status-closed-text: #64748B;
+  --status-closed-text: #475569;
   --status-closed-bg: #F1F5F9;
 
   /* Focus Ring: 2px orange ring with 2px offset */
@@ -125,19 +125,19 @@
   --text-primary: #F1F5F9;
   --text-secondary: #CBD5E1;
   --text-tertiary: #94A3B8;
-  --text-disabled: #64748B;
-  --text-muted: #64748B;
+  --text-disabled: #94A3B8;
+  --text-muted: #94A3B8;
 
   /* Brand / Orange Accent Tokens — Dark Mode */
   --brand-orange: #F97316;
   --brand-orange-fill: #F97316;
-  --brand-orange-text: #FB923C;
+  --brand-orange-text: #FDBA74;
   --brand-orange-navy: #0F172A;
   --brand-50: rgba(249, 115, 22, 0.14);
   --brand-100: rgba(249, 115, 22, 0.22);
-  --brand-500: #F97316;
-  --brand-600: #F97316;
-  --brand-700: #FB923C;
+  --brand-500: #EA580C;
+  --brand-600: #C2410C;
+  --brand-700: #FDBA74;
   --orange-tint: rgba(249, 115, 22, 0.14);
 
   /* SLA Semantic Tokens — Dark Mode */

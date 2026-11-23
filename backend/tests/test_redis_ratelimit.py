@@ -193,19 +193,69 @@ def test_rate_limit_fail_mode(monkeypatch):
 # ============================================================================
 
 @pytest.mark.skipif(not is_redis_available(), reason="Redis server not configured via REDIS_URL or not reachable")
-def test_redis_limit_shared_across_4_workers():
+def test_redis_limit_shared_across_4_workers(tmp_path):
     """
     2.4 Limit shared across 4 uvicorn workers (limit 60 allows exactly 60).
     Starts a real uvicorn server with --workers 4 against REDIS_URL.
     Sends 80 requests from a single client IP.
     Verifies exactly 60x 200 OK and 20x 429 Too Many Requests.
     """
+    db_file = tmp_path / "test_redis_workers.db"
+    db_url = f"sqlite:///{db_file}"
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from backend.app.database import Base
+    from backend.seed.seed_data import seed_database
+
+    engine = create_engine(db_url)
+    with engine.connect() as conn:
+        from sqlalchemy import text
+        conn.execute(text("PRAGMA journal_mode=WAL;"))
+        conn.execute(text("PRAGMA busy_timeout=30000;"))
+        conn.commit()
+
+    Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(bind=engine)
+    with SessionLocal() as db:
+        seed_database(db=db, engine_bind=engine, total_tickets=50, drop_existing=True)
+        db.commit()
+
+    engine.dispose()
+
+    import redis
+    try:
+        r = redis.Redis.from_url(os.environ.get("REDIS_URL", "redis://127.0.0.1:6390/0"))
+        r.flushdb()
+    except Exception:
+        pass
+
     port = get_free_port()
     env = os.environ.copy()
     env["PYTHONPATH"] = "."
+    env["DATABASE_URL"] = db_url
     env["RATE_LIMIT_BACKEND"] = "redis"
     env["RATE_LIMIT_PER_MINUTE"] = "60"
     env["RATE_LIMIT_FAIL_MODE"] = "open"
+
+    from backend.app.auth import create_access_token
+
+    user_id = "USR-101"
+    jwt_secret = "test_shared_jwt_secret_for_redis_ratelimit_123"
+    env["JWT_SECRET"] = jwt_secret
+    env["JWT_SECRET_KEY"] = jwt_secret
+    env["SECRET_KEY"] = jwt_secret
+    old_secret = os.environ.get("JWT_SECRET")
+    os.environ["JWT_SECRET"] = jwt_secret
+    try:
+        token = create_access_token(
+            {"sub": user_id, "email": "aisha@tbo.test", "role": "Agent"}
+        )
+    finally:
+        if old_secret is not None:
+            os.environ["JWT_SECRET"] = old_secret
+        else:
+            os.environ.pop("JWT_SECRET", None)
+    auth_headers = {"Authorization": f"Bearer {token}"}
 
     proc = subprocess.Popen(
         [
@@ -223,8 +273,8 @@ def test_redis_limit_shared_across_4_workers():
             "warning"
         ],
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
     )
 
     try:
@@ -242,9 +292,9 @@ def test_redis_limit_shared_across_4_workers():
         assert ready, "4-worker uvicorn server failed to report ready with redis rate limiter"
 
         status_counts = {}
-        with httpx.Client(base_url=base_url) as client:
-            for _ in range(80):
-                resp = client.get("/api/tickets?view=triage", headers={"X-User-Id": "USR-101"})
+        with httpx.Client(base_url=base_url, timeout=10.0) as client:
+            for i in range(80):
+                resp = client.get("/api/tickets?view=triage", headers=auth_headers)
                 status_counts[resp.status_code] = status_counts.get(resp.status_code, 0) + 1
 
         assert status_counts.get(200, 0) == 60, f"Expected 60 allowed requests, got {status_counts}"

@@ -122,7 +122,7 @@ export function MobileFilterSheet({
               Filter Queue
             </h3>
             {hasActiveFilters && (
-              <span className="text-[11px] font-medium text-brand-700 bg-brand-50 px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-medium text-brand-700 dark:text-amber-200 bg-brand-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full">
                 Active
               </span>
             )}

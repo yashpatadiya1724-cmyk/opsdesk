@@ -115,7 +115,7 @@ export function SegmentedTabs({
                 className={cn(
                   "font-mono-numbers px-1.5 py-0.5 rounded-full text-[11px] leading-none shrink-0 transition-colors",
                   isActive
-                    ? "bg-white/20 text-white dark:bg-[#0F172A]/20 dark:text-[#0F172A] font-bold"
+                    ? "bg-black/25 text-white dark:bg-black/40 dark:text-white font-bold"
                     : "bg-surface text-content-tertiary"
                 )}
               >

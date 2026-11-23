@@ -314,13 +314,20 @@ def test_csv_export_performance_and_columns(client: TestClient, db_session: Sess
     assert len(lines) == 21
 
 
-def test_bench_scale_script_execution():
-    """Verifies scripts/bench_scale.py runs cleanly and exits with code 0."""
+def test_bench_scale_script_execution(tmp_path):
+    """Verifies scripts/bench_scale.py behavior on available database without touching tracked files."""
+    db_url = os.environ.get("DATABASE_URL", "")
     python_exe = sys.executable
+    out_file = str(tmp_path / "scale_transcript.txt")
     res = subprocess.run(
-        [python_exe, "scripts/bench_scale.py"],
+        [python_exe, "scripts/bench_scale.py", "--output", out_file],
         capture_output=True,
         text=True
     )
-    assert res.returncode == 0
-    assert os.path.isfile("docs/verification/scale_transcript.txt")
+    if not (db_url.startswith("postgresql://") or db_url.startswith("postgresql+psycopg://")):
+        # When PostgreSQL is absent, bench_scale must exit non-zero and refuse to generate fake files
+        assert res.returncode != 0
+        assert not os.path.exists(out_file)
+    else:
+        assert res.returncode == 0
+        assert os.path.isfile(out_file)

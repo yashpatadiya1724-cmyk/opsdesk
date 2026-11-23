@@ -561,9 +561,10 @@ def test_alembic_postgresql_timezone_conversion_in_session_timezone():
         conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
         conn.execute(text(f"CREATE SCHEMA {schema_name}"))
 
-    schema_db_url = f"{db_url}?options=-csearch_path%3D{schema_name}"
+    schema_db_url = f"{db_url}?options=-csearch_path%3D{schema_name}%2Cpublic"
     alembic_cfg = Config(ini_path)
     alembic_cfg.set_main_option("sqlalchemy.url", schema_db_url.replace("%", "%%"))
+    alembic_cfg.set_main_option("version_table_schema", schema_name)
 
     try:
         # 1. Build legacy-shaped schema (0001_baseline_schema)

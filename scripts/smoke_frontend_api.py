@@ -60,7 +60,7 @@ def run_smoke():
         assert res.status_code == 200, f"Health check failed: {res.text}"
         print("[PASS] 1. GET /health -> 200 OK")
 
-        # 2. CORS Preflight & Header check for http://localhost:3000
+        # 2. CORS Preflight & Header check for http://localhost:3000 and http://localhost:3100
         res = client.options(
             "/api/tickets",
             headers={
@@ -71,7 +71,18 @@ def run_smoke():
         )
         assert res.status_code == 200, f"CORS OPTIONS failed: {res.status_code}"
         assert res.headers.get("access-control-allow-origin") == "http://localhost:3000"
-        print("[PASS] 2. OPTIONS /api/tickets (CORS preflight) -> 200 with allow-origin http://localhost:3000")
+
+        res_3100 = client.options(
+            "/api/tickets",
+            headers={
+                "Origin": "http://localhost:3100",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "X-User-Id,Content-Type",
+            },
+        )
+        assert res_3100.status_code == 200, f"CORS OPTIONS for port 3100 failed: {res_3100.status_code}"
+        assert res_3100.headers.get("access-control-allow-origin") == "http://localhost:3100"
+        print("[PASS] 2. OPTIONS /api/tickets (CORS preflight) -> 200 with allow-origin http://localhost:3000 and http://localhost:3100")
 
         # 3. GET /api/tickets for Staff (triage queue)
         res = client.get("/api/tickets?view=triage&limit=10&offset=0", headers={"X-User-Id": "USR-101"})

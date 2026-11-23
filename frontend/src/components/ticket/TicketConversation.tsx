@@ -162,7 +162,7 @@ export function TicketConversation({
             Case Description
           </h2>
           {ticket.intent && (
-            <span className="text-[11px] font-medium text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+            <span className="text-[11px] font-medium text-brand-700 dark:text-amber-200 bg-brand-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-brand-200 dark:border-amber-800">
               Intent: {ticket.intent}
             </span>
           )}
@@ -209,12 +209,12 @@ export function TicketConversation({
         ) : (
           /* TAB 3 & 4: Public Reply or Internal Note Stream + Composer */
           <div className="p-5 space-y-6">
-            {/* Messages Stream */}
+            {/* Messages Stream - Keyboard accessible scrollable region per WCAG 2.1.1 and axe-core scrollable-region-focusable */}
             <div
               role="region"
-              tabIndex={0}
               aria-label="Messages stream"
-              className="space-y-4 max-h-[500px] overflow-y-auto pr-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              tabIndex={0}
+              className="space-y-4 max-h-[500px] overflow-y-auto pr-1 focus:outline-none focus:ring-1 focus:ring-brand-500/50 rounded-card"
             >
               {visibleMessages.length > 0 ? (
                 visibleMessages.map((msg) => {

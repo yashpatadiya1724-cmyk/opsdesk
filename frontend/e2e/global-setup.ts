@@ -29,12 +29,20 @@ export default async function globalSetup() {
   let backendPid: number | undefined;
   let frontendPid: number | undefined;
 
+  const pythonBin =
+    process.env.PYTHON_BIN ||
+    (fs.existsSync(path.resolve(repoRoot, '../opsdesk/.venv/Scripts/python.exe'))
+      ? path.resolve(repoRoot, '../opsdesk/.venv/Scripts/python.exe')
+      : fs.existsSync(path.resolve(repoRoot, '.venv/Scripts/python.exe'))
+      ? path.resolve(repoRoot, '.venv/Scripts/python.exe')
+      : 'python');
+
   // 1. Check or start Backend
   const backendReady = await isUrlReady('http://127.0.0.1:8000/health');
   if (!backendReady) {
     console.log('[E2E Global Setup] Seeding SQLite database at:', tempDbPath);
     const dbUrl = `sqlite:///${tempDbPath.replace(/\\/g, '/')}`;
-    execSync('python -m backend.seed.seed_data --reset --yes', {
+    execSync(`"${pythonBin}" -m backend.seed.seed_data --reset --yes`, {
       cwd: repoRoot,
       env: {
         ...process.env,
@@ -48,7 +56,7 @@ export default async function globalSetup() {
 
     console.log('[E2E Global Setup] Starting backend process on port 8000...');
     const backendProcess = spawn(
-      'python',
+      pythonBin,
       ['-m', 'uvicorn', 'backend.app.main:app', '--host', '127.0.0.1', '--port', '8000'],
       {
         cwd: repoRoot,
@@ -71,7 +79,9 @@ export default async function globalSetup() {
   }
 
   // 2. Check or start Frontend
-  const frontendReady = await isUrlReady('http://127.0.0.1:3000');
+  const frontendPort = process.env.FRONTEND_PORT || '3100';
+  const frontendUrl = `http://127.0.0.1:${frontendPort}`;
+  const frontendReady = await isUrlReady(frontendUrl);
   if (!frontendReady) {
     const nextDir = path.resolve(frontendDir, '.next');
     if (!fs.existsSync(nextDir)) {
@@ -87,11 +97,11 @@ export default async function globalSetup() {
       });
     }
 
-    console.log('[E2E Global Setup] Starting Next.js frontend on port 3000...');
+    console.log(`[E2E Global Setup] Starting Next.js frontend on port ${frontendPort}...`);
     const nextBin = path.resolve(frontendDir, 'node_modules/next/dist/bin/next');
     const frontendProcess = spawn(
       process.execPath,
-      [nextBin, 'start', '-p', '3000'],
+      [nextBin, 'start', '-p', frontendPort],
       {
         cwd: frontendDir,
         env: {
@@ -104,10 +114,10 @@ export default async function globalSetup() {
     );
 
     frontendPid = frontendProcess.pid;
-    await waitForUrl('http://127.0.0.1:3000', 30000);
-    console.log('[E2E Global Setup] Frontend is ready!');
+    await waitForUrl(frontendUrl, 30000);
+    console.log(`[E2E Global Setup] Frontend is ready on port ${frontendPort}!`);
   } else {
-    console.log('[E2E Global Setup] Connected to existing frontend at http://127.0.0.1:3000');
+    console.log(`[E2E Global Setup] Connected to existing frontend at ${frontendUrl}`);
   }
 
   // Write state to file for teardown

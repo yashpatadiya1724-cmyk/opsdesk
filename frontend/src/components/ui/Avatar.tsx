@@ -22,27 +22,30 @@ const PALETTE = [
   { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200" },
 ];
 
+const DEFAULT_PALETTE = { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200" };
+
 function getDeterministicColor(str?: string | null) {
-  if (!str) return PALETTE[0];
+  if (!str || typeof str !== "string" || !str.trim()) return PALETTE[0] || DEFAULT_PALETTE;
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   const index = Math.abs(hash) % PALETTE.length;
-  return PALETTE[index];
+  return PALETTE[index] || PALETTE[0] || DEFAULT_PALETTE;
 }
 
 function getInitials(name?: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
+  if (!name || typeof name !== "string" || !name.trim()) return "?";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (parts[0][0] + (parts[parts.length - 1]?.[0] || "")).toUpperCase();
 }
 
 export function Avatar({ name, size = "md", className, id }: AvatarProps) {
-  const safeName = name || id || "User";
-  const color = getDeterministicColor(id || name || "");
-  const initials = getInitials(name);
+  const safeName = typeof name === "string" ? name : (typeof id === "string" ? id : "User");
+  const color = getDeterministicColor(typeof id === "string" && id ? id : (typeof name === "string" ? name : "")) || DEFAULT_PALETTE;
+  const initials = getInitials(safeName);
 
   const sizeStyles = {
     sm: "w-6 h-6 text-[10px]",

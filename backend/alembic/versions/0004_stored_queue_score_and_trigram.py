@@ -38,9 +38,15 @@ def upgrade() -> None:
             batch_op.create_index('ix_tickets_queue_score', ['queue_score'], unique=False)
 
     if dialect_name == "postgresql":
-        op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
-        op.execute("CREATE INDEX IF NOT EXISTS ix_tickets_title_trgm ON tickets USING gin (title gin_trgm_ops);")
-        op.execute("CREATE INDEX IF NOT EXISTS ix_tickets_tboh_id_trgm ON tickets USING gin (tboh_id gin_trgm_ops);")
+        op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public;")
+        op.execute("""
+            DO $$
+            BEGIN
+                EXECUTE 'SET LOCAL search_path TO ' || current_schema() || ', public';
+            END $$;
+        """)
+        op.execute("CREATE INDEX IF NOT EXISTS ix_tickets_title_trgm ON tickets USING gin (title public.gin_trgm_ops);")
+        op.execute("CREATE INDEX IF NOT EXISTS ix_tickets_tboh_id_trgm ON tickets USING gin (tboh_id public.gin_trgm_ops);")
 
 
 def downgrade() -> None:

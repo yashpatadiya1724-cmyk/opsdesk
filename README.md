@@ -43,14 +43,72 @@ This matrix strictly maps against the requirements specified in the project spec
 
 ---
 
-## ⚡ Quickstart Guide
+## ⚡ Quickstart Guide (1-Click Judge Reset)
 
-### Prerequisites
-- **Python 3.11+**
-- **Node.js 18+** (tested on Node v24)
-- **SQLite3** (included with standard Python)
+### 1-Click Demo Reset (Automated PowerShell Script)
+To start fresh with calibrated seed data and launch both backend (8000) and frontend (3100):
+```powershell
+.\scripts\demo_reset.ps1
+```
+- **Frontend App**: `http://localhost:3100`
+- **Backend API**: `http://localhost:8000`
+- **Interactive Swagger Docs**: `http://localhost:8000/docs`
+- **Judge Walkthrough**: See [`docs/DEMO.md`](docs/DEMO.md) for a 5-minute guided evaluation script.
+- **Audited Metrics**: See [`docs/PITCH_FACTS.md`](docs/PITCH_FACTS.md) for measured production performance.
+- **Judge FAQ**: See [`docs/JUDGE_QA.md`](docs/JUDGE_QA.md) for deep technical defense answers.
 
-### 1. Installation & Dependencies
+### Demo Credentials (Password: `demo123` for all)
+- **Frontline Agent**: `aisha@travelops.example.com` (`USR-101`)
+- **Escalation Manager**: `vikram.esc@travelops.example.com` (`USR-103`)
+- **Operations Lead**: `priya@travelops.example.com` (`USR-104`)
+- **Agency Requester**: `agent@voyage.example.com` (`USR-201`, `AGY-001`)
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TD
+    subgraph ClientLayer ["Client & Evaluation Layer (Port 3100)"]
+        UI["Next.js 14 Operations Console<br/>(WCAG 2.1 AA Compliant, 19/19 Axe Pass)"]
+        CLI["OpsDesk CLI & Scripts<br/>(demo_check.py, opsdesk_cli.py)"]
+    end
+
+    subgraph APILayer ["FastAPI Gateway (Port 8000)"]
+        MW["Security & Protection Middleware<br/>(Rate Limiting, Max Body 1MB, Headers)"]
+        Auth["Dual Auth Handler<br/>(Demo X-User-Id / JWT Bearer)"]
+        Router["FastAPI REST & Streaming Routes<br/>(19 Endpoints, Keyset Pagination)"]
+    end
+
+    subgraph CoreServices ["Deterministic Operations Engines"]
+        Routing["Routing Engine<br/>(Tier-1 Staff Bypass + Tier-2 Continuous Scoring)"]
+        SLA["Travel SLA Engine<br/>(LCD & Check-in Proximity, Timezone Normalization)"]
+        AI["AI Intent Classifier<br/>(Gemini 2.5 Flash + Deterministic Regex Fallback)"]
+        Export["Streaming CSV Engine<br/>(Batched yield_per 500, Formula Sanitization)"]
+    end
+
+    subgraph DataStorage ["Data & Cache Storage"]
+        PG["PostgreSQL 16 / SQLite<br/>(Partial Indexes: ix_tickets_triage, ix_tickets_my_queue)"]
+        Redis["Redis (Port 6390)<br/>(Atomic Lua Sliding-Window Rate Limiter)"]
+    end
+
+    UI -->|HTTP / JSON| MW
+    CLI -->|HTTP / JSON| MW
+    MW --> Auth
+    Auth --> Router
+    Router --> Routing
+    Router --> SLA
+    Router --> AI
+    Router --> Export
+    Routing --> PG
+    SLA --> PG
+    Export --> PG
+    MW -.->|Rate Limits| Redis
+```
+
+---
+
+## ⚡ Manual Installation & Development
 Install dependencies from `requirements.txt` or the fully pinned `requirements.lock` generated via `pip freeze`:
 ```powershell
 # Core dependencies
@@ -167,13 +225,13 @@ OpsDesk uses an indexed stored queue score cache (`tickets.queue_score` with com
   ```
 - **Scale Benchmarking:** Run `scripts/bench_scale.py` against PostgreSQL or view `docs/verification/scale_transcript.txt`.
 
-### 4. Run Next.js 15 Frontend
+### 4. Run Next.js 14 Frontend (Port 3100)
 ```powershell
 cd frontend
 npm install
-npm run dev
+npm run dev -- -p 3100
 ```
-Open Browser: `http://localhost:3000`
+Open Browser: `http://localhost:3100`
 
 ---
 

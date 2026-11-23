@@ -50,16 +50,35 @@ if context is not None:
             config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
 
+def include_object(object, name, type_, reflected, compare_to):
+    """
+    Excludes PostgreSQL-specific trigram and partial indexes that are created
+    via raw SQL / dialect-specific DDL in migrations from causing false-positive
+    diffs in `alembic check` / autogenerate.
+    """
+    if type_ == "index" and name in (
+        "ix_tickets_title_trgm",
+        "ix_tickets_tboh_id_trgm",
+        "ix_tickets_triage",
+        "ix_tickets_my_queue",
+    ):
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
     if context is None or config is None:
         return
     url = config.get_main_option("sqlalchemy.url")
+    version_table_schema = config.get_main_option("version_table_schema") or os.getenv("ALEMBIC_VERSION_TABLE_SCHEMA")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
+        version_table_schema=version_table_schema,
     )
 
     with context.begin_transaction():
@@ -78,9 +97,14 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
+    version_table_schema = config.get_main_option("version_table_schema") or os.getenv("ALEMBIC_VERSION_TABLE_SCHEMA")
+
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
+            version_table_schema=version_table_schema,
         )
 
         with context.begin_transaction():

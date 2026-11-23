@@ -114,7 +114,7 @@ export function DepartureBoardStrip({
             TOP 5 URGENT CHECK-INS
           </span>
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-[#4E7792]">
+        <div className="flex items-center gap-2 text-[10px] text-[#93B5CB]">
           <span>OPS MISSION CONTROL</span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
         </div>
@@ -227,7 +227,7 @@ export function DepartureBoardStrip({
                     isBreached
                       ? "bg-rose-950/60 text-rose-300 border-rose-800"
                       : isAtRisk
-                      ? "bg-amber-950/60 text-amber-300 border-amber-800"
+                      ? "bg-amber-950/80 text-amber-200 border-amber-700"
                       : "bg-[#0B212E] text-departure-amber border-[#1D445C]"
                   )}
                 >

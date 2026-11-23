@@ -3,19 +3,24 @@
 OpsDesk Scalability & Explain Benchmark (scripts/bench_scale.py)
 
 Evaluates triage queue query performance at scale (50k, 100k, 200k, 400k rows)
-on PostgreSQL using EXPLAIN (ANALYZE, BUFFERS) with stored queue_score index scan.
+on real PostgreSQL using EXPLAIN (ANALYZE, BUFFERS) with stored queue_score index scan.
 """
 import argparse
+import multiprocessing
 import os
+import platform
 import re
 import sys
 import time
 from datetime import datetime, timezone
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
 
-DEFAULT_OUTPUT_PATH = os.path.join("docs", "verification", "scale_transcript.txt")
+DEFAULT_OUTPUT_PATH = os.getenv(
+    "SCALE_TRANSCRIPT_PATH",
+    os.path.join("docs", "verification", "scale_transcript.txt")
+)
+
 TRIAGE_QUERY_PG = """
 EXPLAIN (ANALYZE, BUFFERS)
 SELECT id, tboh_id, agency_id, title, status, priority, queue_score, effective_deadline_at, assigned_to
@@ -23,36 +28,6 @@ FROM tickets
 WHERE status IN ('New', 'Open', 'Pending', 'Escalated') AND assigned_to IS NULL
 ORDER BY queue_score DESC, effective_deadline_at ASC, id ASC
 LIMIT 50;
-"""
-
-DRY_RUN_TEMPLATE = """================================================================================
-OPSDESK POSTGRESQL 16 TRIAGE SCALABILITY BENCHMARK TRANSCRIPT
-Generated: {timestamp}
-Status: Dry-run / Template (PostgreSQL service not connected in this environment)
-Target SLA: < 50ms at 124k active unassigned tickets (CI threshold: < 100ms at 100k)
-================================================================================
-
-Configuration:
-  Composite Index: ix_tickets_status_assigned_score (status, assigned_to, queue_score DESC)
-  Query Pattern:   SELECT ... WHERE status IN (...) AND assigned_to IS NULL ORDER BY queue_score DESC, effective_deadline_at ASC, id ASC LIMIT 50
-
-Synthetic / Expected Plan (Indexed Stored queue_score Cache):
-  Limit (cost=0.42..12.50 rows=50 width=85) (actual time=0.038..0.125 rows=50 loops=1)
-    Buffers: shared hit=18
-    -> Index Scan using ix_tickets_status_assigned_score on tickets (cost=0.42..24512.18 rows=98000 width=85) (actual time=0.036..0.118 rows=50 loops=1)
-         Index Cond: (status = ANY ('{{New,Open,Pending,Escalated}}'::text[]) AND (assigned_to IS NULL))
-         Buffers: shared hit=18
-  Planning Time: 0.145 ms
-  Execution Time: 0.162 ms
-
-Summary Across Datasets:
-  - 50,000 rows:   ~0.15 ms execution time (18 buffer hits)
-  - 100,000 rows:  ~0.18 ms execution time (22 buffer hits)
-  - 200,000 rows:  ~0.25 ms execution time (28 buffer hits)
-  - 400,000 rows:  ~0.32 ms execution time (34 buffer hits)
-
-Result: PASS (Triage latency << 50ms target)
-================================================================================
 """
 
 
@@ -163,40 +138,33 @@ def main():
     db_url = args.db_url or os.getenv("DATABASE_URL", "")
 
     if not is_postgres_url(db_url):
-        print("INFO: PostgreSQL instance not detected or DATABASE_URL not set to PostgreSQL.")
-        print("Skipping live PostgreSQL EXPLAIN (ANALYZE, BUFFERS) run cleanly.")
-        os.makedirs(os.path.dirname(args.output), exist_ok=True)
-        timestamp = datetime.now(timezone.utc).isoformat()
-        with open(args.output, "w", encoding="utf-8") as f:
-            f.write(DRY_RUN_TEMPLATE.format(timestamp=timestamp))
-        print(f"Wrote dry-run/synthetic benchmark template to {args.output}")
-        sys.exit(0)
+        print("ERROR: bench_scale.py requires a real PostgreSQL database (DATABASE_URL not set to PostgreSQL).", file=sys.stderr)
+        print("Live measurement aborted.", file=sys.stderr)
+        sys.exit(1)
 
     try:
         engine = create_engine(db_url)
         with engine.connect() as conn:
-            # Check connection
-            conn.execute(text("SELECT 1;"))
+            pg_version_res = conn.execute(text("SELECT version();")).scalar()
     except Exception as exc:
-        print(f"WARNING: Failed to connect to PostgreSQL at {db_url}: {exc}")
-        print("Skipping PostgreSQL benchmark cleanly.")
-        os.makedirs(os.path.dirname(args.output), exist_ok=True)
-        timestamp = datetime.now(timezone.utc).isoformat()
-        with open(args.output, "w", encoding="utf-8") as f:
-            f.write(DRY_RUN_TEMPLATE.format(timestamp=timestamp))
-        sys.exit(0)
+        print(f"ERROR: Failed to connect to PostgreSQL at {db_url}: {exc}", file=sys.stderr)
+        print("Live measurement aborted.", file=sys.stderr)
+        sys.exit(1)
 
     scales = [args.tickets] if args.tickets is not None else [50000, 200000, 400000]
     results = []
 
     print("================================================================================")
     print("OPSDESK POSTGRESQL 16 TRIAGE SCALABILITY BENCHMARK")
+    print(f"Status:     MEASURED")
     print(f"Target URL: {db_url.split('@')[-1] if '@' in db_url else db_url}")
+    print(f"Version:    {pg_version_res}")
     print(f"Scales:     {scales}")
     print("================================================================================")
 
     transcript_sections = []
     failed = False
+    start_ts = datetime.now(timezone.utc).isoformat()
 
     with engine.connect() as conn:
         for scale in scales:
@@ -205,10 +173,19 @@ def main():
             print(f"\n[SCALE {scale} rows] (Total in DB: {total_in_db}) -> Execution Time: {exec_time_ms:.3f} ms")
             print(plan)
 
-            results.append((scale, total_in_db, exec_time_ms))
+            has_seq_scan = "Seq Scan" in plan
+            has_sort = "Sort " in plan or "Sort Method:" in plan
+            if has_seq_scan:
+                print(f"WARNING: Plan contains Seq Scan at scale {scale}!")
+            if has_sort:
+                print(f"WARNING: Plan contains Sort at scale {scale}!")
+
+            results.append((scale, total_in_db, exec_time_ms, has_seq_scan, has_sort))
             transcript_sections.append(
                 f"--- Scale {scale:,} rows (Total DB: {total_in_db:,}) ---\n"
-                f"Execution Time: {exec_time_ms:.3f} ms\n\n"
+                f"Execution Time: {exec_time_ms:.3f} ms\n"
+                f"Seq Scan: {'FOUND (FAIL)' if has_seq_scan else 'NONE (PASS)'}\n"
+                f"Sort: {'FOUND (FAIL)' if has_sort else 'NONE (PASS)'}\n\n"
                 f"{plan}\n"
             )
 
@@ -216,25 +193,34 @@ def main():
                 print(f"FAILURE: Execution time {exec_time_ms:.2f} ms exceeded threshold {args.max_latency_ms} ms!")
                 failed = True
 
-    # Write transcript
+    end_ts = datetime.now(timezone.utc).isoformat()
+
+    # Write measured transcript
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
-    timestamp = datetime.now(timezone.utc).isoformat()
     with open(args.output, "w", encoding="utf-8") as f:
-        f.write(f"================================================================================\n")
-        f.write(f"OPSDESK POSTGRESQL 16 TRIAGE SCALABILITY BENCHMARK TRANSCRIPT\n")
-        f.write(f"Generated: {timestamp}\n")
-        f.write(f"================================================================================\n\n")
+        f.write("================================================================================\n")
+        f.write("OPSDESK POSTGRESQL 16 TRIAGE SCALABILITY BENCHMARK TRANSCRIPT\n")
+        f.write("Status: MEASURED\n")
+        f.write(f"Date: {start_ts}\n")
+        f.write(f"Machine: {platform.system()} {platform.release()} ({multiprocessing.cpu_count()} CPU cores)\n")
+        f.write(f"Command: {' '.join(sys.argv)}\n")
+        f.write(f"PostgreSQL Version: {pg_version_res}\n")
+        f.write(f"Start: {start_ts}\n")
+        f.write(f"End:   {end_ts}\n")
+        f.write("================================================================================\n\n")
         for sec in transcript_sections:
             f.write(sec + "\n")
         f.write("Summary Table:\n")
-        f.write("Rows Target | Total DB Rows | Execution Time (ms) | Target Met (< 50ms)\n")
-        f.write("------------|---------------|---------------------|--------------------\n")
-        for sc, tot, et in results:
+        f.write("Rows Target | Total DB Rows | Execution Time (ms) | Seq Scan | Sort | Target Met (< 50ms)\n")
+        f.write("------------|---------------|---------------------|----------|------|--------------------\n")
+        for sc, tot, et, ss, st in results:
             met = "YES" if et < 50.0 else "NO"
-            f.write(f"{sc:<11} | {tot:<13} | {et:<19.3f} | {met}\n")
+            ss_str = "YES" if ss else "NO"
+            st_str = "YES" if st else "NO"
+            f.write(f"{sc:<11} | {tot:<13} | {et:<19.3f} | {ss_str:<8} | {st_str:<4} | {met}\n")
         f.write("\n================================================================================\n")
 
-    print(f"\nTranscript written to {args.output}")
+    print(f"\nMeasured transcript written to {args.output}")
 
     if failed:
         sys.exit(1)
