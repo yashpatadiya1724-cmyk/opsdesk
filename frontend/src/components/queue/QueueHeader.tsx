@@ -46,18 +46,18 @@ export function QueueHeader({
             </span>
             {isLiveConnected ? (
               <span
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-caption font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-caption font-mono font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
                 title="Real-time SSE event stream active"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400 animate-pulse" />
                 Live
               </span>
             ) : (
               <span
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-caption font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-caption font-mono font-medium bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20"
                 title="Polling active as resilient fallback"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 dark:bg-amber-400" />
                 Polling
               </span>
             )}
