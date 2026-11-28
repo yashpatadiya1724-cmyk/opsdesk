@@ -257,6 +257,7 @@ def test_redis_limit_shared_across_4_workers(tmp_path):
             os.environ.pop("JWT_SECRET", None)
     auth_headers = {"Authorization": f"Bearer {token}"}
 
+    is_posix = sys.platform != "win32"
     proc = subprocess.Popen(
         [
             sys.executable,
@@ -274,7 +275,8 @@ def test_redis_limit_shared_across_4_workers(tmp_path):
         ],
         env=env,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
+        stderr=subprocess.DEVNULL,
+        start_new_session=is_posix
     )
 
     try:
@@ -300,11 +302,18 @@ def test_redis_limit_shared_across_4_workers(tmp_path):
         assert status_counts.get(200, 0) == 60, f"Expected 60 allowed requests, got {status_counts}"
         assert status_counts.get(429, 0) == 20, f"Expected 20 rate limited requests, got {status_counts}"
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=5.0)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        if is_posix:
+            import signal
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except Exception:
+                pass
+        else:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
 
 
 @pytest.mark.skipif(not is_redis_available(), reason="Redis server not configured via REDIS_URL or not reachable")

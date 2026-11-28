@@ -662,7 +662,7 @@ async def sse_event_stream(
                 if await request.is_disconnected():
                     break
                 try:
-                    event_data = await asyncio.wait_for(subscriber.queue.get(), timeout=15.0)
+                    event_data = await asyncio.wait_for(subscriber.queue.get(), timeout=1.0)
                     evt_type = event_data.get("event", "message")
                     payload_str = json.dumps(event_data)
                     yield f"event: {evt_type}\ndata: {payload_str}\n\n"
