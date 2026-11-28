@@ -93,6 +93,7 @@ class TicketCreateSchema(BaseModel):
 
 class TicketAssignSchema(BaseModel):
     agent_id: str = Field(..., min_length=1, max_length=100)
+    version: Optional[int] = Field(None, description="Expected ticket version for optimistic concurrency control")
 
 class TicketStatusUpdateSchema(BaseModel):
     status: VALID_TICKET_STATUSES

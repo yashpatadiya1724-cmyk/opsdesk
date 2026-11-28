@@ -194,6 +194,18 @@
             "minLength": 1,
             "title": "Agent Id",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Expected ticket version for optimistic concurrency control",
+            "title": "Version"
           }
         },
         "required": [
@@ -825,6 +837,99 @@
         "summary": "Login"
       }
     },
+    "/api/events/stream": {
+      "get": {
+        "description": "Server-Sent Events (SSE) real-time streaming endpoint for live ticket dispatch & operations.\nPushes ticket lifecycle events (created, assigned, status changed, escalated, messages)\nwith strict multi-tenant agency isolation.",
+        "operationId": "sse_event_stream_api_events_stream_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sse Event Stream"
+      }
+    },
     "/api/export/tickets.csv": {
       "get": {
         "description": "CSV data streaming export for ops beyond 3K-row UX barrier (MVP-6).\nRestricted strictly to Lead role. Memory-safe streaming via generator yield_per.\nApplies formula injection sanitization to protect operations spreadsheets.\nProtected by concurrency limiter (max CSV_EXPORT_MAX_CONCURRENCY, default 2).",
@@ -1316,7 +1421,7 @@
     },
     "/api/tickets/{ticket_id}": {
       "get": {
-        "description": "Retrieves full ticket detail.\n- If requester belongs to another agency -> 403 Forbidden.\n- If requester belongs to same agency -> InternalNotes and side_conversations are withheld.\n- Staff members receive complete operations view.",
+        "description": "Retrieves full ticket detail.\n- If requester belongs to another agency -> 404 Not Found (tenant isolation).\n- If requester belongs to same agency -> InternalNotes and side_conversations are withheld.\n- Staff members receive complete operations view.\n- Sets ETag header for optimistic concurrency control.",
         "operationId": "get_ticket_details_api_tickets__ticket_id__get",
         "parameters": [
           {
@@ -1400,6 +1505,22 @@
           },
           {
             "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
             "name": "Authorization",
             "required": false,
             "schema": {
@@ -1464,6 +1585,99 @@
         "summary": "Assign Ticket"
       }
     },
+    "/api/tickets/{ticket_id}/audit-trail": {
+      "get": {
+        "description": "Returns immutable audit trail history for a ticket.\nEnforces multi-tenant isolation:\n- Requesters can only access audit trails for tickets belonging to their agency (cross-agency -> 404).\n- Internal staff operational actions and details are sanitized for requesters.",
+        "operationId": "get_ticket_audit_trail_api_tickets__ticket_id__audit_trail_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "pattern": "^(asc|desc)$",
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Ticket Audit Trail"
+      }
+    },
     "/api/tickets/{ticket_id}/escalate": {
       "post": {
         "description": "Escalates an operations ticket:\n- Sets status to 'Escalated'\n- Reassigns ticket to configured Escalation Manager (DEFAULT_ESCALATION_MANAGER_ID)\n- Records reason in audit log.\n- Protected with optimistic version checking.",
@@ -1476,6 +1690,22 @@
             "schema": {
               "title": "Ticket Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
             }
           },
           {
@@ -1957,6 +2187,22 @@
           },
           {
             "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
             "name": "Authorization",
             "required": false,
             "schema": {
@@ -2033,6 +2279,22 @@
             "schema": {
               "title": "Ticket Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
             }
           },
           {
@@ -2117,6 +2379,22 @@
           },
           {
             "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
             "name": "Authorization",
             "required": false,
             "schema": {
@@ -2187,9 +2465,26 @@
         "summary": "Health Check"
       }
     },
+    "/metrics": {
+      "get": {
+        "description": "Exposes Prometheus-formatted operational telemetry metrics.\nScraped by Prometheus / Datadog / Grafana agent.",
+        "operationId": "prometheus_metrics_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Prometheus Metrics"
+      }
+    },
     "/ready": {
       "get": {
-        "description": "Readiness probe checking database connectivity via SELECT 1 and rate limiter.",
+        "description": "Deep readiness probe checking database connection, pool, rate limiter, and triage queue state.",
         "operationId": "readiness_check_ready_get",
         "responses": {
           "200": {

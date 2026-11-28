@@ -1,0 +1,261 @@
+import pytest
+import json
+import asyncio
+from fastapi import status
+from backend.app.events import get_broadcaster, Subscriber
+from backend.app.models import Ticket, User
+
+
+def test_sse_event_stream_greeting_and_disconnect(client):
+    """
+    Verifies that SSE endpoint /api/events/stream connects cleanly, sends initial
+    connected event with user role context, and closes without deadlock.
+    """
+    headers = {"X-User-Id": "USR-101"}
+    with client.stream("GET", "/api/events/stream", headers=headers) as response:
+        assert response.status_code == status.HTTP_200_OK
+        assert "text/event-stream" in response.headers["Content-Type"]
+
+        lines = []
+        for line in response.iter_lines():
+            if line:
+                lines.append(line)
+            if len(lines) >= 2:
+                break
+
+        assert "event: connected" in lines[0]
+        data = json.loads(lines[1].replace("data: ", ""))
+        assert data["status"] == "connected"
+        assert data["user_id"] == "USR-101"
+        assert data["role"] in ["Agent", "Lead", "EscalationManager"]
+
+
+def test_sse_event_stream_query_token_auth(client):
+    """
+    Verifies SSE endpoint accepts authentication via query parameter ?user_id=
+    which is essential for native browser EventSource connections.
+    """
+    with client.stream("GET", "/api/events/stream?user_id=USR-102") as response:
+        assert response.status_code == status.HTTP_200_OK
+        lines = []
+        for line in response.iter_lines():
+            if line:
+                lines.append(line)
+            if len(lines) >= 2:
+                break
+        assert "event: connected" in lines[0]
+        data = json.loads(lines[1].replace("data: ", ""))
+        assert data["user_id"] == "USR-102"
+
+
+def test_sse_realtime_broadcast_and_tenant_isolation(db_session):
+    """
+    Verifies EventBroadcaster pub-sub logic directly with async queues:
+    1. Staff subscriber receives public & internal events across agencies.
+    2. Requester subscriber for AGY-001 receives AGY-001 public events.
+    3. Requester subscriber NEVER receives internal events or other agencies' events.
+    """
+    async def _async_runner():
+        broadcaster = get_broadcaster()
+
+        # Subscriber 1: Staff Agent
+        sub_staff = await broadcaster.subscribe(user_id="USR-101", agency_id=None, role="Agent")
+        # Subscriber 2: Requester from AGY-001
+        sub_req1 = await broadcaster.subscribe(user_id="USR-201", agency_id="AGY-001", role="Requester")
+        # Subscriber 3: Requester from AGY-002
+        sub_req2 = await broadcaster.subscribe(user_id="USR-202", agency_id="AGY-002", role="Requester")
+
+        try:
+            # Event A: Public event for AGY-001 ticket
+            await broadcaster.broadcast(
+                event_type="ticket.created",
+                ticket_id="TCK-TEST-001",
+                agency_id="AGY-001",
+                visibility="public",
+                payload={"title": "Booking Amendment"}
+            )
+
+            # Event B: Internal event for AGY-001 ticket (e.g. internal note)
+            await broadcaster.broadcast(
+                event_type="message.created",
+                ticket_id="TCK-TEST-001",
+                agency_id="AGY-001",
+                visibility="internal",
+                payload={"note": "VIP supplier escalation required"}
+            )
+
+            # Event C: Public event for AGY-002 ticket
+            await broadcaster.broadcast(
+                event_type="ticket.status_changed",
+                ticket_id="TCK-TEST-002",
+                agency_id="AGY-002",
+                visibility="public",
+                payload={"status": "Resolved"}
+            )
+
+            # Staff should receive all 3 events
+            assert sub_staff.queue.qsize() == 3
+            evt1 = await sub_staff.queue.get()
+            assert evt1["event"] == "ticket.created"
+            evt2 = await sub_staff.queue.get()
+            assert evt2["visibility"] == "internal"
+            evt3 = await sub_staff.queue.get()
+            assert evt3["ticket_id"] == "TCK-TEST-002"
+
+            # Requester 1 (AGY-001) should ONLY receive Event A
+            assert sub_req1.queue.qsize() == 1
+            req1_evt = await sub_req1.queue.get()
+            assert req1_evt["event"] == "ticket.created"
+            assert req1_evt["agency_id"] == "AGY-001"
+
+            # Requester 2 (AGY-002) should ONLY receive Event C
+            assert sub_req2.queue.qsize() == 1
+            req2_evt = await sub_req2.queue.get()
+            assert req2_evt["event"] == "ticket.status_changed"
+            assert req2_evt["agency_id"] == "AGY-002"
+
+        finally:
+            await broadcaster.unsubscribe(sub_staff)
+            await broadcaster.unsubscribe(sub_req1)
+            await broadcaster.unsubscribe(sub_req2)
+
+    asyncio.run(_async_runner())
+
+
+def test_audit_trail_endpoint_and_sanitization(client, db_session):
+    """
+    Verifies /api/tickets/{ticket_id}/audit-trail:
+    - Returns chronological history with parsed details.
+    - Staff receives full audit details.
+    - Requester receives sanitized view (internal notes/reasons omitted).
+    - Cross-agency access returns 404 Not Found.
+    """
+    # 1. Grab an existing ticket from AGY-001
+    ticket = db_session.query(Ticket).filter(Ticket.agency_id == "AGY-001").first()
+    assert ticket is not None
+
+    # Perform a mutation to ensure an audit log entry exists
+    assign_res = client.post(
+        f"/api/tickets/{ticket.id}/assign",
+        json={"agent_id": "USR-101"},
+        headers={"X-User-Id": "USR-103"}  # Lead assigns
+    )
+    assert assign_res.status_code == status.HTTP_200_OK
+
+    # 2. Staff queries audit trail
+    res_staff = client.get(
+        f"/api/tickets/{ticket.id}/audit-trail?order=desc",
+        headers={"X-User-Id": "USR-101"}
+    )
+    assert res_staff.status_code == status.HTTP_200_OK
+    audit_list = res_staff.json()
+    assert isinstance(audit_list, list)
+    assert len(audit_list) >= 1
+    latest = audit_list[0]
+    assert "ticket_id" in latest
+    assert latest["ticket_id"] == ticket.id
+    assert "action" in latest
+    assert "details" in latest
+    assert isinstance(latest["details"], dict)
+
+    # 3. Requester from same agency queries audit trail
+    res_req = client.get(
+        f"/api/tickets/{ticket.id}/audit-trail?order=asc",
+        headers={"X-User-Id": "USR-201"}  # Requester AGY-001
+    )
+    assert res_req.status_code == status.HTTP_200_OK
+    req_audit = res_req.json()
+    # Ensure internal notes or routing reasons are not leaked
+    for item in req_audit:
+        assert item["action"] != "internal_note_added"
+        if isinstance(item.get("details"), dict):
+            assert "routing_reason" not in item["details"]
+
+    # 4. Requester from different agency queries audit trail -> 404 Tenant Isolation
+    res_cross = client.get(
+        f"/api/tickets/{ticket.id}/audit-trail",
+        headers={"X-User-Id": "USR-202"}  # Requester AGY-002
+    )
+    assert res_cross.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_prometheus_metrics_endpoint(client):
+    """
+    Verifies /metrics returns Prometheus text exposition format with operational metrics.
+    """
+    res = client.get("/metrics")
+    assert res.status_code == status.HTTP_200_OK
+    assert "text/plain" in res.headers["Content-Type"]
+    body = res.text
+
+    assert "# HELP opsdesk_tickets_total" in body
+    assert "# TYPE opsdesk_tickets_total gauge" in body
+    assert "opsdesk_triage_unassigned_total" in body
+    assert "opsdesk_sse_subscribers_active" in body
+    assert "opsdesk_db_pool_size" in body
+    assert "opsdesk_uptime_seconds" in body
+
+
+def test_deep_readiness_probe(client):
+    """
+    Verifies /ready returns structured JSON with DB status, pool stats, queue metrics, and uptime.
+    """
+    res = client.get("/ready")
+    assert res.status_code == status.HTTP_200_OK
+    data = res.json()
+    assert data["status"] == "ready"
+    assert data["database"] == "connected"
+    assert "database_pool" in data
+    assert "triage_queue" in data
+    assert "unassigned_active" in data["triage_queue"]
+    assert "uptime_seconds" in data
+    assert data["uptime_seconds"] >= 0
+
+
+def test_optimistic_concurrency_control_etag_and_if_match(client, db_session):
+    """
+    Verifies RFC-compliant ETag & If-Match optimistic concurrency control:
+    1. GET /api/tickets/{id} provides ETag header matching ticket.version.
+    2. Mutation with matching If-Match header succeeds and increments version.
+    3. Mutation with stale If-Match header returns HTTP 409 Conflict.
+    4. Mutation with stale payload.version returns HTTP 409 Conflict.
+    """
+    ticket = db_session.query(Ticket).filter(Ticket.status.in_(["New", "Open"])).first()
+    assert ticket is not None
+
+    # 1. GET ticket details and check ETag header
+    get_res = client.get(f"/api/tickets/{ticket.id}", headers={"X-User-Id": "USR-101"})
+    assert get_res.status_code == status.HTTP_200_OK
+    etag = get_res.headers.get("ETag")
+    assert etag is not None
+    assert f'W/"{ticket.version}"' == etag or f'"{ticket.version}"' == etag
+
+    initial_version = ticket.version
+
+    # 2. Mutate with matching If-Match header
+    status_res = client.post(
+        f"/api/tickets/{ticket.id}/status",
+        json={"status": "Pending"},
+        headers={"X-User-Id": "USR-101", "If-Match": etag}
+    )
+    assert status_res.status_code == status.HTTP_200_OK
+    new_version = status_res.json()["version"]
+    assert new_version == initial_version + 1
+
+    # 3. Attempt mutation with STALE If-Match header -> 409 Conflict
+    stale_res = client.post(
+        f"/api/tickets/{ticket.id}/status",
+        json={"status": "Open"},
+        headers={"X-User-Id": "USR-101", "If-Match": etag}  # Stale initial_version
+    )
+    assert stale_res.status_code == status.HTTP_409_CONFLICT
+    assert "Stale write" in stale_res.json()["detail"]
+
+    # 4. Attempt assign with stale version in payload -> 409 Conflict
+    stale_assign = client.post(
+        f"/api/tickets/{ticket.id}/assign",
+        json={"agent_id": "USR-102", "version": initial_version},
+        headers={"X-User-Id": "USR-101"}
+    )
+    assert stale_assign.status_code == status.HTTP_409_CONFLICT
+    assert "Stale write" in stale_assign.json()["detail"]

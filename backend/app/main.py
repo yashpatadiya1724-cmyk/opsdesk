@@ -29,7 +29,7 @@ from backend.app.auth import (
     DEFAULT_JWT_SECRET, DEFAULT_JWT_ALGORITHM, ALLOWED_JWT_ALGORITHMS,
     is_production, get_bcrypt_rounds
 )
-from backend.app.events import emit_outbox_event, record_audit_log
+from backend.app.events import emit_outbox_event, record_audit_log, get_broadcaster
 from backend.config.routing_config import (
     DEFAULT_ESCALATION_MANAGER_ID,
     REGION_MAPPING,
@@ -58,6 +58,8 @@ from backend.app.rate_limiter import (
 
 logger = logging.getLogger("opsdesk.access")
 logging.basicConfig(level=logging.INFO)
+
+_START_TIME = time.time()
 
 app = FastAPI(
     title="OpsDesk: B2B Travel Operations Case Management API",
@@ -407,20 +409,100 @@ def health_check():
 
 @app.get("/ready")
 def readiness_check(db: Session = Depends(get_db)):
-    """Readiness probe checking database connectivity via SELECT 1 and rate limiter."""
+    """Deep readiness probe checking database connection, pool, rate limiter, and triage queue state."""
     try:
         db.execute(text("SELECT 1"))
         limiter_status = getattr(_rate_limiter, "status", "fallback")
+        dialect_name = db.bind.dialect.name if db.bind else "unknown"
+
+        pool = getattr(db.bind, "pool", None)
+        pool_info = {
+            "size": pool.size() if pool and hasattr(pool, "size") else 0,
+            "checked_out": pool.checkedout() if pool and hasattr(pool, "checkedout") else 0,
+            "overflow": pool.overflow() if pool and hasattr(pool, "overflow") else 0
+        }
+
+        unassigned_count = (
+            db.query(func.count(Ticket.id))
+            .filter(Ticket.assigned_to.is_(None), Ticket.status.in_(["New", "Open", "Pending"]))
+            .scalar() or 0
+        )
+
         return {
             "status": "ready",
             "database": "connected",
-            "rate_limiter": limiter_status
+            "database_dialect": dialect_name,
+            "database_pool": pool_info,
+            "rate_limiter": limiter_status,
+            "active_subscribers": get_broadcaster().active_subscribers_count,
+            "triage_queue": {
+                "unassigned_active": unassigned_count
+            },
+            "uptime_seconds": round(time.time() - _START_TIME, 2)
         }
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Service unavailable: Database probe failed ({str(exc)})"
         )
+
+
+@app.get("/metrics")
+def prometheus_metrics(db: Session = Depends(get_db)):
+    """
+    Exposes Prometheus-formatted operational telemetry metrics.
+    Scraped by Prometheus / Datadog / Grafana agent.
+    """
+    status_counts = (
+        db.query(Ticket.status, Ticket.agency_id, func.count(Ticket.id))
+        .group_by(Ticket.status, Ticket.agency_id)
+        .all()
+    )
+
+    unassigned_count = (
+        db.query(func.count(Ticket.id))
+        .filter(Ticket.assigned_to.is_(None), Ticket.status.in_(["New", "Open", "Pending", "Escalated"]))
+        .scalar() or 0
+    )
+
+    subscribers_count = get_broadcaster().active_subscribers_count
+    pool = getattr(db.bind, "pool", None)
+    pool_size = pool.size() if pool and hasattr(pool, "size") else 0
+    pool_checked_out = pool.checkedout() if pool and hasattr(pool, "checkedout") else 0
+    pool_overflow = pool.overflow() if pool and hasattr(pool, "overflow") else 0
+
+    lines = [
+        "# HELP opsdesk_tickets_total Gauge of tickets by status and agency",
+        "# TYPE opsdesk_tickets_total gauge"
+    ]
+    for st, ag, cnt in status_counts:
+        lines.append(f'opsdesk_tickets_total{{status="{st}",agency="{ag}"}} {cnt}')
+
+    lines.extend([
+        "# HELP opsdesk_triage_unassigned_total Gauge of unassigned active tickets in triage queue",
+        "# TYPE opsdesk_triage_unassigned_total gauge",
+        f"opsdesk_triage_unassigned_total {unassigned_count}",
+        "# HELP opsdesk_sse_subscribers_active Active real-time SSE listener connections",
+        "# TYPE opsdesk_sse_subscribers_active gauge",
+        f"opsdesk_sse_subscribers_active {subscribers_count}",
+        "# HELP opsdesk_db_pool_size Configured database connection pool size",
+        "# TYPE opsdesk_db_pool_size gauge",
+        f"opsdesk_db_pool_size {pool_size}",
+        "# HELP opsdesk_db_pool_checked_out Currently checked-out connections from pool",
+        "# TYPE opsdesk_db_pool_checked_out gauge",
+        f"opsdesk_db_pool_checked_out {pool_checked_out}",
+        "# HELP opsdesk_db_pool_overflow Currently overflowing connections",
+        "# TYPE opsdesk_db_pool_overflow gauge",
+        f"opsdesk_db_pool_overflow {pool_overflow}",
+        "# HELP opsdesk_uptime_seconds Seconds since backend server process start",
+        "# TYPE opsdesk_uptime_seconds counter",
+        f"opsdesk_uptime_seconds {round(time.time() - _START_TIME, 2)}"
+    ])
+
+    return Response(
+        content="\n".join(lines) + "\n",
+        media_type="text/plain; version=0.0.4; charset=utf-8"
+    )
 
 
 RATE_LIMIT_AI_SUGGEST_USER_PER_MINUTE = int(os.environ.get("RATE_LIMIT_AI_SUGGEST_USER_PER_MINUTE", "20"))
@@ -533,6 +615,69 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
         "token_type": "bearer",
         "expires_in": expires_in_seconds
     }
+
+
+def _resolve_sse_user(
+    token: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    db: Session = Depends(get_db)
+) -> User:
+    auth_header = authorization or (f"Bearer {token}" if token else None)
+    demo_user = x_user_id or user_id
+    return get_current_user(authorization=auth_header, x_user_id=demo_user, db=db)
+
+
+@app.get("/api/events/stream")
+async def sse_event_stream(
+    request: Request,
+    current_user: User = Depends(_resolve_sse_user)
+):
+    """
+    Server-Sent Events (SSE) real-time streaming endpoint for live ticket dispatch & operations.
+    Pushes ticket lifecycle events (created, assigned, status changed, escalated, messages)
+    with strict multi-tenant agency isolation.
+    """
+    broadcaster = get_broadcaster()
+    subscriber = await broadcaster.subscribe(
+        user_id=current_user.id,
+        agency_id=current_user.agency_id,
+        role=current_user.role
+    )
+
+    async def event_generator():
+        try:
+            init_data = json.dumps({
+                "status": "connected",
+                "user_id": current_user.id,
+                "role": current_user.role,
+                "agency_id": current_user.agency_id
+            })
+            yield f"event: connected\ndata: {init_data}\n\n"
+
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event_data = await asyncio.wait_for(subscriber.queue.get(), timeout=15.0)
+                    evt_type = event_data.get("event", "message")
+                    payload_str = json.dumps(event_data)
+                    yield f"event: {evt_type}\ndata: {payload_str}\n\n"
+                except asyncio.TimeoutError:
+                    if await request.is_disconnected():
+                        break
+                    yield ": keepalive\n\n"
+        finally:
+            await broadcaster.unsubscribe(subscriber)
+
+    headers = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=headers)
 
 
 # ============================================================================
@@ -957,14 +1102,16 @@ def create_ticket(
 @app.get("/api/tickets/{ticket_id}")
 def get_ticket_details(
     ticket_id: str,
+    response: Response = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Retrieves full ticket detail.
-    - If requester belongs to another agency -> 403 Forbidden.
+    - If requester belongs to another agency -> 404 Not Found (tenant isolation).
     - If requester belongs to same agency -> InternalNotes and side_conversations are withheld.
     - Staff members receive complete operations view.
+    - Sets ETag header for optimistic concurrency control.
     """
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
@@ -973,6 +1120,9 @@ def get_ticket_details(
     # Access control
     if current_user.role == "Requester" and ticket.agency_id != current_user.agency_id:
         raise HTTPException(status_code=404, detail="Ticket not found")
+
+    if response is not None:
+        response.headers["ETag"] = f'W/"{ticket.version}"'
 
     # Format messages
     messages = []
@@ -1066,6 +1216,60 @@ def get_ticket_details(
     }
 
 
+@app.get("/api/tickets/{ticket_id}/audit-trail")
+def get_ticket_audit_trail(
+    ticket_id: str,
+    limit: int = Query(50, ge=1, le=500),
+    order: str = Query("desc", pattern="^(asc|desc)$"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns immutable audit trail history for a ticket.
+    Enforces multi-tenant isolation:
+    - Requesters can only access audit trails for tickets belonging to their agency (cross-agency -> 404).
+    - Internal staff operational actions and details are sanitized for requesters.
+    """
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    if current_user.role == "Requester" and ticket.agency_id != current_user.agency_id:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    query = db.query(AuditLog).filter(AuditLog.ticket_id == ticket_id)
+    if order == "asc":
+        query = query.order_by(AuditLog.created_at.asc(), AuditLog.id.asc())
+    else:
+        query = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+
+    records = query.limit(limit).all()
+    results = []
+    for r in records:
+        try:
+            details_obj = json.loads(r.details) if r.details else {}
+        except Exception:
+            details_obj = {"raw": r.details}
+
+        if current_user.role == "Requester":
+            if r.action in ("internal_note_added", "bypass_escalated", "transfer"):
+                continue
+            if isinstance(details_obj, dict):
+                details_obj.pop("routing_reason", None)
+                details_obj.pop("internal", None)
+
+        results.append({
+            "id": r.id,
+            "ticket_id": r.ticket_id,
+            "actor_id": r.actor_id,
+            "action": r.action,
+            "details": details_obj,
+            "created_at": r.created_at.isoformat() if r.created_at else None
+        })
+
+    return results
+
+
 # ============================================================================
 # 3. TICKET ACTIONS (ASSIGN, STATUS, ESCALATE, TRANSFER)
 # ============================================================================
@@ -1074,6 +1278,7 @@ def get_ticket_details(
 def assign_ticket(
     ticket_id: str,
     payload: TicketAssignSchema,
+    if_match: Optional[str] = Header(None, alias="If-Match"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1088,6 +1293,19 @@ def assign_ticket(
     target_agent = db.query(User).filter(User.id == payload.agent_id).first()
     if not target_agent or target_agent.role not in ["Agent", "Lead", "EscalationManager"]:
         raise HTTPException(status_code=400, detail="Target agent must be internal staff")
+
+    req_version = payload.version
+    if req_version is None and if_match is not None:
+        try:
+            req_version = int(if_match.strip().lstrip("W/").strip('"'))
+        except ValueError:
+            pass
+
+    if req_version is not None and ticket.version != req_version:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Conflict: Stale write. Ticket is at version {ticket.version}, expected {req_version}."
+        )
 
     old_agent = ticket.assigned_to
     current_version = ticket.version
@@ -1150,6 +1368,7 @@ def assign_ticket(
 @app.post("/api/tickets/{ticket_id}/unassign")
 def unassign_ticket(
     ticket_id: str,
+    if_match: Optional[str] = Header(None, alias="If-Match"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1160,6 +1379,17 @@ def unassign_ticket(
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
+
+    if if_match is not None:
+        try:
+            req_version = int(if_match.strip().lstrip("W/").strip('"'))
+            if ticket.version != req_version:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Conflict: Stale write. Ticket is at version {ticket.version}, expected {req_version}."
+                )
+        except ValueError:
+            pass
 
     old_agent = ticket.assigned_to
     current_version = ticket.version
@@ -1218,6 +1448,7 @@ def unassign_ticket(
 def update_ticket_status(
     ticket_id: str,
     payload: TicketStatusUpdateSchema,
+    if_match: Optional[str] = Header(None, alias="If-Match"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1236,10 +1467,17 @@ def update_ticket_status(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    if payload.version is not None and ticket.version != payload.version:
+    req_version = payload.version
+    if req_version is None and if_match is not None:
+        try:
+            req_version = int(if_match.strip().lstrip("W/").strip('"'))
+        except ValueError:
+            pass
+
+    if req_version is not None and ticket.version != req_version:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Conflict: Stale write. Ticket is at version {ticket.version}, expected {payload.version}."
+            detail=f"Conflict: Stale write. Ticket is at version {ticket.version}, expected {req_version}."
         )
 
     allowed = ALLOWED_STATUS_TRANSITIONS.get(ticket.status, [])
@@ -1318,6 +1556,7 @@ def update_ticket_status(
 def escalate_ticket(
     ticket_id: str,
     payload: TicketEscalateSchema,
+    if_match: Optional[str] = Header(None, alias="If-Match"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1335,10 +1574,17 @@ def escalate_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    if payload.version is not None and ticket.version != payload.version:
+    req_version = payload.version
+    if req_version is None and if_match is not None:
+        try:
+            req_version = int(if_match.strip().lstrip("W/").strip('"'))
+        except ValueError:
+            pass
+
+    if req_version is not None and ticket.version != req_version:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Conflict: Stale write. Ticket is at version {ticket.version}, expected {payload.version}."
+            detail=f"Conflict: Stale write. Ticket is at version {ticket.version}, expected {req_version}."
         )
 
     allowed = ALLOWED_STATUS_TRANSITIONS.get(ticket.status, [])
@@ -1423,6 +1669,7 @@ def escalate_ticket(
 def transfer_ticket(
     ticket_id: str,
     payload: TicketTransferSchema,
+    if_match: Optional[str] = Header(None, alias="If-Match"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1444,14 +1691,21 @@ def transfer_ticket(
     if not target_agent or target_agent.role not in ["Agent", "Lead", "EscalationManager"]:
         raise HTTPException(status_code=400, detail="Target agent must be internal staff")
 
-    old_agent = ticket.assigned_to
-    current_version = ticket.version
+    req_version = payload.version
+    if req_version is None and if_match is not None:
+        try:
+            req_version = int(if_match.strip().lstrip("W/").strip('"'))
+        except ValueError:
+            pass
 
-    if payload.version is not None and ticket.version != payload.version:
+    if req_version is not None and ticket.version != req_version:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Conflict: Stale write. Ticket is at version {ticket.version}, expected {payload.version}."
+            detail=f"Conflict: Stale write. Ticket is at version {ticket.version}, expected {req_version}."
         )
+
+    old_agent = ticket.assigned_to
+    current_version = ticket.version
 
     routing_reason = f"Transferred from {old_agent} to {payload.target_agent_id}"
     now = datetime.now(timezone.utc)
