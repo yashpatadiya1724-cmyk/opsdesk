@@ -3,7 +3,7 @@ import json
 import asyncio
 from fastapi import status
 from backend.app.events import get_broadcaster, Subscriber
-from backend.app.models import Ticket, User
+from backend.app.models import Ticket, User, EventOutbox, AuditLog
 
 
 def test_sse_event_stream_greeting_and_disconnect(client):
@@ -332,4 +332,147 @@ def test_bulk_status_update_with_partial_success(client, db_session):
     assert data["total_failed"] == 1
     assert ticket1.id in data["succeeded_ticket_ids"]
     assert any(f["ticket_id"] == ticket2.id for f in data["failed_details"])
+
+
+def test_dead_letter_queue_rbac_and_listing(client, db_session):
+    """
+    Verifies GET /api/admin/outbox/dead-letter:
+    - Agents (USR-101), EscalationManagers (USR-103), and Requesters (USR-201) are forbidden (HTTP 403).
+    - Leads (USR-104) can list dead-lettered events.
+    """
+    # Seed a dead-letter event
+    ticket = db_session.query(Ticket).first()
+    dlq_event = EventOutbox(
+        id="EVT-TEST-DLQ-1",
+        event_type="ticket_assigned",
+        ticket_id=ticket.id,
+        agency_id=ticket.agency_id,
+        visibility="internal",
+        payload_json=json.dumps({"ticket_id": ticket.id, "reason": "webhook failed"}),
+        status="dead_letter",
+        retry_count=5,
+        last_error="Connection refused by downstream webhook receiver after 5 retries"
+    )
+    db_session.add(dlq_event)
+    db_session.commit()
+
+    # Agent -> 403
+    agent_res = client.get("/api/admin/outbox/dead-letter", headers={"X-User-Id": "USR-101"})
+    assert agent_res.status_code == status.HTTP_403_FORBIDDEN
+
+    # EscalationManager -> 403
+    esc_res = client.get("/api/admin/outbox/dead-letter", headers={"X-User-Id": "USR-103"})
+    assert esc_res.status_code == status.HTTP_403_FORBIDDEN
+
+    # Requester -> 403
+    req_res = client.get("/api/admin/outbox/dead-letter", headers={"X-User-Id": "USR-201"})
+    assert req_res.status_code == status.HTTP_403_FORBIDDEN
+
+    # Lead -> 200
+    lead_res = client.get("/api/admin/outbox/dead-letter", headers={"X-User-Id": "USR-104"})
+    assert lead_res.status_code == status.HTTP_200_OK
+    data = lead_res.json()
+    assert data["total"] >= 1
+    matched = [e for e in data["events"] if e["id"] == "EVT-TEST-DLQ-1"]
+    assert len(matched) == 1
+    assert matched[0]["status"] == "dead_letter"
+    assert matched[0]["retry_count"] == 5
+    assert "Connection refused" in matched[0]["last_error"]
+    assert matched[0]["payload"]["ticket_id"] == ticket.id
+
+
+def test_dead_letter_retry_single_event(client, db_session):
+    """
+    Verifies POST /api/admin/outbox/retry/{event_id}:
+    - Only Leads (USR-104) can retry an event (403 for Agent/EscalationManager/Requester).
+    - 404 for non-existent event.
+    - Successfully re-queues event to 'pending' and clears retry count / last_error.
+    """
+    ticket = db_session.query(Ticket).first()
+    dlq_event = EventOutbox(
+        id="EVT-TEST-DLQ-RETRY-1",
+        event_type="ticket_status_updated",
+        ticket_id=ticket.id,
+        agency_id=ticket.agency_id,
+        visibility="public",
+        payload_json=json.dumps({"ticket_id": ticket.id}),
+        status="dead_letter",
+        retry_count=5,
+        last_error="HTTP 502 Bad Gateway"
+    )
+    db_session.add(dlq_event)
+    db_session.commit()
+
+    # Non-lead attempt -> 403
+    res_403 = client.post("/api/admin/outbox/retry/EVT-TEST-DLQ-RETRY-1", headers={"X-User-Id": "USR-101"})
+    assert res_403.status_code == status.HTTP_403_FORBIDDEN
+
+    # Non-existent event -> 404
+    res_404 = client.post("/api/admin/outbox/retry/EVT-NON-EXISTENT", headers={"X-User-Id": "USR-104"})
+    assert res_404.status_code == status.HTTP_404_NOT_FOUND
+
+    # Lead retry -> 200 OK
+    res_200 = client.post("/api/admin/outbox/retry/EVT-TEST-DLQ-RETRY-1", headers={"X-User-Id": "USR-104"})
+    assert res_200.status_code == status.HTTP_200_OK
+    res_data = res_200.json()
+    assert res_data["id"] == "EVT-TEST-DLQ-RETRY-1"
+    assert res_data["status"] == "pending"
+    assert res_data["retry_count"] == 0
+
+    # Verify DB update
+    db_session.expire_all()
+    ev = db_session.query(EventOutbox).filter(EventOutbox.id == "EVT-TEST-DLQ-RETRY-1").first()
+    assert ev.status == "pending"
+    assert ev.retry_count == 0
+    assert ev.last_error is None
+
+
+def test_dead_letter_retry_all(client, db_session):
+    """
+    Verifies POST /api/admin/outbox/retry-all:
+    - Lead (USR-104) can bulk re-queue all dead-lettered events.
+    - Verifies count of affected events returned and updated in database.
+    """
+    ticket = db_session.query(Ticket).first()
+    e1 = EventOutbox(
+        id="EVT-TEST-BULK-DLQ-1",
+        event_type="ticket_created",
+        ticket_id=ticket.id,
+        agency_id=ticket.agency_id,
+        visibility="public",
+        payload_json="{}",
+        status="dead_letter",
+        retry_count=3,
+        last_error="Timeout"
+    )
+    e2 = EventOutbox(
+        id="EVT-TEST-BULK-DLQ-2",
+        event_type="ticket_created",
+        ticket_id=ticket.id,
+        agency_id=ticket.agency_id,
+        visibility="public",
+        payload_json="{}",
+        status="dead_letter",
+        retry_count=4,
+        last_error="Connection reset"
+    )
+    db_session.add_all([e1, e2])
+    db_session.commit()
+
+    # Agent -> 403
+    res_agent = client.post("/api/admin/outbox/retry-all", headers={"X-User-Id": "USR-101"})
+    assert res_agent.status_code == status.HTTP_403_FORBIDDEN
+
+    # Lead -> 200 OK
+    res = client.post("/api/admin/outbox/retry-all", headers={"X-User-Id": "USR-104"})
+    assert res.status_code == status.HTTP_200_OK
+    data = res.json()
+    assert data["retried_count"] >= 2
+
+    db_session.expire_all()
+    reloaded_e1 = db_session.query(EventOutbox).filter(EventOutbox.id == "EVT-TEST-BULK-DLQ-1").first()
+    reloaded_e2 = db_session.query(EventOutbox).filter(EventOutbox.id == "EVT-TEST-BULK-DLQ-2").first()
+    assert reloaded_e1.status == "pending"
+    assert reloaded_e2.status == "pending"
+
 

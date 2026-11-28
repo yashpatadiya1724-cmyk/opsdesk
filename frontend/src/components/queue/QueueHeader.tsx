@@ -10,6 +10,7 @@ export interface QueueHeaderProps {
   firstTicketId?: string | null;
   isStaff: boolean;
   isExporting: boolean;
+  isLiveConnected?: boolean;
   onExport: () => void;
   onCreateOpen: () => void;
 }
@@ -19,6 +20,7 @@ export function QueueHeader({
   firstTicketId,
   isStaff,
   isExporting,
+  isLiveConnected = false,
   onExport,
   onCreateOpen,
 }: QueueHeaderProps) {
@@ -38,9 +40,28 @@ export function QueueHeader({
         primaryTitle="Operations"
         emphasisWord="Queue"
         badge={
-          <span className="font-mono-numbers text-caption px-2.5 py-0.5 rounded-full bg-surface-subtle border border-border text-content-secondary font-medium shrink-0">
-            {totalCount.toLocaleString()} cases
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono-numbers text-caption px-2.5 py-0.5 rounded-full bg-surface-subtle border border-border text-content-secondary font-medium shrink-0">
+              {totalCount.toLocaleString()} cases
+            </span>
+            {isLiveConnected ? (
+              <span
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-caption font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                title="Real-time SSE event stream active"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-caption font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                title="Polling active as resilient fallback"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                Polling
+              </span>
+            )}
+          </div>
         }
         subtitle="Real-time travel dispatching with LCD-aware SLA countdowns and tenant isolation."
       />

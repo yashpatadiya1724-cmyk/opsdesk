@@ -53,6 +53,7 @@ export default function QueuePage() {
   // Export & Modal state
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
+  const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
 
   // Debounce search input
   useEffect(() => {
@@ -233,6 +234,14 @@ export default function QueuePage() {
       : `?user_id=${encodeURIComponent(currentUser.id)}`;
     const eventSource = new EventSource(`/api/events/stream${query}`);
 
+    eventSource.onopen = () => {
+      setIsLiveConnected(true);
+    };
+
+    eventSource.onerror = () => {
+      setIsLiveConnected(false);
+    };
+
     const handleMutationEvent = () => {
       // Instant live refresh on real-time ticket mutations
       loadData(true);
@@ -364,6 +373,7 @@ export default function QueuePage() {
         firstTicketId={firstTicketId}
         isStaff={isStaff}
         isExporting={isExporting}
+        isLiveConnected={isLiveConnected}
         onExport={handleExportCsv}
         onCreateOpen={() => setIsCreateOpen(true)}
       />

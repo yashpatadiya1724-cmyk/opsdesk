@@ -18,6 +18,7 @@ import {
   Shuffle,
   ShieldAlert,
   ChevronDown,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ export interface TicketHeaderProps {
   onStatusChange: (status: string) => Promise<void>;
   onOpenEscalate: () => void;
   onOpenTransfer: () => void;
+  onOpenAudit?: () => void;
   escalatedSuccess?: boolean;
 }
 
@@ -44,6 +46,7 @@ export function TicketHeader({
   onStatusChange,
   onOpenEscalate,
   onOpenTransfer,
+  onOpenAudit,
   escalatedSuccess = false,
 }: TicketHeaderProps) {
   // Compute valid next states based on status state-machine
@@ -313,6 +316,19 @@ export function TicketHeader({
                   onClick={onOpenTransfer}
                 >
                   Transfer
+                </Button>
+              )}
+
+              {/* 6. AUDIT TRAIL */}
+              {onOpenAudit && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<History className="w-3.5 h-3.5 text-content-secondary" />}
+                  onClick={onOpenAudit}
+                  title="View complete case audit trail"
+                >
+                  Audit Log
                 </Button>
               )}
             </div>

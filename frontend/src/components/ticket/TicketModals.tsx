@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Modal, Button, Input, Textarea, Select } from "@/components/ui";
 import { DEMO_USERS } from "@/lib/types";
-import { ShieldAlert, Users, Bug, Mail } from "lucide-react";
+import { ShieldAlert, Users, Bug, Mail, History, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { fetchAuditTrail, AuditLogEntry } from "@/lib/api";
 
 export interface EscalateModalProps {
   isOpen: boolean;
@@ -339,3 +341,123 @@ export function SupplierThreadModal({
     </Modal>
   );
 }
+
+export interface AuditTrailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  ticketId: string;
+}
+
+export function AuditTrailModal({
+  isOpen,
+  onClose,
+  ticketId,
+}: AuditTrailModalProps) {
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadAuditLogs = useCallback(async () => {
+    if (!ticketId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchAuditTrail(ticketId, "desc");
+      setLogs(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load audit history");
+    } finally {
+      setLoading(false);
+    }
+  }, [ticketId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadAuditLogs();
+    }
+  }, [isOpen, loadAuditLogs]);
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        <div className="flex items-center gap-2 text-content-primary">
+          <History className="w-5 h-5 text-brand-600 dark:text-brand-orange" />
+          <span>Case Audit Trail · {ticketId}</span>
+        </div>
+      }
+      subtitle="Complete chronological audit history of automated state transitions, routing modifications, and staff actions."
+      maxWidth="lg"
+    >
+      <div className="space-y-4 pt-2">
+        <div className="flex items-center justify-between pb-2 border-b border-border text-caption text-content-secondary">
+          <span>{logs.length} audit {logs.length === 1 ? "record" : "records"} recorded</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={loadAuditLogs}
+            disabled={loading}
+            icon={<RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />}
+          >
+            Refresh
+          </Button>
+        </div>
+
+        {error && (
+          <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-input text-caption text-red-700 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="py-12 flex flex-col items-center justify-center gap-2 text-content-tertiary">
+            <RefreshCw className="w-6 h-6 animate-spin text-brand-600" />
+            <span className="text-caption">Retrieving enterprise audit trail...</span>
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="py-12 text-center text-caption text-content-tertiary italic">
+            No audit records recorded yet for this case.
+          </div>
+        ) : (
+          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+            {logs.map((log) => {
+              const dateStr = new Date(log.created_at).toLocaleString();
+              return (
+                <div
+                  key={log.id}
+                  className="p-3 bg-surface-subtle border border-border rounded-input text-caption space-y-1.5 transition-subtle hover:border-border-strong"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono-numbers text-xs font-semibold px-2 py-0.5 rounded bg-surface border border-border text-content-primary">
+                      {log.action}
+                    </span>
+                    <span className="text-[11px] text-content-tertiary font-mono-numbers">
+                      {dateStr}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-content-secondary text-xs">
+                    <span className="font-medium text-content-primary">Actor: {log.actor_id}</span>
+                  </div>
+                  {log.details && Object.keys(log.details).length > 0 && (
+                    <div className="mt-1 pt-1 border-t border-border/50 text-[11px] font-mono text-content-secondary bg-surface p-2 rounded overflow-x-auto">
+                      {JSON.stringify(log.details, null, 2)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex items-center justify-end pt-3 border-t border-border">
+          <Button type="button" variant="secondary" size="md" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+

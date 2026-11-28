@@ -23,7 +23,8 @@ from backend.app.schemas import (
     SideThreadCreateSchema, SideThreadMessageCreateSchema,
     IntentSuggestRequestSchema, IntentSuggestResponseSchema, to_utc_aware,
     LoginRequest, LoginResponse, AgencyTierUpdateSchema,
-    BulkAssignRequestSchema, BulkStatusUpdateSchema
+    BulkAssignRequestSchema, BulkStatusUpdateSchema,
+    DeadLetterEventSchema, DeadLetterListResponseSchema, DeadLetterRetryResponseSchema
 )
 from backend.app.auth import (
     get_current_user, verify_password, create_access_token,
@@ -2482,4 +2483,138 @@ def export_tickets_csv(
         media_type="text/csv",
         background=BackgroundTask(release_semaphore)
     )
+
+
+# ============================================================================
+# 14. ENTERPRISE OUTBOX DEAD-LETTER QUEUE (DLQ) MANAGEMENT
+# ============================================================================
+
+@app.get("/api/admin/outbox/dead-letter", response_model=DeadLetterListResponseSchema)
+def list_dead_letter_events(
+    limit: int = Query(50, ge=1, le=200, description="Max dead-letter events to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
+    event_type: Optional[str] = Query(None, description="Optional filter by event_type"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Lists outbox events that have failed maximum retries and entered dead_letter status.
+    Strictly restricted to Leads.
+    """
+    if current_user.role != "Lead":
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Only Leads can inspect the outbox dead-letter queue"
+        )
+
+    query = db.query(EventOutbox).filter(EventOutbox.status == "dead_letter")
+    if event_type:
+        query = query.filter(EventOutbox.event_type == event_type)
+
+    total = query.count()
+    events_raw = query.order_by(EventOutbox.created_at.desc()).offset(offset).limit(limit).all()
+
+    formatted_events = []
+    for ev in events_raw:
+        try:
+            payload = json.loads(ev.payload_json) if ev.payload_json else {}
+        except Exception:
+            payload = {"raw": ev.payload_json}
+
+        formatted_events.append(
+            DeadLetterEventSchema(
+                id=ev.id,
+                event_type=ev.event_type,
+                ticket_id=ev.ticket_id,
+                agency_id=ev.agency_id,
+                visibility=ev.visibility,
+                payload=payload,
+                created_at=ev.created_at,
+                delivered_at=ev.delivered_at,
+                status=ev.status,
+                retry_count=ev.retry_count,
+                last_error=ev.last_error
+            )
+        )
+
+    return DeadLetterListResponseSchema(events=formatted_events, total=total)
+
+
+@app.post("/api/admin/outbox/retry/{event_id}", response_model=DeadLetterRetryResponseSchema)
+def retry_dead_letter_event(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Re-queues a dead-lettered outbox event by resetting its status to 'pending' and clearing retry count.
+    Strictly restricted to Leads.
+    """
+    if current_user.role != "Lead":
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Only Leads can retry outbox events"
+        )
+
+    event = db.query(EventOutbox).filter(EventOutbox.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail=f"Outbox event '{event_id}' not found")
+
+    event.status = "pending"
+    event.retry_count = 0
+    event.last_error = None
+
+    record_audit_log(
+        db,
+        ticket_id=event.ticket_id,
+        actor_id=current_user.id,
+        action="outbox_event_retried",
+        details={"event_id": event.id, "event_type": event.event_type}
+    )
+    db.commit()
+
+    return DeadLetterRetryResponseSchema(
+        id=event.id,
+        status="pending",
+        retry_count=0,
+        message="Event re-queued for delivery"
+    )
+
+
+@app.post("/api/admin/outbox/retry-all")
+def retry_all_dead_letter_events(
+    event_type: Optional[str] = Query(None, description="Optional filter by event_type"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Bulk re-queues all dead-lettered outbox events.
+    Strictly restricted to Leads.
+    """
+    if current_user.role != "Lead":
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Only Leads can retry outbox events"
+        )
+
+    query = db.query(EventOutbox).filter(EventOutbox.status == "dead_letter")
+    if event_type:
+        query = query.filter(EventOutbox.event_type == event_type)
+
+    dead_events = query.all()
+    count = len(dead_events)
+
+    for ev in dead_events:
+        ev.status = "pending"
+        ev.retry_count = 0
+        ev.last_error = None
+
+    if count > 0:
+        db.commit()
+
+    return {
+        "retried_count": count,
+        "message": f"Successfully re-queued {count} dead-letter events for delivery"
+    }
+
 

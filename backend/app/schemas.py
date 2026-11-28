@@ -182,4 +182,28 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
 
+class DeadLetterEventSchema(BaseModel):
+    id: str
+    event_type: str
+    ticket_id: str
+    agency_id: str
+    visibility: str
+    payload: Dict[str, Any]
+    created_at: datetime
+    delivered_at: Optional[datetime] = None
+    status: str
+    retry_count: int
+    last_error: Optional[str] = None
+
+class DeadLetterListResponseSchema(BaseModel):
+    events: List[DeadLetterEventSchema]
+    total: int
+
+class DeadLetterRetryResponseSchema(BaseModel):
+    id: str
+    status: str
+    retry_count: int
+    message: str
+
+
 

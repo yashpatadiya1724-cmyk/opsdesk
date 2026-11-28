@@ -27,6 +27,7 @@ import {
   TransferModal,
   BugLinkModal,
   SupplierThreadModal,
+  AuditTrailModal,
 } from "@/components/ticket";
 import { cn } from "@/lib/utils";
 
@@ -71,6 +72,8 @@ export default function TicketDetailPage() {
 
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [creatingSupplierThread, setCreatingSupplierThread] = useState(false);
+
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
 
   // Resilient polling refs & AbortController (M4 load hardening)
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -399,6 +402,7 @@ export default function TicketDetailPage() {
         onStatusChange={handleStatusChange}
         onOpenEscalate={() => setEscalateModalOpen(true)}
         onOpenTransfer={() => setTransferModalOpen(true)}
+        onOpenAudit={() => setAuditModalOpen(true)}
         escalatedSuccess={escalatedSuccess}
       />
 
@@ -567,6 +571,12 @@ export default function TicketDetailPage() {
         onClose={() => setSupplierModalOpen(false)}
         onConfirm={handleCreateSupplierThread}
         loading={creatingSupplierThread}
+      />
+
+      <AuditTrailModal
+        isOpen={auditModalOpen}
+        onClose={() => setAuditModalOpen(false)}
+        ticketId={ticketId}
       />
     </div>
   );

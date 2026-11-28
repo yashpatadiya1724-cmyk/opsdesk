@@ -218,11 +218,59 @@ export async function bulkUpdateStatus(ticketIds: string[], newStatus: string, u
   );
 }
 
-export async function fetchAuditTrail(ticketId: string, order: "asc" | "desc" = "desc", userId: string = "USR-101") {
-  return request<Array<{ id: string; ticket_id: string; actor_id: string; action: string; details: Record<string, unknown>; created_at: string }>>(
+export interface AuditLogEntry {
+  id: string;
+  ticket_id: string;
+  actor_id: string;
+  action: string;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export async function fetchAuditTrail(ticketId: string, order: "asc" | "desc" = "desc", userId: string = "USR-101"): Promise<AuditLogEntry[]> {
+  return request<AuditLogEntry[]>(
     `/api/tickets/${encodeURIComponent(ticketId)}/audit-trail?order=${order}`,
     {},
     userId
   );
 }
+
+export interface DeadLetterEvent {
+  id: string;
+  event_type: string;
+  ticket_id: string;
+  agency_id: string;
+  visibility: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+  delivered_at?: string | null;
+  status: string;
+  retry_count: number;
+  last_error?: string | null;
+}
+
+export async function fetchDeadLetterEvents(limit: number = 50, offset: number = 0, userId: string = "USR-104") {
+  return request<{ events: DeadLetterEvent[]; total: number }>(
+    `/api/admin/outbox/dead-letter?limit=${limit}&offset=${offset}`,
+    {},
+    userId
+  );
+}
+
+export async function retryDeadLetterEvent(eventId: string, userId: string = "USR-104") {
+  return request<{ id: string; status: string; retry_count: number; message: string }>(
+    `/api/admin/outbox/retry/${encodeURIComponent(eventId)}`,
+    { method: "POST" },
+    userId
+  );
+}
+
+export async function retryAllDeadLetterEvents(userId: string = "USR-104") {
+  return request<{ retried_count: number; message: string }>(
+    "/api/admin/outbox/retry-all",
+    { method: "POST" },
+    userId
+  );
+}
+
 
