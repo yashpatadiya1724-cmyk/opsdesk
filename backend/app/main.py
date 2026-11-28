@@ -22,7 +22,8 @@ from backend.app.schemas import (
     TicketEscalateSchema, TicketTransferSchema, TicketLinkSuggestionSchema, MessageCreateSchema,
     SideThreadCreateSchema, SideThreadMessageCreateSchema,
     IntentSuggestRequestSchema, IntentSuggestResponseSchema, to_utc_aware,
-    LoginRequest, LoginResponse, AgencyTierUpdateSchema
+    LoginRequest, LoginResponse, AgencyTierUpdateSchema,
+    BulkAssignRequestSchema, BulkStatusUpdateSchema
 )
 from backend.app.auth import (
     get_current_user, verify_password, create_access_token,
@@ -1771,6 +1772,144 @@ def transfer_ticket(
         "side_conversations_preserved": side_convo_count,
         "total_recipients_preserved": recipients_count,
         "version": current_version + 1
+    }
+
+
+# ============================================================================
+# 3.1 BULK TICKET OPERATIONS
+# ============================================================================
+
+@app.post("/api/tickets/bulk-assign")
+def bulk_assign_tickets(
+    payload: BulkAssignRequestSchema,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Atomically bulk-assigns multiple operations tickets to a designated internal staff agent.
+    Restricted to internal staff (Lead, EscalationManager, Agent). Requesters receive 403.
+    Emits outbox events and audit logs for each modified ticket.
+    """
+    if current_user.role == "Requester":
+        raise HTTPException(status_code=403, detail="Forbidden: Requesters cannot bulk-assign tickets")
+
+    target_agent = db.query(User).filter(User.id == payload.agent_id).first()
+    if not target_agent or target_agent.role not in ["Agent", "Lead", "EscalationManager"]:
+        raise HTTPException(status_code=400, detail="Target agent must be internal staff")
+
+    tickets = db.query(Ticket).filter(Ticket.id.in_(payload.ticket_ids)).all()
+    if not tickets:
+        raise HTTPException(status_code=404, detail="No matching tickets found for bulk assignment")
+
+    now = datetime.now(timezone.utc)
+    assigned_ids = []
+
+    for ticket in tickets:
+        old_agent = ticket.assigned_to
+        new_status = "Open" if ticket.status == "New" else ticket.status
+        ticket.assigned_to = payload.agent_id
+        ticket.status = new_status
+        ticket.version = (ticket.version or 1) + 1
+        ticket.updated_at = now
+
+        agency_tier = ticket.agency.tier if ticket.agency else None
+        compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
+
+        emit_outbox_event(
+            db=db,
+            event_type="ticket.assigned",
+            ticket_id=ticket.id,
+            agency_id=ticket.agency_id,
+            visibility="public",
+            payload={"ticket_id": ticket.id, "assigned_to": payload.agent_id, "bulk": True}
+        )
+        record_audit_log(
+            db=db,
+            ticket_id=ticket.id,
+            actor_id=current_user.id,
+            action="ticket.bulk_assigned",
+            details={"assigned_to": payload.agent_id, "previous_agent": old_agent}
+        )
+        assigned_ids.append(ticket.id)
+
+    db.commit()
+
+    return {
+        "status": "success",
+        "total_requested": len(payload.ticket_ids),
+        "total_assigned": len(assigned_ids),
+        "agent_id": payload.agent_id,
+        "assigned_ticket_ids": assigned_ids
+    }
+
+
+@app.post("/api/tickets/bulk-status")
+def bulk_update_status(
+    payload: BulkStatusUpdateSchema,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Bulk updates status across multiple tickets.
+    Enforces ALLOWED_STATUS_TRANSITIONS per ticket.
+    Reports succeeded count and detailed reasons for skipped/invalid transitions.
+    """
+    if current_user.role == "Requester":
+        raise HTTPException(status_code=403, detail="Forbidden: Requesters cannot update ticket status")
+
+    tickets = db.query(Ticket).filter(Ticket.id.in_(payload.ticket_ids)).all()
+    if not tickets:
+        raise HTTPException(status_code=404, detail="No matching tickets found")
+
+    now = datetime.now(timezone.utc)
+    succeeded = []
+    failed = []
+
+    for ticket in tickets:
+        allowed = ALLOWED_STATUS_TRANSITIONS.get(ticket.status, [])
+        if payload.status != ticket.status and payload.status not in allowed:
+            failed.append({
+                "ticket_id": ticket.id,
+                "current_status": ticket.status,
+                "reason": f"Invalid transition from '{ticket.status}' to '{payload.status}'"
+            })
+            continue
+
+        old_status = ticket.status
+        ticket.status = payload.status
+        ticket.version = (ticket.version or 1) + 1
+        ticket.updated_at = now
+
+        agency_tier = ticket.agency.tier if ticket.agency else None
+        compute_ticket_urgency_fields(ticket, agency_tier=agency_tier, now=now)
+
+        emit_outbox_event(
+            db=db,
+            event_type="ticket.status_changed",
+            ticket_id=ticket.id,
+            agency_id=ticket.agency_id,
+            visibility="public",
+            payload={"ticket_id": ticket.id, "old_status": old_status, "new_status": payload.status, "bulk": True}
+        )
+        record_audit_log(
+            db=db,
+            ticket_id=ticket.id,
+            actor_id=current_user.id,
+            action="ticket.bulk_status_changed",
+            details={"old_status": old_status, "new_status": payload.status}
+        )
+        succeeded.append(ticket.id)
+
+    db.commit()
+
+    return {
+        "status": "partial_success" if failed else "success",
+        "total_requested": len(payload.ticket_ids),
+        "total_succeeded": len(succeeded),
+        "total_failed": len(failed),
+        "target_status": payload.status,
+        "succeeded_ticket_ids": succeeded,
+        "failed_details": failed
     }
 
 

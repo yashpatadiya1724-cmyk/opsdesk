@@ -196,3 +196,33 @@ export async function loginUser(
   return data;
 }
 
+export async function bulkAssignTickets(ticketIds: string[], agentId: string, userId: string = "USR-101") {
+  return request<{ status: string; total_assigned: number; agent_id: string; assigned_ticket_ids: string[] }>(
+    "/api/tickets/bulk-assign",
+    {
+      method: "POST",
+      body: JSON.stringify({ ticket_ids: ticketIds, agent_id: agentId }),
+    },
+    userId
+  );
+}
+
+export async function bulkUpdateStatus(ticketIds: string[], newStatus: string, userId: string = "USR-101") {
+  return request<{ status: string; total_succeeded: number; total_failed: number; succeeded_ticket_ids: string[] }>(
+    "/api/tickets/bulk-status",
+    {
+      method: "POST",
+      body: JSON.stringify({ ticket_ids: ticketIds, status: newStatus }),
+    },
+    userId
+  );
+}
+
+export async function fetchAuditTrail(ticketId: string, order: "asc" | "desc" = "desc", userId: string = "USR-101") {
+  return request<Array<{ id: string; ticket_id: string; actor_id: string; action: string; details: Record<string, unknown>; created_at: string }>>(
+    `/api/tickets/${encodeURIComponent(ticketId)}/audit-trail?order=${order}`,
+    {},
+    userId
+  );
+}
+

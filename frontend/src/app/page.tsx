@@ -223,6 +223,33 @@ export default function QueuePage() {
     };
   }, [loadData]);
 
+  // Real-time Server-Sent Events (SSE) listener for instant 0ms dispatch
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof EventSource === "undefined") return;
+
+    const token = localStorage.getItem("opsdesk_token");
+    const query = token
+      ? `?token=${encodeURIComponent(token)}`
+      : `?user_id=${encodeURIComponent(currentUser.id)}`;
+    const eventSource = new EventSource(`/api/events/stream${query}`);
+
+    const handleMutationEvent = () => {
+      // Instant live refresh on real-time ticket mutations
+      loadData(true);
+    };
+
+    eventSource.addEventListener("ticket.created", handleMutationEvent);
+    eventSource.addEventListener("ticket.assigned", handleMutationEvent);
+    eventSource.addEventListener("ticket.unassigned", handleMutationEvent);
+    eventSource.addEventListener("ticket.status_changed", handleMutationEvent);
+    eventSource.addEventListener("ticket.escalated", handleMutationEvent);
+    eventSource.addEventListener("ticket.transferred", handleMutationEvent);
+
+    return () => {
+      eventSource.close();
+    };
+  }, [currentUser.id, loadData]);
+
   // Clear filters
   const hasActiveFilters =
     Boolean(searchQuery) ||

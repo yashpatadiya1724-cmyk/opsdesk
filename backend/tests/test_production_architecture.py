@@ -259,3 +259,77 @@ def test_optimistic_concurrency_control_etag_and_if_match(client, db_session):
     )
     assert stale_assign.status_code == status.HTTP_409_CONFLICT
     assert "Stale write" in stale_assign.json()["detail"]
+
+
+def test_bulk_assign_tickets_and_audit(client, db_session):
+    """
+    Verifies POST /api/tickets/bulk-assign:
+    - Atomically assigns multiple tickets.
+    - Transitions 'New' tickets to 'Open'.
+    - Requesters receive HTTP 403 Forbidden.
+    """
+    tickets = db_session.query(Ticket).filter(Ticket.assigned_to.is_(None)).limit(3).all()
+    assert len(tickets) == 3
+    ticket_ids = [t.id for t in tickets]
+
+    # Requester attempt -> 403
+    req_res = client.post(
+        "/api/tickets/bulk-assign",
+        json={"ticket_ids": ticket_ids, "agent_id": "USR-101"},
+        headers={"X-User-Id": "USR-201"}
+    )
+    assert req_res.status_code == status.HTTP_403_FORBIDDEN
+
+    # Staff attempt -> 200 OK
+    staff_res = client.post(
+        "/api/tickets/bulk-assign",
+        json={"ticket_ids": ticket_ids, "agent_id": "USR-101"},
+        headers={"X-User-Id": "USR-103"}  # Lead
+    )
+    assert staff_res.status_code == status.HTTP_200_OK
+    data = staff_res.json()
+    assert data["status"] == "success"
+    assert data["total_assigned"] == 3
+    assert data["agent_id"] == "USR-101"
+
+    # Verify state in DB
+    db_session.expire_all()
+    refreshed = db_session.query(Ticket).filter(Ticket.id.in_(ticket_ids)).all()
+    for t in refreshed:
+        assert t.assigned_to == "USR-101"
+        assert t.status in ["Open", "Pending", "Escalated"]
+
+
+def test_bulk_status_update_with_partial_success(client, db_session):
+    """
+    Verifies POST /api/tickets/bulk-status:
+    - Bulk transitions eligible tickets to new status.
+    - Gracefully isolates and reports invalid status transitions in failed_details.
+    - Requesters receive HTTP 403 Forbidden.
+    """
+    ticket1 = db_session.query(Ticket).filter(Ticket.status == "Open").first()
+    ticket2 = db_session.query(Ticket).filter(Ticket.status == "Closed").first()
+    assert ticket1 is not None and ticket2 is not None
+
+    # Requester attempt -> 403
+    req_res = client.post(
+        "/api/tickets/bulk-status",
+        json={"ticket_ids": [ticket1.id], "status": "Pending"},
+        headers={"X-User-Id": "USR-201"}
+    )
+    assert req_res.status_code == status.HTTP_403_FORBIDDEN
+
+    # Staff attempt with mixed eligible (Open -> Pending) and terminal (Closed -> Pending)
+    staff_res = client.post(
+        "/api/tickets/bulk-status",
+        json={"ticket_ids": [ticket1.id, ticket2.id], "status": "Pending"},
+        headers={"X-User-Id": "USR-101"}
+    )
+    assert staff_res.status_code == status.HTTP_200_OK
+    data = staff_res.json()
+    assert data["status"] == "partial_success"
+    assert data["total_succeeded"] == 1
+    assert data["total_failed"] == 1
+    assert ticket1.id in data["succeeded_ticket_ids"]
+    assert any(f["ticket_id"] == ticket2.id for f in data["failed_details"])
+

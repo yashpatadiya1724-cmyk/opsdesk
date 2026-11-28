@@ -181,6 +181,40 @@ export default function TicketDetailPage() {
     };
   }, [loadTicket]);
 
+  // Real-time Server-Sent Events (SSE) listener for instant 0ms ticket detail updates
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof EventSource === "undefined") return;
+
+    const token = localStorage.getItem("opsdesk_token");
+    const query = token
+      ? `?token=${encodeURIComponent(token)}`
+      : `?user_id=${encodeURIComponent(currentUser.id)}`;
+    const eventSource = new EventSource(`/api/events/stream${query}`);
+
+    const handleTicketEvent = (e: MessageEvent) => {
+      try {
+        const payload = JSON.parse(e.data);
+        if (payload.ticket_id === ticketId) {
+          loadTicket(true);
+        }
+      } catch {
+        loadTicket(true);
+      }
+    };
+
+    eventSource.addEventListener("ticket.assigned", handleTicketEvent);
+    eventSource.addEventListener("ticket.unassigned", handleTicketEvent);
+    eventSource.addEventListener("ticket.status_changed", handleTicketEvent);
+    eventSource.addEventListener("ticket.escalated", handleTicketEvent);
+    eventSource.addEventListener("ticket.transferred", handleTicketEvent);
+    eventSource.addEventListener("message.created", handleTicketEvent);
+    eventSource.addEventListener("side_thread.message_created", handleTicketEvent);
+
+    return () => {
+      eventSource.close();
+    };
+  }, [currentUser.id, ticketId, loadTicket]);
+
   // Actions
   const handleClaim = async () => {
     try {

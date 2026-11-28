@@ -95,6 +95,14 @@ class TicketAssignSchema(BaseModel):
     agent_id: str = Field(..., min_length=1, max_length=100)
     version: Optional[int] = Field(None, description="Expected ticket version for optimistic concurrency control")
 
+class BulkAssignRequestSchema(BaseModel):
+    ticket_ids: List[str] = Field(..., min_length=1, max_length=100)
+    agent_id: str = Field(..., min_length=1, max_length=100)
+
+class BulkStatusUpdateSchema(BaseModel):
+    ticket_ids: List[str] = Field(..., min_length=1, max_length=100)
+    status: VALID_TICKET_STATUSES
+
 class TicketStatusUpdateSchema(BaseModel):
     status: VALID_TICKET_STATUSES
     priority: Optional[Literal["Low", "Medium", "High", "Urgent"]] = None

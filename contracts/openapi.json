@@ -14,6 +14,62 @@
         "title": "AgencyTierUpdateSchema",
         "type": "object"
       },
+      "BulkAssignRequestSchema": {
+        "properties": {
+          "agent_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "ticket_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Ticket Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticket_ids",
+          "agent_id"
+        ],
+        "title": "BulkAssignRequestSchema",
+        "type": "object"
+      },
+      "BulkStatusUpdateSchema": {
+        "properties": {
+          "status": {
+            "enum": [
+              "New",
+              "Open",
+              "Pending",
+              "Escalated",
+              "Resolved",
+              "Closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "ticket_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Ticket Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticket_ids",
+          "status"
+        ],
+        "title": "BulkStatusUpdateSchema",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1417,6 +1473,148 @@
           }
         },
         "summary": "Create Ticket"
+      }
+    },
+    "/api/tickets/bulk-assign": {
+      "post": {
+        "description": "Atomically bulk-assigns multiple operations tickets to a designated internal staff agent.\nRestricted to internal staff (Lead, EscalationManager, Agent). Requesters receive 403.\nEmits outbox events and audit logs for each modified ticket.",
+        "operationId": "bulk_assign_tickets_api_tickets_bulk_assign_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAssignRequestSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Assign Tickets"
+      }
+    },
+    "/api/tickets/bulk-status": {
+      "post": {
+        "description": "Bulk updates status across multiple tickets.\nEnforces ALLOWED_STATUS_TRANSITIONS per ticket.\nReports succeeded count and detailed reasons for skipped/invalid transitions.",
+        "operationId": "bulk_update_status_api_tickets_bulk_status_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkStatusUpdateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Update Status"
       }
     },
     "/api/tickets/{ticket_id}": {
